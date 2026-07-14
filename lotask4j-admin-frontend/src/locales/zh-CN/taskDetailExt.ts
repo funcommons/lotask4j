@@ -1,0 +1,45 @@
+export default {
+    stats: {
+      status: '任务状态',
+      progress: '执行进度',
+      priority: '优先级',
+      retryCount: '重试次数',
+    },
+    currentStep: '当前步骤',
+    runningProgress: '运行进度',
+    alert: {
+      failedTitle: '任务执行失败',
+      cancellingTitle: '任务取消中',
+      cancellingDesc: '任务已标记为取消中，等待 Worker 响应',
+    },
+    execInfo: '执行信息',
+    callbackStatus: '回调状态',
+    callbackUrl: '回调地址',
+    callbackStatusMap: {
+      0: '未回调',
+      1: '回调成功',
+      2: '回调失败',
+    },
+    timeInfo: '时间信息',
+    time: {
+      updatedAt: '最后更新',
+      expiredAt: '过期时间',
+      waitingDuration: '等待时长',
+      execDuration: '执行时长',
+      totalDuration: '总耗时',
+    },
+    steps: {
+      startTime: '开始',
+      endTime: '结束',
+      costMs: '耗时',
+    },
+    basicInfo: '基本信息',
+    copy: '复制',
+    copySuccess: '已复制',
+    stepStatus: {
+      pending: '待执行',
+      processing: '执行中',
+      finished: '已完成',
+      failed: '失败',
+    },
+  }

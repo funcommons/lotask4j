@@ -1,0 +1,41 @@
+export default {
+    tabs: {
+      current: 'Current',
+      archived: 'Archived',
+    },
+    search: {
+      taskId: 'Search Task ID',
+    },
+    filter: {
+      taskType: 'Task Type',
+      allTypes: 'All Types',
+      dateStart: 'Created From',
+      dateEnd: 'Created To',
+    },
+    column: {
+      priority: 'Priority',
+      runningTime: 'Running Time',
+      expiredAt: 'Expires At',
+      expired: 'Expired',
+      remaining: 'Remaining',
+    },
+    submitTask: {
+      title: 'Submit Task Manually',
+      type: 'Task Type',
+      typePlaceholder: 'e.g. data_export',
+      payload: 'Payload (JSON)',
+      payloadPlaceholder: '{\n  "key": "value"\n}',
+      priority: 'Priority',
+      priorityTip: 'Higher number = higher priority. Admin default: 100',
+      callbackUrl: 'Callback URL (optional)',
+      callbackUrlPlaceholder: 'https://your-domain.com/webhook',
+      submit: 'Submit',
+      cancel: 'Cancel',
+      payloadInvalid: 'Invalid JSON payload',
+      submitSuccess: 'Task submitted successfully',
+      submitFailed: 'Failed to submit task',
+      tip: 'Manually submitted tasks default to high priority (100) for testing, debugging, or emergency retry scenarios',
+      viewDetail: 'View Task Detail',
+      submittedId: 'Task ID',
+    },
+  }

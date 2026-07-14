@@ -1,0 +1,300 @@
+spring:
+  application:
+    name: lotask4j  # 必须配置，用于 ID 生成和 Token Key
+
+    # 排除 MybatisPlusAutoConfiguration 自动配置
+  autoconfigure:
+    exclude:
+     - com.baomidou.mybatisplus.autoconfigure.MybatisPlusAutoConfiguration
+     - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+     - org.redisson.spring.starter.RedissonAutoConfigurationV2
+
+  # Jackson时区配置（北京时间 CST 规范）
+  jackson:
+    time-zone: GMT+8
+    date-format: yyyy-MM-dd HH:mm:ss
+    serialization:
+      write-dates-as-timestamps: false
+  # FastJSON2时区配置（北京时间 CST 规范）
+  fastjson2:
+    writer-features:
+      - WriteDateUseDateFormat
+    format:
+      date-format: yyyy-MM-dd HH:mm:ss
+      time-zone: GMT+8
+
+# framework4j SDK 配置
+framework4j:
+  # 分布式 ID 生成配置
+  id:
+    worker:
+      strategy: ip  # 本地测试 / Spring Boot 启动用 IP 即可，不需要 Redis 分布式协调
+      redis-name: stringRedisTemplate
+    mybatis:
+      enabled: true  # 自动集成 MyBatis Plus ID 生成器
+
+  # OpenID 安全混淆配置
+  openid:
+    fastjson2:
+      enabled: true   # 启用 FastJson2 支持
+    jackson:
+      enabled: false  # 未使用 Jackson
+    swagger:
+      enabled: true   # 启用 Swagger 文档适配
+
+  # 多数据源配置
+  datasource:
+    enabled: true
+    datasources:
+      business:
+        aliases: [default, primary]
+        type: com.alibaba.druid.pool.DruidDataSource
+        url: ${LDX_DEV_DB_URL:jdbc:postgresql://localhost:5432/lotask4j}
+        username: ${LDX_DEV_DB_USERNAME:admin}
+        password: ${LDX_DEV_DB_PASSWORD:}
+        driver-class-name: org.postgresql.Driver
+        druid:
+          initial-size: 5
+          min-idle: 5
+          max-active: 20
+          validation-query: SELECT 1
+          test-on-borrow: false
+          test-on-return: false
+          test-while-idle: true
+          time-between-eviction-runs-millis: 60000
+          min-evictable-idle-time-millis: 300000
+          # 核心配置：开启 stat (监控) 和 slf4j (日志) 过滤器
+          filters: stat,slf4j
+          # 针对 slf4j 过滤器的具体配置
+          filter:
+            slf4j:
+              enabled: true
+              # 【重点】是否打印实际运行的 SQL（把 ? 替换为真实参数）
+              statement-executable-sql-log-enable: true
+              # 是否打印 SQL 执行日志
+              statement-log-enabled: true
+              # 打印 SQL 的日志级别 (DEBUG/INFO/WARN/ERROR)
+              statement-log-error-enabled: true
+
+        mybatis-plus:
+          mapper-locations: classpath*:/mapper/**/*.xml
+          type-aliases-package: fun.commons.lotask4j.entity
+          configuration:
+            map-underscore-to-camel-case: true
+            cache-enabled: true
+            lazy-loading-enabled: true
+        sql-tracing:
+          mode: ALL
+
+  # 多 Redis 配置
+  redis:
+    enabled: true
+    datasources:
+      # 缓存 Redis (字符串类型)
+      default:
+        # host: localhost
+        host: ${LDX_DEV_REDIS_HOST:localhost}
+        password: ${LDX_DEV_REDIS_PASSWORD:}
+        port: 6379
+        database: 0
+        aliases: [cache]
+        template-type: string  # StringRedisTemplate
+        lettuce:
+          pool:
+            max-active: 8
+            max-idle: 8
+            min-idle: 2
+        redisson:
+          enabled: false
+
+      # 业务 Redis (对象类型)
+      business:
+        # host: localhost
+        host: ${LDX_DEV_REDIS_HOST:localhost}
+        password: ${LDX_DEV_REDIS_PASSWORD:}
+        port: 6379
+        database: 1
+        template-type: object  # RedisTemplate<String, Object>，使用 fastjson2 序列化
+        lettuce:
+          pool:
+            max-active: 8
+            max-idle: 8
+            min-idle: 2
+        redisson:
+          enabled: false
+
+      # 分布式锁 Redis (字符串 + Redisson)
+      lock:
+        # host: localhost
+        host: ${LDX_DEV_REDIS_HOST:localhost}
+        password: ${LDX_DEV_REDIS_PASSWORD:}
+        port: 6379
+        database: 2
+        template-type: string
+        lettuce:
+          pool:
+            max-active: 8
+            max-idle: 8
+            min-idle: 2
+        redisson:
+          enabled: false
+
+  # 访问令牌配置
+  access-token:
+    enabled: true
+    secretKey: ${TOKEN_SECRET:default-secret-key-change-in-production}  # 生产环境必须通过环境变量配置
+    hashSalt: ${LDX_HASH_SALT:lotask4j-token-salt-change-me-in-prod}
+    expireTime: 86400  # 全局默认过期时间（秒）
+    redisDatasource: stringRedisTemplate  # 使用 cache Redis 存储 Token
+
+    policies:
+      # API 客户端访问 Token
+      client:
+        key: [appId]  # 互斥键：同一 appId 新 Token 会踢掉旧 Token
+        expireTime: 86400  # 24 小时
+        autoRenew: false
+
+      # Worker 心跳 Token
+      worker:
+        key: [workerId]  # 互斥键：每个 Worker 独立 Token
+        expireTime: 7200  # 2 小时
+        autoRenew: true  # 自动续期
+        renewIncrement: 1800  # 每次续期延长 30 分钟
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    framework4j: INFO  # framework4j SDK 日志
+    framework4j.id: DEBUG  # ID 生成器日志（调试 WorkerId）
+    framework4j.datasource: DEBUG
+    com.alibaba.druid: INFO  # Druid 连接池日志
+    com.alibaba.druid.filter: DEBUG
+    com.alibaba.druid.filter.stat.StatFilter: DEBUG  # SQL 统计日志
+    org.springframework.web: INFO
+    druid.sql.Statement: DEBUG
+
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} [%X{traceId}] - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} [%X{traceId}] - %msg%n"
+  file:
+    name: logs/${spring.application.name}.log
+    max-size: 100MB
+    max-history: 30
+    total-size-cap: 10GB
+
+# 服务端口配置
+server:
+  port: 9080
+  servlet:
+    context-path: /
+  compression:
+    enabled: true
+    min-response-size: 1024
+
+# Actuator 监控端点配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus,info
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+  # 分布式追踪配置
+  tracing:
+    enabled: true
+    sampling:
+      probability: 1.0  # 采样率 1.0 = 100% (生产环境建议 0.1-0.3)
+
+  # OpenTelemetry OTLP 导出配置
+  otlp:
+    tracing:
+      # endpoint: http://localhost:4318/v1/traces  # OTLP HTTP 端点 (Jaeger/Tempo/OpenTelemetry Collector)
+      # 如果不需要导出到收集器，注释掉 endpoint 或设置为空
+      # endpoint: ""
+
+# OpenTelemetry 资源配置
+otel:
+  resource:
+    attributes:
+      service.name: ${spring.application.name}  # 服务名称
+      service.version: 1.0.0
+      deployment.environment: ${DEPLOY_ENV:dev}  # 部署环境
+  traces:
+    exporter: otlp  # 使用 OTLP 导出器
+  logs:
+    exporter: none  # 暂不导出日志（可选：otlp, logging）
+  metrics:
+    exporter: none  # 暂不导出指标（已有 Prometheus）
+
+# OpenAPI 文档配置
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operations-sorter: method
+    tags-sorter: alpha
+  show-actuator: true
+
+# 应用配置
+app:
+  # 异步线程池配置
+  async:
+    core-pool-size: 10            # 核心线程数
+    max-pool-size: 50             # 最大线程数
+    queue-capacity: 1000          # 队列容量
+    thread-name-prefix: "async-executor-"  # 线程名称前缀
+    wait-for-tasks-to-complete-on-shutdown: true  # 等待任务完成后再关闭
+    await-termination-seconds: 60  # 等待时间（秒）
+
+  # ASTS 服务配置
+  asts:
+    # Worker 心跳间隔（秒）
+    heartbeat-interval: 30
+    # Reaper 清理间隔（秒）
+    reaper-interval: 60
+    # 任务执行超时时间（秒）
+    default-timeout: 600
+    # 最大重试次数
+    max-retries: 3
+    # 并发执行任务数
+    worker-concurrency: 5
+    # 轮询任务的间隔（秒）
+    poll-interval: 1
+
+  # Webhook 回调配置
+  webhook:
+    # 最大重试次数
+    max-retries: 3
+    # 重试间隔（秒）
+    retry-interval: 5
+    # 请求超时（秒）— 被 HttpClientConfig#webhookRestTemplate 读取
+    timeout-seconds: 30
+
+  # 步骤配置
+  steps:
+    # 最大步骤数
+    max-steps: 100
+    # 步骤更新间隔（毫秒）
+    update-interval: 1000
+
+  # Web Embed 组件配置
+  web-embed:
+    # 前端入口 URL（Vite + Vue3 history 模式，部署在 /web-embed/ 路径下）
+    front-base-url: /web-embed/index.html
+    # 开放模式默认 userId
+    open-default-user-id: guest
+    # 回调验证超时（秒）
+    callback-timeout-seconds: 3
+    # Cookie 有效期（秒）
+    cookie-expire-seconds: 7200
+    # 嵌入 URL 基础地址（用于后台生成预览 URL）
+    embed-base-url: http://localhost:9080

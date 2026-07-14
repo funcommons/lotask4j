@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="fun.commons.lotask4j.mapper.WebEmbedConfigMapper">
+
+    <resultMap id="BaseResultMap" type="fun.commons.lotask4j.entity.WebEmbedConfig">
+        <id column="id" property="id"/>
+        <result column="config_key" property="configKey"/>
+        <result column="config_name" property="configName"/>
+        <result column="user_id" property="userId"/>
+        <result column="is_open" property="isOpen"/>
+        <result column="callback_url" property="callbackUrl"/>
+        <result column="config" property="config" typeHandler="com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler"/>
+        <result column="component_type" property="componentType"/>
+        <result column="allowed_domains" property="allowedDomains"/>
+        <result column="is_enabled" property="isEnabled"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+        <result column="is_deleted" property="isDeleted"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id, config_key, config_name, user_id, is_open, callback_url, config, component_type, allowed_domains,
+        is_enabled, created_at, updated_at, is_deleted
+    </sql>
+
+    <select id="selectByConfigKey" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM asts_web_embed_config
+        WHERE config_key = #{configKey}
+        AND is_deleted = 0
+        AND is_enabled = 1
+        LIMIT 1
+    </select>
+
+    <select id="selectPageList" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM asts_web_embed_config
+        <where>
+            is_deleted = 0
+            <if test="keyword != null and keyword != ''">
+                AND (config_key ILIKE CONCAT('%', #{keyword}, '%')
+                  OR config_name ILIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="isEnabled != null">
+                AND is_enabled = #{isEnabled}
+            </if>
+        </where>
+        ORDER BY id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countList" resultType="long">
+        SELECT COUNT(*)
+        FROM asts_web_embed_config
+        <where>
+            is_deleted = 0
+            <if test="keyword != null and keyword != ''">
+                AND (config_key ILIKE CONCAT('%', #{keyword}, '%')
+                  OR config_name ILIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="isEnabled != null">
+                AND is_enabled = #{isEnabled}
+            </if>
+        </where>
+    </select>
+
+    <select id="countByConfigKeyExcludeId" resultType="int">
+        SELECT COUNT(*)
+        FROM asts_web_embed_config
+        WHERE config_key = #{configKey}
+        AND is_deleted = 0
+        <if test="excludeId != null">
+            AND id != #{excludeId}
+        </if>
+    </select>
+
+    <insert id="insertConfig" useGeneratedKeys="true" keyProperty="config.id">
+        INSERT INTO asts_web_embed_config
+            (id, config_key, config_name, user_id, is_open, callback_url, config, component_type, allowed_domains, is_enabled, is_deleted)
+        VALUES
+            (#{config.id}, #{config.configKey}, #{config.configName}, #{config.userId},
+             #{config.isOpen}, #{config.callbackUrl},
+             COALESCE(#{configJson}::jsonb, '{}'::jsonb),
+             #{config.componentType},
+             #{config.allowedDomains}, COALESCE(#{config.isEnabled}, 1), 0)
+    </insert>
+
+    <update id="updateConfig">
+        UPDATE asts_web_embed_config
+        <set>
+            config_key = #{config.configKey},
+            config_name = #{config.configName},
+            user_id = #{config.userId},
+            is_open = #{config.isOpen},
+            callback_url = #{config.callbackUrl},
+            config = COALESCE(#{configJson}::jsonb, '{}'::jsonb),
+            component_type = #{config.componentType},
+            allowed_domains = #{config.allowedDomains},
+            updated_at = CURRENT_TIMESTAMP
+        </set>
+        WHERE id = #{config.id}
+        AND is_deleted = 0
+    </update>
+
+</mapper>

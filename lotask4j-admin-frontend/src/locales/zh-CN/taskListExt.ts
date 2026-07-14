@@ -1,0 +1,41 @@
+export default {
+    tabs: {
+      current: '当前任务',
+      archived: '归档任务',
+    },
+    search: {
+      taskId: '搜索任务 ID',
+    },
+    filter: {
+      taskType: '任务类型',
+      allTypes: '全部类型',
+      dateStart: '创建开始时间',
+      dateEnd: '创建结束时间',
+    },
+    column: {
+      priority: '优先级',
+      runningTime: '已运行时间',
+      expiredAt: '过期时间',
+      expired: '已过期',
+      remaining: '剩余',
+    },
+    submitTask: {
+      title: '手动提交任务',
+      type: '任务类型',
+      typePlaceholder: '例如：data_export',
+      payload: '任务参数（JSON）',
+      payloadPlaceholder: '{\n  "key": "value"\n}',
+      priority: '优先级',
+      priorityTip: '数值越大优先级越高，管理员默认 100',
+      callbackUrl: '回调地址（可选）',
+      callbackUrlPlaceholder: 'https://your-domain.com/webhook',
+      submit: '提交',
+      cancel: '取消',
+      payloadInvalid: 'Payload 格式错误，请输入有效的 JSON',
+      submitSuccess: '任务提交成功',
+      submitFailed: '任务提交失败',
+      tip: '手动提交的任务默认为高优先级（100），用于测试、调试或紧急补单场景',
+      viewDetail: '查看任务详情',
+      submittedId: '任务 ID',
+    },
+  }

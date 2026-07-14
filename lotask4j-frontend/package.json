@@ -1,0 +1,42 @@
+{
+  "name": "lotask4j-frontend",
+  "version": "1.0.0",
+  "description": "lotask4j 异步慢任务服务 (ASTS) 管理后台前端",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "lint": "eslint src --ext .ts,.tsx",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^5.2.0",
+    "@uiw/react-json-view": "^2.0.0-alpha.39",
+    "antd": "^5.8.0",
+    "axios": "^1.4.0",
+    "date-fns": "^2.30.0",
+    "mermaid": "^11.12.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-markdown": "^10.1.0",
+    "react-router-dom": "^6.14.0",
+    "rehype-highlight": "^7.0.2",
+    "remark-gfm": "^4.0.1",
+    "zustand": "^4.3.9"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@typescript-eslint/eslint-plugin": "^5.59.0",
+    "@typescript-eslint/parser": "^5.59.0",
+    "@vitejs/plugin-react": "^4.0.0",
+    "eslint": "^8.44.0",
+    "eslint-plugin-react": "^7.32.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "terser": "^5.48.0",
+    "typescript": "^5.1.6",
+    "vite": "^4.4.0"
+  }
+}

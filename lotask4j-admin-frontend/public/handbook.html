@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ASTS 使用手册 - 异步慢任务服务</title>
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;500;600;700&family=SF+Pro+Text:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --blue: #007AFF;
+      --green: #34C759;
+      --red: #FF3B30;
+      --orange: #FF9500;
+      --purple: #AF52DE;
+      --gray: #8E8E93;
+      --gray2: #AEAEB2;
+      --gray3: #C7C7CC;
+      --gray4: #D1D1D6;
+      --gray5: #E5E5EA;
+      --gray6: #F2F2F7;
+      --text: #1D1D1F;
+      --text-sec: #86868B;
+      --bg: #FFFFFF;
+      --bg-sec: #F5F5F7;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Layout */
+    .container { display: flex; min-height: 100vh; }
+
+    /* Sidebar */
+    .sidebar {
+      position: fixed;
+      width: 260px;
+      height: 100vh;
+      background: var(--bg-sec);
+      border-right: 1px solid var(--gray5);
+      overflow-y: auto;
+      padding: 24px 0;
+    }
+
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 20px 20px;
+      border-bottom: 1px solid var(--gray5);
+      margin-bottom: 20px;
+    }
+
+    .sidebar-logo i { font-size: 28px; color: var(--blue); }
+    .sidebar-logo span { font-size: 18px; font-weight: 600; }
+
+    .nav-group { margin-bottom: 24px; }
+    .nav-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-sec);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 0 20px;
+      margin-bottom: 8px;
+    }
+
+    .nav-list { list-style: none; }
+    .nav-list a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 20px;
+      color: var(--text);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 450;
+      transition: all 0.15s;
+    }
+    .nav-list a i { font-size: 18px; color: var(--gray); }
+    .nav-list a:hover { color: var(--blue); background: rgba(0,122,255,0.05); }
+    .nav-list a:hover i { color: var(--blue); }
+    .nav-list a.active { color: var(--blue); font-weight: 500; background: rgba(0,122,255,0.08); }
+    .nav-list a.active i { color: var(--blue); }
+
+    /* Main */
+    .main {
+      flex: 1;
+      margin-left: 260px;
+      padding: 60px 80px;
+      max-width: 960px;
+    }
+
+    /* Hero */
+    .hero { margin-bottom: 48px; }
+    .hero h1 {
+      font-family: 'SF Pro Display', sans-serif;
+      font-size: 52px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+    .hero p { font-size: 20px; color: var(--text-sec); line-height: 1.5; }
+
+    .badges { display: flex; gap: 12px; flex-wrap: wrap; margin: 32px 0; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .badge.blue { background: rgba(0,122,255,0.1); color: var(--blue); }
+    .badge.green { background: rgba(52,199,89,0.1); color: var(--green); }
+    .badge.purple { background: rgba(175,82,222,0.1); color: var(--purple); }
+    .badge.orange { background: rgba(255,149,0,0.1); color: var(--orange); }
+    .badge i { font-size: 16px; }
+
+    /* Section */
+    .section { margin: 56px 0; }
+    .section h2 {
+      font-family: 'SF Pro Display', sans-serif;
+      font-size: 32px;
+      font-weight: 600;
+      margin: 48px 0 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--gray5);
+    }
+    .section h3 {
+      font-size: 20px;
+      font-weight: 600;
+      margin: 32px 0 16px;
+    }
+    .section h4 {
+      font-size: 16px;
+      font-weight: 600;
+      margin: 24px 0 12px;
+    }
+    .section p { color: var(--text-sec); margin-bottom: 16px; }
+    .section ul { margin: 16px 0; padding-left: 24px; }
+    .section li { margin-bottom: 8px; color: var(--text-sec); }
+
+    /* Tabs */
+    .tabs { margin: 24px 0; }
+    .tab-btn {
+      padding: 10px 20px;
+      border: none;
+      background: var(--gray6);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: 8px;
+      margin-right: 8px;
+      transition: all 0.15s;
+    }
+    .tab-btn:hover { background: var(--gray5); }
+    .tab-btn.active { background: var(--blue); color: white; }
+    .tab-content { display: none; padding: 24px 0; }
+    .tab-content.active { display: block; }
+
+    /* Grid */
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 24px 0; }
+    .grid-item {
+      padding: 24px;
+      background: var(--bg-sec);
+      border-radius: 16px;
+      transition: all 0.2s;
+    }
+    .grid-item:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.06); }
+    .grid-icon {
+      width: 48px; height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 14px;
+    }
+    .grid-icon i { font-size: 24px; color: white; }
+    .grid-icon.blue { background: linear-gradient(135deg, var(--blue), #5856D6); }
+    .grid-icon.green { background: linear-gradient(135deg, var(--green), #30D158); }
+    .grid-icon.purple { background: linear-gradient(135deg, var(--purple), #BF5AF2); }
+    .grid-title { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+    .grid-desc { font-size: 14px; color: var(--text-sec); }
+
+    /* Steps */
+    .steps { margin: 24px 0; }
+    .step { display: flex; gap: 20px; padding: 20px 0; border-bottom: 1px solid var(--gray5); }
+    .step:last-child { border-bottom: none; }
+    .step-num {
+      width: 32px; height: 32px;
+      background: var(--blue);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+    .step-title { font-weight: 600; font-size: 16px; margin-bottom: 4px; }
+    .step-desc { font-size: 14px; color: var(--text-sec); }
+
+    /* Code */
+    .code {
+      background: #1C1C1E;
+      border-radius: 12px;
+      margin: 20px 0;
+      overflow: hidden;
+    }
+    .code-header {
+      background: #2C2C2E;
+      padding: 10px 16px;
+      font-size: 12px;
+      color: #98989D;
+      font-weight: 500;
+      border-bottom: 1px solid #3A3A3C;
+    }
+    .code pre { padding: 18px; overflow-x: auto; }
+    .code code {
+      font-family: 'SF Mono', Monaco, Menlo, monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #F5F5F7;
+    }
+    .code .kw { color: #FF79C6; }
+    .code .str { color: #F1FA8C; }
+    .code .cm { color: #6B6B6B; font-style: italic; }
+    .code .fn { color: #50FA7B; }
+    .code .num { color: #BD93F9; }
+    .code .type { color: #8BE9FD; }
+
+    /* Table */
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      background: var(--bg);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--gray5);
+    }
+    .table th {
+      background: var(--gray6);
+      padding: 12px 16px;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--text-sec);
+      letter-spacing: 0.5px;
+    }
+    .table td {
+      padding: 12px 16px;
+      border-top: 1px solid var(--gray5);
+      font-size: 14px;
+    }
+    .method {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .method.post { background: rgba(0,122,255,0.1); color: var(--blue); }
+    .method.get { background: rgba(52,199,89,0.1); color: var(--green); }
+    .method.delete { background: rgba(255,59,48,0.1); color: var(--red); }
+    .type {
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 12px;
+      background: var(--gray6);
+      padding: 2px 8px;
+      border-radius: 4px;
+      color: var(--purple);
+    }
+
+    /* Flow */
+    .flow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 32px;
+      background: var(--gray6);
+      border-radius: 16px;
+      margin: 24px 0;
+      flex-wrap: wrap;
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      padding: 10px 18px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .status.pending { background: var(--gray5); color: var(--text); }
+    .status.running { background: rgba(255,149,0,0.15); color: var(--orange); }
+    .status.success { background: rgba(52,199,89,0.15); color: var(--green); }
+    .status.failed { background: rgba(255,59,48,0.15); color: var(--red); }
+    .status.cancelled { background: var(--gray4); color: var(--gray); }
+    .arrow { color: var(--gray3); font-size: 18px; }
+
+    /* Note */
+    .note {
+      display: flex;
+      gap: 14px;
+      padding: 18px 20px;
+      background: rgba(0,122,255,0.06);
+      border: 1px solid rgba(0,122,255,0.15);
+      border-radius: 12px;
+      margin: 24px 0;
+    }
+    .note-icon {
+      width: 24px; height: 24px;
+      background: var(--blue);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .note-icon i { font-size: 14px; color: white; }
+    .note-title { font-weight: 600; margin-bottom: 4px; font-size: 15px; }
+    .note-text { font-size: 14px; color: var(--text-sec); margin: 0; }
+
+    /* Features */
+    .features { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 24px 0; }
+    .feature { display: flex; align-items: center; gap: 12px; padding: 16px; background: var(--gray6); border-radius: 12px; }
+    .feature-icon {
+      width: 32px; height: 32px;
+      background: var(--blue);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .feature-icon i { font-size: 16px; color: white; }
+    .feature-text { font-size: 14px; font-weight: 500; }
+
+    /* JSON Block */
+    .json {
+      background: #1C1C1E;
+      border-radius: 12px;
+      margin: 16px 0;
+      padding: 16px;
+      overflow-x: auto;
+    }
+    .json pre {
+      font-family: 'SF Mono', Monaco, Menlo, monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #F5F5F7;
+      margin: 0;
+    }
+    .json .key { color: #9CDCFE; }
+    .json .str { color: #CE9178; }
+    .json .num { color: #B5CEA8; }
+    .json .bool { color: #569CD6; }
+    .json .null { color: #569CD6; }
+
+    /* Diagram */
+    .diagram {
+      background: var(--bg-sec);
+      border-radius: 16px;
+      padding: 24px;
+      margin: 24px 0;
+    }
+    .diagram-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .diagram-title i { color: var(--blue); }
+
+    /* Sequence */
+    .seq-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .seq-table th, .seq-table td {
+      padding: 8px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--gray5);
+    }
+    .seq-table th {
+      background: var(--gray6);
+      font-weight: 600;
+      color: var(--text-sec);
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+    .seq-table .actor { font-weight: 600; color: var(--blue); }
+    .seq-table .arrow-cell { color: var(--text-sec); width: 60px; text-align: center; }
+    .seq-table .note-cell { font-style: italic; color: var(--text-sec); font-size: 12px; }
+    .seq-table .step-num { color: var(--gray); font-size: 11px; }
+
+    /* CTA */
+    .cta {
+      background: linear-gradient(135deg, var(--blue), #5856D6);
+      border-radius: 20px;
+      padding: 40px;
+      margin: 40px 0;
+      color: white;
+    }
+    .cta h3 { color: white; font-size: 24px; margin-bottom: 8px; }
+    .cta p { color: rgba(255,255,255,0.85); margin: 0; }
+
+    /* Footer */
+    .footer {
+      padding: 32px 0;
+      border-top: 1px solid var(--gray5);
+      text-align: center;
+      color: var(--text-sec);
+      font-size: 13px;
+      margin-top: 48px;
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .sidebar { display: none; }
+      .main { margin-left: 0; padding: 40px 24px; }
+      .grid { grid-template-columns: 1fr; }
+      .features { grid-template-columns: 1fr; }
+    }
+
+    section { scroll-margin-top: 40px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <i class="ph ph-bolt"></i>
+        <span>ASTS 手册</span>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-title">快速导航</div>
+        <ul class="nav-list">
+          <li><a href="#intro"><i class="ph ph-house"></i>简介</a></li>
+          <li><a href="#features"><i class="ph ph-star"></i>核心特性</a></li>
+          <li><a href="#quickstart"><i class="ph ph-rocket"></i>快速开始</a></li>
+        </ul>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-title">客户端指南</div>
+        <ul class="nav-list">
+          <li><a href="#client"><i class="ph ph-code"></i>客户端概览</a></li>
+          <li><a href="#client-api"><i class="ph ph-plugs"></i>客户端 API</a></li>
+          <li><a href="#client-code"><i class="ph ph-file-code"></i>代码示例</a></li>
+          <li><a href="#client-best"><i class="ph ph-check-circle"></i>最佳实践</a></li>
+        </ul>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-title">Worker 指南</div>
+        <ul class="nav-list">
+          <li><a href="#worker"><i class="ph ph-gear"></i>Worker 概览</a></li>
+          <li><a href="#worker-api"><i class="ph ph-plugs"></i>Worker API</a></li>
+          <li><a href="#worker-impl"><i class="ph ph-code"></i>实现示例</a></li>
+          <li><a href="#worker-best"><i class="ph ph-check-circle"></i>最佳实践</a></li>
+        </ul>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-title">参考</div>
+        <ul class="nav-list">
+          <li><a href="#status"><i class="ph ph-flow-arrow"></i>状态机</a></li>
+          <li><a href="#faq"><i class="ph ph-question"></i>常见问题</a></li>
+        </ul>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+      <!-- Intro -->
+      <section id="intro" class="section">
+        <div class="hero">
+          <h1>异步慢任务服务</h1>
+          <p>ASTS (Asynchronous Slow Task Service) 是一个高性能的异步任务调度平台，专注于处理耗时任务的后台执行、状态追踪和结果回调。</p>
+        </div>
+
+        <div class="badges">
+          <span class="badge blue"><i class="ph ph-plugs-connected"></i> RESTful API</span>
+          <span class="badge green"><i class="ph ph-check-circle"></i> 生产可用</span>
+          <span class="badge purple"><i class="ph ph-book-open"></i> OpenAPI 3.0</span>
+          <span class="badge orange"><i class="ph ph-users"></i> 多语言 SDK</span>
+        </div>
+      </section>
+
+      <!-- Features -->
+      <section id="features" class="section">
+        <h2>核心特性</h2>
+        <div class="features">
+          <div class="feature"><div class="feature-icon"><i class="ph ph-cloud"></i></div><span class="feature-text">分布式任务调度</span></div>
+          <div class="feature"><div class="feature-icon"><i class="ph ph-chart-line-up"></i></div><span class="feature-text">实时进度追踪</span></div>
+          <div class="feature"><div class="feature-icon"><i class="ph ph-users-three"></i></div><span class="feature-text">多 Worker 负载均衡</span></div>
+          <div class="feature"><div class="feature-icon"><i class="ph ph-bell-ringing"></i></div><span class="feature-text">Webhook 回调</span></div>
+          <div class="feature"><div class="feature-icon"><i class="ph ph-prohibit"></i></div><span class="feature-text">任务取消支持</span></div>
+          <div class="feature"><div class="feature-icon"><i class="ph ph-arrow-clockwise"></i></div><span class="feature-text">智能重试机制</span></div>
+        </div>
+      </section>
+
+      <!-- Quick Start -->
+      <section id="quickstart" class="section">
+        <h2>快速开始</h2>
+
+        <div class="note">
+          <div class="note-icon"><i class="ph ph-info"></i></div>
+          <div>
+            <div class="note-title">前提条件</div>
+            <div class="note-text">确保后端服务已启动 (默认端口 9080)，并已完成 Worker 节点注册。</div>
+          </div>
+        </div>
+
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div><div class="step-title">配置任务类型</div><div class="step-desc">在管理后台创建任务类型，定义超时时间、最大重试次数等参数</div></div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div><div class="step-title">客户端提交任务</div><div class="step-desc">通过 Client API 提交任务，获取 TaskId 用于后续查询</div></div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div><div class="step-title">Worker 抢接任务</div><div class="step-desc">Worker 通过 Poll 机制竞争获取待执行任务</div></div>
+          </div>
+          <div class="step">
+            <div class="step-num">4</div>
+            <div><div class="step-title">执行并上报进度</div><div class="step-desc">Worker 执行任务，定期上报进度直至完成</div></div>
+          </div>
+          <div class="step">
+            <div class="step-num">5</div>
+            <div><div class="step-title">接收结果回调</div><div class="step-desc">任务完成后自动触发 Webhook 回调通知客户端</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Client Overview -->
+      <section id="client" class="section">
+        <h2>客户端使用指南</h2>
+        <p>客户端（Client）是业务系统的后端服务，负责提交任务、查询状态、取消任务和接收回调。</p>
+
+        <h3>典型使用场景</h3>
+        <div class="grid">
+          <div class="grid-item">
+            <div class="grid-icon blue"><i class="ph ph-file-arrow-up"></i></div>
+            <div class="grid-title">数据导出</div>
+            <div class="grid-desc">用户请求导出大量数据到 Excel 文件</div>
+          </div>
+          <div class="grid-item">
+            <div class="grid-icon green"><i class="ph ph-video-camera"></i></div>
+            <div class="grid-title">视频转码</div>
+            <div class="grid-desc">用户上传视频，需要转码为多种格式</div>
+          </div>
+          <div class="grid-item">
+            <div class="grid-icon purple"><i class="ph ph-envelope"></i></div>
+            <div class="grid-title">批量处理</div>
+            <div class="grid-desc">批量发送邮件、生成报表等</div>
+          </div>
+        </div>
+
+        <h3>任务生命周期</h3>
+        <div class="flow">
+          <span class="status pending">PENDING</span>
+          <span class="arrow">→</span>
+          <span class="status running">RUNNING</span>
+          <span class="arrow">→</span>
+          <span class="status success">SUCCESS</span>
+          <br><br>
+          <span style="display:block;text-align:center;margin:8px 0;">↓</span>
+          <span class="status failed">FAILED</span>
+          <span class="arrow">←</span>
+          <span class="status cancelled">CANCELLED</span>
+        </div>
+
+        <h3>统一响应格式</h3>
+        <div class="json">
+          <pre><code>{
+  <span class="key">"code"</span>: <span class="num">0</span>,
+  <span class="key">"message"</span>: <span class="str">"Success"</span>,
+  <span class="key">"data"</span>: { },
+  <span class="key">"timestamp"</span>: <span class="num">1701234567890</span>,
+  <span class="key">"traceId"</span>: <span class="str">"abc123..."</span>
+}</code></pre>
+        </div>
+      </section>
+
+      <!-- Client API -->
+      <section id="client-api" class="section">
+        <h2>客户端 API 接口</h2>
+
+        <h3>1. 提交任务</h3>
+        <p><span class="method post">POST</span> <code>/api/v1/client/tasks</code></p>
+        <div class="json">
+          <pre><code>{
+  <span class="key">"type"</span>: <span class="str">"data_export"</span>,
+  <span class="key">"payload"</span>: { <span class="key">"query"</span>: <span class="str">"SELECT * FROM users"</span>, <span class="key">"format"</span>: <span class="str">"xlsx"</span> },
+  <span class="key">"priority"</span>: <span class="num">50</span>,
+  <span class="key">"callbackUrl"</span>: <span class="str">"https://your-app.com/webhook"</span>
+}</code></pre>
+        </div>
+        <div class="json">
+          <pre><code>{
+  <span class="key">"code"</span>: <span class="num">0</span>,
+  <span class="key">"data"</span>: { <span class="key">"id"</span>: <span class="str">"YeirYkxHuQ"</span> }
+}</code></pre>
+        </div>
+
+        <h3>2. 查询任务详情</h3>
+        <p><span class="method get">GET</span> <code>/api/v1/client/tasks/{id}</code></p>
+        <div class="json">
+          <pre><code>{
+  <span class="key">"code"</span>: <span class="num">0</span>,
+  <span class="key">"data"</span>: {
+    <span class="key">"id"</span>: <span class="str">"YeirYkxHuQ"</span>,
+    <span class="key">"type"</span>: <span class="str">"data_export"</span>,
+    <span class="key">"status"</span>: <span class="str">"RUNNING"</span>,
+    <span class="key">"progress"</span>: <span class="num">65</span>,
+    <span class="key">"currentStep"</span>: <span class="str">"querying"</span>,
+    <span class="key">"stepsDetail"</span>: [
+      { <span class="key">"key"</span>: <span class="str">"init"</span>, <span class="key">"name"</span>: <span class="str">"初始化"</span>, <span class="key">"status"</span>: <span class="str">"finished"</span>, <span class="key">"progress"</span>: <span class="num">100</span> },
+      { <span class="key">"key"</span>: <span class="str">"querying"</span>, <span class="key">"name"</span>: <span class="str">"数据查询"</span>, <span class="key">"status"</span>: <span class="str">"processing"</span>, <span class="key">"progress"</span>: <span class="num">65</span> }
+    ],
+    <span class="key">"payload"</span>: { <span class="key">"query"</span>: <span class="str">"SELECT * FROM users"</span> },
+    <span class="key">"result"</span>: <span class="null">null</span>,
+    <span class="key">"errorMsg"</span>: <span class="null">null</span>,
+    <span class="key">"createdAt"</span>: <span class="str">"2025-12-02T10:00:00Z"</span>
+  }
+}</code></pre>
+        </div>
+
+        <h3>3. 取消任务</h3>
+        <p><span class="method post">POST</span> <code>/api/v1/client/tasks/{id}/cancel</code></p>
+        <p>取消是协作式的，需要 Worker 配合检测取消信号。取消请求立即返回，任务状态变为 CANCELLING。</p>
+
+        <h3>4. 查询任务列表</h3>
+        <p><span class="method get">GET</span> <code>/api/v1/client/tasks</code></p>
+        <table class="table">
+          <thead><tr><th>参数</th><th>类型</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td>id</td><td><span class="type">String</span></td><td>任务 ID 筛选</td></tr>
+            <tr><td>status</td><td><span class="type">String</span></td><td>任务状态筛选</td></tr>
+            <tr><td>taskType</td><td><span class="type">String</span></td><td>任务类型筛选</td></tr>
+            <tr><td>page</td><td><span class="type">Integer</span></td><td>页码，默认 1</td></tr>
+            <tr><td>pageSize</td><td><span class="type">Integer</span></td><td>每页数量，默认 20，最大 100</td></tr>
+          </tbody>
+        </table>
+
+        <h3>5. 查询任务统计</h3>
+        <p><span class="method get">GET</span> <code>/api/v1/client/tasks/stats</code></p>
+        <div class="json">
+          <pre><code>{
+  <span class="key">"code"</span>: <span class="num">0</span>,
+  <span class="key">"data"</span>: {
+    <span class="key">"pending"</span>: <span class="num">15</span>,
+    <span class="key">"running"</span>: <span class="num">8</span>,
+    <span class="key">"success"</span>: <span class="num">1250</span>,
+    <span class="key">"failed"</span>: <span class="num">23</span>,
+    <span class="key">"cancelled"</span>: <span class="num">5</span>
+  }
+}</code></pre>
+        </div>
+      </section>
+
+      <!-- Client Code -->
+      <section id="client-code" class="section">
+        <h2>客户端代码示例</h2>
+
+        <h3>Java 集成示例</h3>
+        <div class="code">
+          <div class="code-header">AstsClient.java</div>
+          <pre><code><span class="kw">package</span> com.example.service;
+
+<span class="kw">import</span> org.springframework.stereotype.Service;
+<span class="kw">import</span> org.springframework.web.client.RestTemplate;
+<span class="kw">import</span> org.springframework.http.*;
+<span class="kw">import</span> java.util.Map;
+<span class="kw">import</span> java.util.HashMap;
+
+@Service
+<span class="kw">public class</span> <span class="type">AstsClient</span> {
+    <span class="kw">private final</span> RestTemplate restTemplate;
+    <span class="kw">private final</span> String astsBaseUrl = <span class="str">"http://localhost:9080/api/v1/client"</span>;
+
+    <span class="cm">/** 提交任务 */</span>
+    <span class="kw">public</span> String submitTask(String taskType, Map&lt;String, Object&gt; payload,
+                             Integer priority, String callbackUrl) {
+        Map&lt;String, Object&gt; request = <span class="kw">new</span> HashMap&lt;&gt;();
+        request.put(<span class="str">"type"</span>, taskType);
+        request.put(<span class="str">"payload"</span>, payload);
+        request.put(<span class="str">"priority"</span>, priority);
+        request.put(<span class="str">"callbackUrl"</span>, callbackUrl);
+
+        HttpHeaders headers = <span class="kw">new</span> HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity&lt;Map&lt;String, Object&gt;&gt; entity = <span class="kw">new</span> HttpEntity&lt;&gt;(request, headers);
+        ResponseEntity&lt;Map&gt; response = restTemplate.postForEntity(astsBaseUrl + <span class="str">"/tasks"</span>, entity, Map.class);
+        Map&lt;String, Object&gt; body = response.getBody();
+        <span class="kw">if</span> (body != <span class="null">null</span> &amp;&amp; (Integer) body.get(<span class="str">"code"</span>) == <span class="num">0</span>) {
+            Map&lt;String, Object&gt; data = (Map&lt;String, Object&gt;) body.get(<span class="str">"data"</span>);
+            <span class="kw">return</span> (String) data.get(<span class="str">"id"</span>);
+        }
+        <span class="kw">throw new</span> RuntimeException(<span class="str">"提交任务失败"</span>);
+    }
+
+    <span class="cm">/** 查询任务状态 */</span>
+    <span class="kw">public</span> Map&lt;String, Object&gt; getTaskStatus(String id) {
+        ResponseEntity&lt;Map&gt; response = restTemplate.getForEntity(astsBaseUrl + <span class="str">"/tasks/"</span> + id, Map.class);
+        Map&lt;String, Object&gt; body = response.getBody();
+        <span class="kw">if</span> (body != <span class="null">null</span> &amp;&amp; (Integer) body.get(<span class="str">"code"</span>) == <span class="num">0</span>) {
+            <span class="kw">return</span> (Map&lt;String, Object&gt;) body.get(<span class="str">"data"</span>);
+        }
+        <span class="kw">throw new</span> RuntimeException(<span class="str">"查询任务失败"</span>);
+    }
+
+    <span class="cm">/** 轮询等待任务完成 */</span>
+    <span class="kw">public</span> Map&lt;String, Object&gt; waitForTask(String id, <span class="type">long</span> timeoutMs) <span class="kw">throws</span> InterruptedException {
+        <span class="type">long</span> startTime = System.currentTimeMillis();
+        <span class="type">long</span> delay = <span class="num">1000</span>;
+        <span class="type">long</span> maxDelay = <span class="num">30000</span>;
+        <span class="kw">while</span> (<span class="bool">true</span>) {
+            <span class="kw">if</span> (System.currentTimeMillis() - startTime > timeoutMs) {
+                <span class="kw">throw new</span> RuntimeException(<span class="str">"等待任务超时"</span>);
+            }
+            Map&lt;String, Object&gt; task = getTaskStatus(id);
+            String status = (String) task.get(<span class="str">"status"</span>);
+            <span class="kw">if</span> (<span class="str">"SUCCESS"</span>.equals(status) || <span class="str">"FAILED"</span>.equals(status) || <span class="str">"CANCELLED"</span>.equals(status)) {
+                <span class="kw">return</span> task;
+            }
+            Thread.sleep(delay);
+            delay = Math.min((<span class="type">long</span>)(delay * <span class="num">1.5</span>), maxDelay);
+        }
+    }
+}</code></pre>
+        </div>
+
+        <h3>TypeScript 集成示例</h3>
+        <div class="code">
+          <div class="code-header">asts-client.ts</div>
+          <pre><code><span class="kw">import</span> axios, { AxiosInstance } <span class="kw">from</span> <span class="str">'axios'</span>;
+
+<span class="kw">export class</span> <span class="type">AstsClient</span> {
+  <span class="kw">private</span> client: AxiosInstance;
+
+  <span class="kw">constructor</span>(baseURL: string = <span class="str">'http://localhost:9080/api/v1/client'</span>) {
+    <span class="kw">this</span>.client = axios.create({ baseURL, headers: { <span class="str">'Content-Type'</span>: <span class="str">'application/json'</span> } });
+  }
+
+  <span class="kw">async</span> submitTask(request: any): Promise&lt;string&gt; {
+    <span class="kw">const</span> response = <span class="kw">await</span> <span class="kw">this</span>.client.post(<span class="str">'/tasks'</span>, request);
+    <span class="kw">if</span> (response.data.code === <span class="num">0</span>) <span class="kw">return</span> response.data.data.id;
+    <span class="kw">throw new</span> Error(<span class="str">`提交任务失败: ${response.data.message}`</span>);
+  }
+
+  <span class="kw">async</span> getTaskStatus(id: string): Promise&lt;any&gt; {
+    <span class="kw">const</span> response = <span class="kw">await</span> <span class="kw">this</span>.client.get(<span class="str">`/tasks/${id}`</span>);
+    <span class="kw">if</span> (response.data.code === <span class="num">0</span>) <span class="kw">return</span> response.data.data;
+    <span class="kw">throw new</span> Error(<span class="str">`查询任务失败: ${response.data.message}`</span>);
+  }
+
+  <span class="kw">async</span> waitForTask(id: string, timeoutMs: number = <span class="num">600000</span>): Promise&lt;any&gt; {
+    <span class="kw">const</span> startTime = Date.now();
+    <span class="kw">let</span> delay = <span class="num">1000</span>;
+    <span class="kw">while</span> (<span class="bool">true</span>) {
+      <span class="kw">if</span> (Date.now() - startTime > timeoutMs) <span class="kw">throw new</span> Error(<span class="str">'等待任务超时'</span>);
+      <span class="kw">const</span> task = <span class="kw">await</span> <span class="kw">this</span>.getTaskStatus(id);
+      <span class="kw">if</span> ([<span class="str">'SUCCESS'</span>, <span class="str">'FAILED'</span>, <span class="str">'CANCELLED'</span>].includes(task.status)) <span class="kw">return</span> task;
+      <span class="kw">await</span> <span class="kw">new</span> Promise(r => setTimeout(r, delay));
+      delay = Math.min(delay * <span class="num">1.5</span>, <span class="num">30000</span>);
+    }
+  }
+}</code></pre>
+        </div>
+      </section>
+
+      <!-- Client Best Practices -->
+      <section id="client-best" class="section">
+        <h2>客户端最佳实践</h2>
+
+        <h3>1. 轮询策略 - 推荐指数退避</h3>
+        <div class="code">
+          <div class="code-header">PollingStrategy.java</div>
+          <pre><code><span class="kw">let</span> delay = <span class="num">1000</span>;      <span class="cm">// 初始 1 秒</span>
+<span class="kw">const</span> maxDelay = <span class="num">30000</span>; <span class="cm">// 最大 30 秒</span>
+
+<span class="kw">while</span> (<span class="bool">true</span>) {
+    <span class="kw">const</span> task = <span class="kw">await</span> getTaskStatus(id);
+    <span class="kw">if</span> (isTerminalState(task.status)) <span class="kw">break</span>;
+    <span class="kw">await</span> sleep(delay);
+    delay = Math.min(delay * <span class="num">1.5</span>, maxDelay);
+}</code></pre>
+        </div>
+
+        <h3>2. 错误处理</h3>
+        <div class="code">
+          <div class="code-header">ErrorHandling.java</div>
+          <pre><code><span class="kw">try</span> {
+    String id = astsClient.submitTask(<span class="str">"data_export"</span>, payload, <span class="num">50</span>, <span class="null">null</span>);
+    Map&lt;String, Object&gt; task = astsClient.waitForTask(id, <span class="num">600000</span>);
+    String status = (String) task.get(<span class="str">"status"</span>);
+    <span class="kw">if</span> (<span class="str">"SUCCESS"</span>.equals(status)) {
+        handleSuccess(task.get(<span class="str">"result"</span>));
+    } <span class="kw">else if</span> (<span class="str">"FAILED"</span>.equals(status)) {
+        handleFailure(task.get(<span class="str">"errorMsg"</span>));
+    } <span class="kw">else if</span> (<span class="str">"CANCELLED"</span>.equals(status)) {
+        handleCancellation();
+    }
+} <span class="kw">catch</span> (InterruptedException e) {
+    Thread.currentThread().interrupt();
+    handleInterruption();
+} <span class="kw">catch</span> (RuntimeException e) {
+    handleRuntimeError(e);
+}</code></pre>
+        </div>
+
+        <h3>3. Webhook 回调 - 推荐使用</h3>
+        <div class="code">
+          <div class="code-header">WebhookExample.java</div>
+          <pre><code><span class="cm">// 提交任务时指定回调 URL</span>
+String id = astsClient.submitTask(
+    <span class="str">"data_export"</span>,
+    payload,
+    <span class="num">50</span>,
+    <span class="str">"https://your-app.com/webhook/task-completed"</span>
+);
+
+<span class="cm">// 业务系统提供 Webhook 接收端点</span>
+<span class="kw">@PostMapping</span>(<span class="str">"/webhook/task-completed"</span>)
+<span class="kw">public</span> ResponseEntity&lt;Void&gt; handleTaskCompleted(@RequestBody WebhookEvent event) {
+    <span class="kw">if</span> (<span class="str">"SUCCESS"</span>.equals(event.getStatus())) {
+        processTaskResult(event.getId(), event.getResult());
+    } <span class="kw">else</span> {
+        handleTaskFailure(event.getId(), event.getErrorMsg());
+    }
+    <span class="kw">return</span> ResponseEntity.ok().build();
+}</code></pre>
+        </div>
+
+        <h3>4. Payload 大小控制</h3>
+        <p>推荐传递文件 URL 而不是文件内容。Payload 大小限制: 10 MB</p>
+        <div class="code">
+          <pre><code><span class="cm">// 推荐：传递文件 URL</span>
+Map&lt;String, Object&gt; payload = <span class="kw">new</span> HashMap&lt;&gt;();
+payload.put(<span class="str">"fileUrl"</span>, <span class="str">"https://oss.example.com/input.mp4"</span>);
+payload.put(<span class="str">"format"</span>, <span class="str">"720p"</span>);</code></pre>
+        </div>
+      </section>
+
+      <!-- Worker Overview -->
+      <section id="worker" class="section">
+        <h2>Worker 使用指南</h2>
+        <p>Worker（工作端）是分布式任务执行节点，负责 Poll 任务、执行业务逻辑、上报进度、检测取消信号和上报结果。</p>
+
+        <h3>Worker 架构特点</h3>
+        <div class="grid">
+          <div class="grid-item">
+            <div class="grid-icon blue"><i class="ph ph-cloud-slash"></i></div>
+            <div class="grid-title">无状态设计</div>
+            <div class="grid-desc">Worker 不直接访问数据库，所有操作通过 HTTP API 与 ASTS 交互，易于水平扩展</div>
+          </div>
+          <div class="grid-item">
+            <div class="grid-icon green"><i class="ph ph-arrows-clockwise"></i></div>
+            <div class="grid-title">Poll 机制</div>
+            <div class="grid-desc">Worker 主动拉取任务，使用 SELECT FOR UPDATE SKIP LOCKED 避免竞争，Poll 即心跳</div>
+          </div>
+          <div class="grid-item">
+            <div class="grid-icon purple"><i class="ph ph-prohibit"></i></div>
+            <div class="grid-title">协作式取消</div>
+            <div class="grid-desc">Worker 定期检测取消信号，检测到 CANCELLING 后停止业务逻辑并上报 CANCELLED</div>
+          </div>
+        </div>
+
+        <h3>Worker 执行流程</h3>
+        <div class="diagram">
+          <div class="diagram-title"><i class="ph ph-flow-arrow"></i> Worker Poll 循环</div>
+          <table class="seq-table">
+            <thead><tr><th>步骤</th><th>操作</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr><td class="step-num">1</td><td class="actor">Worker</td><td>POST /worker/tasks/poll 拉取任务</td></tr>
+              <tr><td class="step-num">2</td><td class="actor">API</td><td>SELECT FOR UPDATE SKIP LOCKED + UPSERT worker_node</td></tr>
+              <tr><td class="step-num">3</td><td class="actor">API</td><td>返回任务详情，状态设为 RUNNING</td></tr>
+              <tr><td class="step-num">4</td><td class="actor">Worker</td><td>执行业务逻辑</td></tr>
+              <tr><td class="step-num">5</td><td class="actor">Worker</td><td>POST /tasks/progress 上报进度</td></tr>
+              <tr><td class="step-num">6</td><td class="actor">Worker</td><td>GET /tasks/status 检测取消信号</td></tr>
+              <tr><td class="step-num">7</td><td class="actor">Worker</td><td>POST /tasks/result 上报结果 SUCCESS</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Worker API -->
+      <section id="worker-api" class="section">
+        <h2>Worker API 接口</h2>
+
+        <h3>1. Poll 任务（抢占任务）</h3>
+        <p><span class="method post">POST</span> <code>/api/v1/worker/tasks/poll</code></p>
+        <p>Worker 主动拉取待执行任务，Poll 即心跳，自动更新 Worker 节点的心跳记录。</p>
+        <div class="json">
+          <pre><code>{
+  <span class="key">"taskType"</span>: <span class="str">"data_export"</span>,
+  <span class="key">"strategy"</span>: <span class="str">"PRIORITY"</span>,
+  <span class="key">"workerIp"</span>: <span class="str">"192.168.1.100"</span>
+}</code></pre>
+        </div>
+        <div class="json">
+          <pre><code>{
+  <span class="key">"code"</span>: <span class="num">0</span>,
+  <span class="key">"data"</span>: {
+    <span class="key">"id"</span>: <span class="str">"YeirYkxHuQ"</span>,
+    <span class="key">"type"</span>: <span class="str">"data_export"</span>,
+    <span class="key">"payload"</span>: { <span class="key">"query"</span>: <span class="str">"SELECT * FROM users"</span>, <span class="key">"format"</span>: <span class="str">"xlsx"</span> },
+    <span class="key">"priority"</span>: <span class="num">80</span>,
+    <span class="key">"stepsDetail"</span>: [
+      { <span class="key">"key"</span>: <span class="str">"init"</span>, <span class="key">"name"</span>: <span class="str">"初始化"</span>, <span class="key">"status"</span>: <span class="str">"pending"</span>, <span class="key">"progress"</span>: <span class="num">0</span> }
+    ]
+  }
+}</code></pre>
+        </div>
+
+        <h3>2. 查询任务状态（检测取消信号）</h3>
+        <p><span class="method get">GET</span> <code>/api/v1/worker/tasks/{id}/status</code></p>
+        <p>Worker 定期调用此接口检测取消信号。如果 status === 'CANCELLING'，立即停止业务逻辑。建议检测频率：每 5-10 秒一次。</p>
+        <div class="json">
+          <pre><code>{
+  <span class="key">"code"</span>: <span class="num">0</span>,
+  <span class="key">"data"</span>: {
+    <span class="key">"id"</span>: <span class="str">"YeirYkxHuQ"</span>,
+    <span class="key">"status"</span>: <span class="str">"CANCELLING"</span>,
+    <span class="key">"progress"</span>: <span class="num">65</span>
+  }
+}</code></pre>
+        </div>
+
+        <h3>3. 上报任务进度</h3>
+        <p><span class="method post">POST</span> <code>/api/v1/worker/tasks/{id}/progress</code></p>
+        <div class="json">
+          <pre><code>{
+  <span class="key">"progress"</span>: <span class="num">65</span>,
+  <span class="key">"currentStep"</span>: <span class="str">"数据查询"</span>,
+  <span class="key">"currentStepKey"</span>: <span class="str">"querying"</span>,
+  <span class="key">"stepProgress"</span>: <span class="num">80</span>,
+  <span class="key">"stepsDetail"</span>: [
+    { <span class="key">"key"</span>: <span class="str">"init"</span>, <span class="key">"name"</span>: <span class="str">"初始化"</span>, <span class="key">"status"</span>: <span class="str">"finished"</span>, <span class="key">"progress"</span>: <span class="num">100</span>, <span class="key">"costMs"</span>: <span class="num">500</span> },
+    { <span class="key">"key"</span>: <span class="str">"querying"</span>, <span class="key">"name"</span>: <span class="str">"数据查询"</span>, <span class="key">"status"</span>: <span class="str">"processing"</span>, <span class="key">"progress"</span>: <span class="num">80</span>, <span class="key">"costMs"</span>: <span class="num">12000</span> }
+  ]
+}</code></pre>
+        </div>
+
+        <h3>4. 上报任务结果</h3>
+        <p><span class="method post">POST</span> <code>/api/v1/worker/tasks/{id}/result</code></p>
+        <p>Worker 执行完成后上报最终结果。status 可以是 SUCCESS、FAILED 或 CANCELLED。</p>
+        <div class="json">
+          <pre><code>{
+  <span class="key">"status"</span>: <span class="str">"SUCCESS"</span>,
+  <span class="key">"result"</span>: {
+    <span class="key">"fileUrl"</span>: <span class="str">"https://oss.example.com/export_20250102.xlsx"</span>,
+    <span class="key">"fileSize"</span>: <span class="num">5242880</span>,
+    <span class="key">"rows"</span>: <span class="num">100000</span>
+  },
+  <span class="key">"errorMsg"</span>: <span class="null">null</span>
+}</code></pre>
+        </div>
+      </section>
+
+      <!-- Worker Implementation -->
+      <section id="worker-impl" class="section">
+        <h2>Worker 实现示例</h2>
+
+        <h3>1. ASTS Worker 客户端封装</h3>
+        <div class="code">
+          <div class="code-header">AstsWorkerClient.java</div>
+          <pre><code><span class="kw">@Component</span>
+<span class="kw">public class</span> <span class="type">AstsWorkerClient</span> {
+    <span class="kw">private final</span> RestTemplate restTemplate;
+    <span class="kw">private final</span> String astsBaseUrl = <span class="str">"http://localhost:9080/api/v1/worker"</span>;
+
+    <span class="cm">/** Poll 任务 */</span>
+    <span class="kw">public</span> Map&lt;String, Object&gt; pollTask(String taskType, String strategy, String workerIp) {
+        Map&lt;String, Object&gt; request = <span class="kw">new</span> HashMap&lt;&gt;();
+        request.put(<span class="str">"taskType"</span>, taskType);
+        request.put(<span class="str">"strategy"</span>, strategy);
+        request.put(<span class="str">"workerIp"</span>, workerIp);
+        HttpEntity&lt;Map&lt;String, Object&gt;&gt; entity = <span class="kw">new</span> HttpEntity&lt;&gt;(request);
+        ResponseEntity&lt;Map&gt; response = restTemplate.postForEntity(astsBaseUrl + <span class="str">"/tasks/poll"</span>, entity, Map.class);
+        Map&lt;String, Object&gt; body = response.getBody();
+        <span class="kw">if</span> (body != <span class="null">null</span> &amp;&amp; (Integer) body.get(<span class="str">"code"</span>) == <span class="num">0</span>) {
+            <span class="kw">return</span> (Map&lt;String, Object&gt;) body.get(<span class="str">"data"</span>);
+        }
+        <span class="kw">return null</span>;
+    }
+
+    <span class="cm">/** 检测取消信号 */</span>
+    <span class="kw">public</span> String getTaskStatus(String id) {
+        ResponseEntity&lt;Map&gt; response = restTemplate.getForEntity(astsBaseUrl + <span class="str">"/tasks/"</span> + id + <span class="str">"/status"</span>, Map.class);
+        Map&lt;String, Object&gt; body = response.getBody();
+        <span class="kw">if</span> (body != <span class="null">null</span> &amp;&amp; (Integer) body.get(<span class="str">"code"</span>) == <span class="num">0</span>) {
+            Map&lt;String, Object&gt; data = (Map&lt;String, Object&gt;) body.get(<span class="str">"data"</span>);
+            <span class="kw">return</span> (String) data.get(<span class="str">"status"</span>);
+        }
+        <span class="kw">return null</span>;
+    }
+
+    <span class="cm">/** 上报进度 */</span>
+    <span class="kw">public</span> <span class="kw">void</span> reportProgress(String id, <span class="type">int</span> progress, String currentStep, String currentStepKey) {
+        Map&lt;String, Object&gt; request = <span class="kw">new</span> HashMap&lt;&gt;();
+        request.put(<span class="str">"progress"</span>, progress);
+        request.put(<span class="str">"currentStep"</span>, currentStep);
+        request.put(<span class="str">"currentStepKey"</span>, currentStepKey);
+        HttpEntity&lt;Map&lt;String, Object&gt;&gt; entity = <span class="kw">new</span> HttpEntity&lt;&gt;(request);
+        restTemplate.postForEntity(astsBaseUrl + <span class="str">"/tasks/"</span> + id + <span class="str">"/progress"</span>, entity, Map.class);
+    }
+
+    <span class="cm">/** 上报结果 */</span>
+    <span class="kw">public</span> <span class="kw">void</span> reportResult(String id, String status, Map&lt;String, Object&gt; result, String errorMsg) {
+        Map&lt;String, Object&gt; request = <span class="kw">new</span> HashMap&lt;&gt;();
+        request.put(<span class="str">"status"</span>, status);
+        request.put(<span class="str">"result"</span>, result);
+        request.put(<span class="str">"errorMsg"</span>, errorMsg);
+        HttpEntity&lt;Map&lt;String, Object&gt;&gt; entity = <span class="kw">new</span> HttpEntity&lt;&gt;(request);
+        restTemplate.postForEntity(astsBaseUrl + <span class="str">"/tasks/"</span> + id + <span class="str">"/result"</span>, entity, Map.class);
+    }
+}</code></pre>
+        </div>
+
+        <h3>2. 任务执行器基类</h3>
+        <div class="code">
+          <div class="code-header">TaskExecutor.java</div>
+          <pre><code><span class="kw">public abstract class</span> <span class="type">TaskExecutor</span> {
+    <span class="kw">protected final</span> AstsWorkerClient astsClient;
+
+    <span class="kw">public</span> <span class="type">TaskExecutor</span>(AstsWorkerClient astsClient) { <span class="kw">this</span>.astsClient = astsClient; }
+
+    <span class="kw">public void</span> execute(Map&lt;String, Object&gt; task) {
+        String id = (String) task.get(<span class="str">"id"</span>);
+        Map&lt;String, Object&gt; payload = (Map&lt;String, Object&gt;) task.get(<span class="str">"payload"</span>);
+        <span class="kw">try</span> {
+            Map&lt;String, Object&gt; result = doExecute(id, payload);
+            astsClient.reportResult(id, <span class="str">"SUCCESS"</span>, result, <span class="null">null</span>);
+        } <span class="kw">catch</span> (CancelledException e) {
+            astsClient.reportResult(id, <span class="str">"CANCELLED"</span>, <span class="null">null</span>, <span class="str">"用户取消任务"</span>);
+        } <span class="kw">catch</span> (Exception e) {
+            astsClient.reportResult(id, <span class="str">"FAILED"</span>, <span class="null">null</span>, e.getMessage());
+        }
+    }
+
+    <span class="kw">protected abstract</span> Map&lt;String, Object&gt; doExecute(String id, Map&lt;String, Object&gt; payload) <span class="kw">throws</span> Exception;
+
+    <span class="kw">protected void</span> checkCancellation(String id) <span class="kw">throws</span> CancelledException {
+        String status = astsClient.getTaskStatus(id);
+        <span class="kw">if</span> (<span class="str">"CANCELLING"</span>.equals(status)) <span class="kw">throw new</span> CancelledException();
+    }
+
+    <span class="kw">protected void</span> reportProgress(String id, <span class="type">int</span> progress, String currentStep, String currentStepKey) {
+        astsClient.reportProgress(id, progress, currentStep, currentStepKey);
+    }
+
+    <span class="kw">public static class</span> <span class="type">CancelledException</span> <span class="kw">extends</span> Exception {}
+}</code></pre>
+        </div>
+
+        <h3>3. 数据导出任务执行器</h3>
+        <div class="code">
+          <div class="code-header">DataExportExecutor.java</div>
+          <pre><code><span class="kw">@Component</span>
+<span class="kw">public class</span> <span class="type">DataExportExecutor</span> <span class="kw">extends</span> TaskExecutor {
+    <span class="kw">public</span> <span class="type">DataExportExecutor</span>(AstsWorkerClient astsClient) { <span class="kw">super</span>(astsClient); }
+
+    <span class="kw">@Override</span>
+    <span class="kw">protected</span> Map&lt;String, Object&gt; doExecute(String id, Map&lt;String, Object&gt; payload) <span class="kw">throws</span> Exception {
+        <span class="cm">// 步骤 1: 初始化</span>
+        reportProgress(id, <span class="num">5</span>, <span class="str">"初始化"</span>, <span class="str">"init"</span>);
+        checkCancellation(id);
+        Thread.sleep(<span class="num">500</span>);
+
+        <span class="cm">// 步骤 2: 数据查询</span>
+        reportProgress(id, <span class="num">20</span>, <span class="str">"数据查询"</span>, <span class="str">"querying"</span>);
+        checkCancellation(id);
+
+        <span class="cm">// 模拟查询大量数据</span>
+        <span class="type">int</span> totalRows = <span class="num">100000</span>;
+        <span class="kw">for</span> (<span class="type">int</span> i = <span class="num">0</span>; i &lt; <span class="num">10</span>; i++) {
+            Thread.sleep(<span class="num">2000</span>);
+            checkCancellation(id);
+            <span class="type">int</span> progress = <span class="num">20</span> + ((i + <span class="num">1</span>) * <span class="num">60</span> / <span class="num">10</span>);
+            reportProgress(id, progress, <span class="str">"数据查询"</span>, <span class="str">"querying"</span>);
+        }
+
+        <span class="cm">// 步骤 3: 文件写入</span>
+        reportProgress(id, <span class="num">85</span>, <span class="str">"文件写入"</span>, <span class="str">"writing"</span>);
+        checkCancellation(id);
+        Thread.sleep(<span class="num">3000</span>);
+
+        <span class="cm">// 构造结果</span>
+        Map&lt;String, Object&gt; result = <span class="kw">new</span> HashMap&lt;&gt;();
+        result.put(<span class="str">"fileUrl"</span>, <span class="str">"https://oss.example.com/export_"</span> + id + <span class="str">".xlsx"</span>);
+        result.put(<span class="str">"rows"</span>, totalRows);
+        <span class="kw">return</span> result;
+    }
+}</code></pre>
+        </div>
+
+        <h3>4. Worker 主循环</h3>
+        <div class="code">
+          <div class="code-header">WorkerRunner.java</div>
+          <pre><code><span class="kw">@Component</span>
+<span class="kw">public class</span> <span class="type">WorkerRunner</span> <span class="kw">implements</span> CommandLineRunner {
+    <span class="kw">private final</span> AstsWorkerClient astsClient;
+    <span class="kw">private final</span> DataExportExecutor dataExportExecutor;
+
+    <span class="kw">@Override</span>
+    <span class="kw">public void</span> run(String... args) <span class="kw">throws</span> Exception {
+        String workerIp = InetAddress.getLocalHost().getHostAddress();
+        Map&lt;String, TaskExecutor&gt; executors = <span class="kw">new</span> HashMap&lt;&gt;();
+        executors.put(<span class="str">"data_export"</span>, dataExportExecutor);
+
+        <span class="kw">while</span> (<span class="bool">true</span>) {
+            <span class="kw">try</span> {
+                Map&lt;String, Object&gt; task = astsClient.pollTask(<span class="str">"data_export"</span>, <span class="str">"PRIORITY"</span>, workerIp);
+                <span class="kw">if</span> (task != <span class="null">null</span>) {
+                    String taskType = (String) task.get(<span class="str">"type"</span>);
+                    TaskExecutor executor = executors.get(taskType);
+                    <span class="kw">if</span> (executor != <span class="null">null</span>) executor.execute(task);
+                } <span class="kw">else</span> {
+                    Thread.sleep(<span class="num">5000</span>);
+                }
+            } <span class="kw">catch</span> (Exception e) {
+                Thread.sleep(<span class="num">5000</span>);
+            }
+        }
+    }
+}</code></pre>
+        </div>
+      </section>
+
+      <!-- Worker Best Practices -->
+      <section id="worker-best" class="section">
+        <h2>Worker 最佳实践</h2>
+
+        <h3>1. Poll 频率控制 - 自适应间隔</h3>
+        <div class="code">
+          <pre><code><span class="type">long</span> pollInterval = <span class="num">5000</span>;  <span class="cm">// 初始 5 秒</span>
+<span class="kw">while</span> (<span class="bool">true</span>) {
+    Map&lt;String, Object&gt; task = astsClient.pollTask(<span class="str">"data_export"</span>, <span class="str">"PRIORITY"</span>, workerIp);
+    <span class="kw">if</span> (task != <span class="null">null</span>) {
+        pollInterval = Math.max(pollInterval / <span class="num">2</span>, <span class="num">1000</span>);
+        executor.execute(task);
+    } <span class="kw">else</span> {
+        pollInterval = Math.min(pollInterval * <span class="num">1.5</span>, <span class="num">30000</span>);
+        Thread.sleep(pollInterval);
+    }
+}</code></pre>
+        </div>
+
+        <h3>2. 取消信号检测</h3>
+        <div class="code">
+          <pre><code><span class="kw">protected void</span> checkCancellation(String id) <span class="kw">throws</span> CancelledException {
+    String status = astsClient.getTaskStatus(id);
+    <span class="kw">if</span> (<span class="str">"CANCELLING"</span>.equals(status)) {
+        <span class="kw">throw new</span> CancelledException(<span class="str">"任务已被取消"</span>);
+    }
+}
+
+<span class="cm">// 在业务逻辑关键点检测</span>
+<span class="kw">for</span> (<span class="type">int</span> i = <span class="num">0</span>; i &lt; <span class="num">100</span>; i++) {
+    <span class="kw">if</span> (i % <span class="num">5</span> == <span class="num">0</span>) checkCancellation(id);
+    processChunk(i);
+}</code></pre>
+        </div>
+
+        <h3>3. 进度上报策略 - 分步骤上报</h3>
+        <div class="code">
+          <pre><code><span class="cm">// 初始化 - 5%</span>
+reportProgress(id, <span class="num">5</span>, <span class="str">"初始化"</span>, <span class="str">"init"</span>);
+
+<span class="cm">// 数据查询 - 5% ~ 70%</span>
+<span class="kw">for</span> (<span class="type">int</span> i = <span class="num">0</span>; i &lt; totalChunks; i++) {
+    processChunk(i);
+    <span class="type">int</span> progress = <span class="num">5</span> + (i * <span class="num">65</span> / totalChunks);
+    reportProgress(id, progress, <span class="str">"数据查询"</span>, <span class="str">"querying"</span>);
+}
+
+<span class="cm">// 文件写入 - 70% ~ 90%</span>
+reportProgress(id, <span class="num">85</span>, <span class="str">"文件写入"</span>, <span class="str">"writing"</span>);
+
+<span class="cm">// 文件上传 - 90% ~ 100%</span>
+reportProgress(id, <span class="num">95</span>, <span class="str">"文件上传"</span>, <span class="str">"uploading"</span>);</code></pre>
+        </div>
+
+        <h3>4. 错误处理</h3>
+        <div class="code">
+          <pre><code><span class="kw">try</span> {
+    <span class="kw">return</span> performTask(payload);
+} <span class="kw">catch</span> (SQLException e) {
+    <span class="kw">throw new</span> Exception(<span class="str">"数据库连接失败: "</span> + e.getMessage());
+} <span class="kw">catch</span> (IOException e) {
+    <span class="kw">throw new</span> Exception(<span class="str">"文件操作失败: "</span> + e.getMessage());
+} <span class="kw">catch</span> (CancelledException e) {
+    <span class="kw">throw</span> e;
+} <span class="kw">catch</span> (Exception e) {
+    <span class="kw">throw new</span> Exception(<span class="str">"任务执行异常: "</span> + e.getMessage());
+} <span class="kw">finally</span> {
+    cleanupResources();
+}</code></pre>
+        </div>
+
+        <h3>5. 并发控制 - 线程池</h3>
+        <div class="code">
+          <pre><code><span class="kw">private final</span> ExecutorService executorService = Executors.newFixedThreadPool(<span class="num">5</span>);
+
+<span class="kw">while</span> (<span class="bool">true</span>) {
+    Map&lt;String, Object&gt; task = astsClient.pollTask(<span class="str">"data_export"</span>, <span class="str">"PRIORITY"</span>, workerIp);
+    <span class="kw">if</span> (task != <span class="null">null</span>) {
+        executorService.submit(() -> {
+            <span class="kw">try</span> { dataExportExecutor.execute(task); }
+            <span class="kw">catch</span> (Exception e) { log.error(<span class="str">"任务执行失败"</span>, e); }
+        });
+    } <span class="kw">else</span> {
+        Thread.sleep(<span class="num">5000</span>);
+    }
+}</code></pre>
+        </div>
+
+        <h3>6. 超时控制</h3>
+        <div class="code">
+          <pre><code>Future&lt;?&gt; future = executorService.submit(() -> dataExportExecutor.execute(task));
+<span class="kw">try</span> {
+    future.get(<span class="num">600</span>, TimeUnit.SECONDS);
+} <span class="kw">catch</span> (TimeoutException e) {
+    future.cancel(<span class="bool">true</span>);
+    astsClient.reportResult((String) task.get(<span class="str">"id"</span>), <span class="str">"FAILED"</span>, <span class="null">null</span>, <span class="str">"任务执行超时"</span>);
+}</code></pre>
+        </div>
+
+        <h3>7. Graceful Shutdown</h3>
+        <div class="code">
+          <pre><code><span class="kw">private volatile boolean</span> running = <span class="bool">true</span>;
+
+<span class="kw">@Override</span>
+<span class="kw">public void</span> run(String... args) <span class="kw">throws</span> Exception {
+    Runtime.getRuntime().addShutdownHook(<span class="kw">new</span> Thread(<span class="kw">this</span>::shutdown));
+    <span class="kw">while</span> (running) { <span class="cm">// Poll 和执行任务...</span> }
+}
+
+<span class="kw">private void</span> shutdown() {
+    running = <span class="bool">false</span>;
+    executorService.shutdown();
+    <span class="kw">if</span> (!executorService.awaitTermination(<span class="num">60</span>, TimeUnit.SECONDS)) {
+        executorService.shutdownNow();
+    }
+}</code></pre>
+        </div>
+      </section>
+
+      <!-- Status -->
+      <section id="status" class="section">
+        <h2>任务状态机</h2>
+
+        <div class="flow">
+          <span class="status pending">PENDING</span>
+          <span class="arrow">→</span>
+          <span class="status running">RUNNING</span>
+          <span class="arrow">→</span>
+          <span class="status success">SUCCESS</span>
+          <br><br>
+          <span style="display:block;text-align:center;margin:8px 0;">↓</span>
+          <span class="status failed">FAILED</span>
+          <span class="arrow">←</span>
+          <span class="status cancelled">CANCELLED</span>
+        </div>
+
+        <table class="table">
+          <thead><tr><th>状态</th><th>说明</th><th>触发条件</th></tr></thead>
+          <tbody>
+            <tr><td><span class="status pending" style="padding:4px 10px;">PENDING</span></td><td>等待处理</td><td>任务提交后进入此状态</td></tr>
+            <tr><td><span class="status running" style="padding:4px 10px;">RUNNING</span></td><td>执行中</td><td>Worker 抢接任务后开始执行</td></tr>
+            <tr><td><span class="status success" style="padding:4px 10px;">SUCCESS</span></td><td>执行成功</td><td>Worker 上报完成且 exitCode=0</td></tr>
+            <tr><td><span class="status failed" style="padding:4px 10px;">FAILED</span></td><td>执行失败</td><td>Worker 上报完成且 exitCode≠0</td></tr>
+            <tr><td><span class="status cancelled" style="padding:4px 10px;">CANCELLED</span></td><td>已取消</td><td>客户端发起取消请求</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- FAQ -->
+      <section id="faq" class="section">
+        <h2>常见问题</h2>
+
+        <h3>Q: 任务执行超时怎么办？</h3>
+        <p>在任务类型配置中设置超时时间 (default-timeout)，Worker 需要在超时前完成任务或上报进度。系统会自动标记超时任务为失败。</p>
+
+        <h3>Q: 如何保证任务不丢失？</h3>
+        <p>Worker 异常退出时，任务会在心跳超时后被重新放回队列供其他 Worker 抢接。建议 Worker 实现优雅退出，监听取消信号。</p>
+
+        <h3>Q: 支持批量任务吗？</h3>
+        <p>当前版本需要逐个提交任务。批量功能已在规划中。</p>
+
+        <h3>Q: 取消任务后多久生效？</h3>
+        <p>取消是协作式的。取消请求会立即将任务状态更新为 CANCELLING，Worker 在下次检测取消信号时会停止执行。停止时间取决于 Worker 的检测频率（建议 5-10 秒）。</p>
+
+        <h3>Q: 如何处理大量并发任务？</h3>
+        <p>通过 Worker 线程池实现并发控制。可以在任务类型配置中设置 max_concurrency 限制单个任务类型的并发数。</p>
+
+        <div class="cta">
+          <h3>需要更多帮助？</h3>
+          <p>查阅完整的 API 文档或联系技术支持团队获取帮助。</p>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <footer class="footer">
+        <p>ASTS (Asynchronous Slow Task Service) © 2026</p>
+        <p>基于 OpenAPI 3.0 规范构建 | 文档版本 v1.0</p>
+      </footer>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+  <script>
+    // Active link
+    const links = document.querySelectorAll('.nav-list a');
+    const sections = document.querySelectorAll('section');
+
+    function updateActive() {
+      let current = '';
+      sections.forEach(s => {
+        if (window.scrollY >= s.offsetTop - 80) current = s.id;
+      });
+      links.forEach(l => {
+        l.classList.remove('active');
+        if (l.getAttribute('href') === '#' + current) l.classList.add('active');
+      });
+    }
+
+    window.addEventListener('scroll', updateActive);
+    updateActive();
+  </script>
+</body>
+</html>

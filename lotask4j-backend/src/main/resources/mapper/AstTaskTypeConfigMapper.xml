@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="fun.commons.lotask4j.mapper.AstTaskTypeConfigMapper">
+
+    <!-- 根据 typeKey 查询任务类型配置 -->
+    <select id="selectByTypeKey" resultType="fun.commons.lotask4j.entity.AstTaskTypeConfig">
+        SELECT id, type_key, type_name, max_concurrency, exec_timeout_sec, max_retry_count,
+               is_enabled, steps_definition, created_at, updated_at, is_deleted
+        FROM asts_task_type_config
+        WHERE type_key = #{typeKey}
+          AND is_deleted = 0
+        LIMIT 1
+    </select>
+
+    <!-- 检查任务类型是否启用 -->
+    <select id="isTypeEnabled" resultType="java.lang.Boolean">
+        SELECT is_enabled
+        FROM asts_task_type_config
+        WHERE type_key = #{typeKey}
+          AND is_deleted = 0
+        LIMIT 1
+    </select>
+
+    <!-- 获取任务类型的并发限制 -->
+    <select id="getConcurrencyLimit" resultType="java.lang.Integer">
+        SELECT max_concurrency
+        FROM asts_task_type_config
+        WHERE type_key = #{typeKey}
+          AND is_deleted = 0
+        LIMIT 1
+    </select>
+
+</mapper>

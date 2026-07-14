@@ -1,0 +1,15 @@
+export default {
+    title: 'Task Types',
+    subtitle: 'Manage task types and execution params',
+    addNew: 'New Task Type',
+    edit: 'Edit',
+    typeKey: 'Type Key',
+    typeName: 'Type Name',
+    description: 'Description',
+    maxConcurrency: 'Max Concurrency',
+    maxQueueSize: 'Max Queue',
+    execTimeout: 'Exec Timeout (s)',
+    maxRetries: 'Max Retries',
+    enabled: 'Enabled',
+    stepsDefinition: 'Steps Definition (JSON)',
+  }

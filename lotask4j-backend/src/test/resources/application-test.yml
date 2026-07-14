@@ -1,0 +1,50 @@
+server:
+  port: 8888
+
+spring:
+  application:
+    name: lotask4j-test
+
+  # 真 PostgreSQL（docker pg-17 :5432 库 lotask4j）— 建表用 schema-postgres.sql
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/lotask4j
+    username: admin
+    password: test@2026
+
+  # 初始化数据库 (PG 版)
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema-postgres.sql
+      continue-on-error: false
+
+# framework4j 真 PG 覆盖（覆盖 application.yml 里指向阿里云 RDS 的默认值）
+framework4j:
+  datasource:
+    datasources:
+      business:
+        url: jdbc:postgresql://localhost:5432/lotask4j
+        username: admin
+        password: test@2026
+        driver-class-name: org.postgresql.Driver
+        druid:
+          initial-size: 0
+          min-idle: 0
+          max-active: 10
+          validation-query: SELECT 1
+
+# MyBatis Plus 配置
+mybatis-plus:
+  mapper-locations: classpath:mapper/**/*.xml
+  type-aliases-package: fun.commons.lotask4j.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    fun.commons.lotask4j: DEBUG
+    org.springframework.test: DEBUG

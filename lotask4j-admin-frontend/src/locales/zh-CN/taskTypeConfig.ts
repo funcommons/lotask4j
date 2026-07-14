@@ -1,0 +1,15 @@
+export default {
+    title: '任务类型',
+    subtitle: '管理任务类型及其执行参数',
+    addNew: '新建任务类型',
+    edit: '编辑',
+    typeKey: '类型键',
+    typeName: '类型名称',
+    description: '描述',
+    maxConcurrency: '最大并发',
+    maxQueueSize: '最大队列',
+    execTimeout: '执行超时（秒）',
+    maxRetries: '最大重试',
+    enabled: '启用',
+    stepsDefinition: '步骤定义（JSON）',
+  }

@@ -1,0 +1,119 @@
+package fun.commons.lotask4j.controller;
+
+import fun.commons.lotask4j.service.WebEmbedService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.view.RedirectView;
+
+import jakarta.servlet.http.HttpServletResponse;
+import java.time.Duration;
+
+/**
+ * Web Embed Controller
+ *
+ * 业务方通过 URL 访问 /web-embed/{componentType}?accessKey=xxx
+ * 后端鉴权/开放模式处理后，写入 Cookie 并重定向到前端 index.html
+ *
+ * @author lotask4j-team
+ * @version 1.0.0
+ */
+@Slf4j
+@Controller
+@RequestMapping("/web-embed")
+public class WebEmbedController {
+
+    private static final String COOKIE_NAME = "ASTS_USER_ID";
+
+    @Autowired
+    private WebEmbedService webEmbedService;
+
+    @Value("${app.web-embed.front-base-url:/web-embed/index.html}")
+    private String frontBaseUrl;
+
+    @Value("${app.web-embed.cookie-expire-seconds:7200}")
+    private int cookieExpireSeconds;
+
+    /**
+     * 处理 Web Embed 访问请求
+     *
+     * 开放模式：无需 accessKey，使用默认 userId
+     * 鉴权模式：需要 accessKey + 业务系统回调验证
+     *
+     * @param type 组件类型（task-list / task-detail / task-card）
+     * @param accessKey 访问密钥（鉴权模式必填）
+     * @param taskId 任务 ID（task-detail / task-card 必填）
+     * @param response HTTP 响应（用于写 Cookie）
+     * @return 重定向到前端 Vue 应用的 index.html
+     */
+    @GetMapping("/{type:[a-z-]+}")
+    public RedirectView handleComponent(
+            @PathVariable("type") String componentType,
+            @RequestParam(required = false) String accessKey,
+            @RequestParam(required = false) String taskId,
+            HttpServletResponse response) {
+
+        log.info("[Web Embed] 访问: componentType={}, accessKey={}, taskId={}",
+                componentType, accessKey, taskId);
+
+        // 1. 验证组件类型
+        if (!webEmbedService.isValidComponentType(componentType)) {
+            log.warn("[Web Embed] 非法的 componentType: {}, 返回 null", componentType);
+            return null;
+        }
+
+        // 2. 校验 accessKey 与组件的匹配
+        webEmbedService.checkComponentAccess(accessKey, componentType);
+
+        // 3. 鉴权 / 开放模式处理，获取 userId
+        String userId = webEmbedService.handleAccess(accessKey);
+
+        // 4. 写入 Cookie
+        writeUserIdCookie(response, userId);
+
+        // 5. 重定向到前端 Vue 应用（Vite + Vue3 history 模式）
+        String redirectUrl = buildRedirectUrl(componentType, taskId);
+        log.debug("[Web Embed] 重定向: {}", redirectUrl);
+
+        return new RedirectView(redirectUrl);
+    }
+
+    /**
+     * 写入用户 ID Cookie
+     */
+    private void writeUserIdCookie(HttpServletResponse response, String userId) {
+        ResponseCookie cookie = ResponseCookie.from(COOKIE_NAME, userId)
+                .httpOnly(true)
+                .secure(true)
+                .path("/")
+                .maxAge(Duration.ofSeconds(cookieExpireSeconds))
+                .sameSite("Strict")
+                .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
+    /**
+     * 构建前端重定向 URL
+     *
+     * Vite + Vue3 history 模式：重定向到 /web-embed/index.html，参数通过 query 传递
+     * 前端 Vue Router 解析 query.component 和 query.taskId
+     */
+    private String buildRedirectUrl(String componentType, String taskId) {
+        StringBuilder url = new StringBuilder("/web-embed/index.html");
+        url.append("?component=").append(componentType);
+
+        if (taskId != null && !taskId.isEmpty()) {
+            url.append("&taskId=").append(taskId);
+        }
+
+        return url.toString();
+    }
+}

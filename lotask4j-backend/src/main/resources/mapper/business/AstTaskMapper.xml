@@ -1,0 +1,314 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="fun.commons.lotask4j.mapper.AstTaskMapper">
+
+    <!-- 基础字段映射 -->
+    <sql id="Base_Column_List">
+        id, task_type_key, status, priority, retry_count, worker_ip,
+        callback_url, callback_status, progress, current_step_key, current_step_progress,
+        steps_detail, payload, result, error_msg, created_at, updated_at, started_at,
+        finished_at, expired_at, is_deleted
+    </sql>
+
+    <!-- 获取待处理任务数 -->
+    <select id="countPendingTasks" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM asts_task
+        WHERE status = 'PENDING'
+          AND is_deleted = 0
+          AND (expired_at IS NULL OR expired_at > CURRENT_TIMESTAMP)
+    </select>
+
+    <!-- 获取运行中的任务数 -->
+    <select id="countRunningTasks" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM asts_task
+        WHERE status = 'RUNNING' AND is_deleted = 0
+    </select>
+
+    <!-- 重置超时的任务为 PENDING -->
+    <update id="resetTimeoutTasks" parameterType="java.lang.Integer">
+        UPDATE asts_task
+        SET status = 'PENDING',
+            retry_count = retry_count + 1,
+            worker_ip = NULL,
+            updated_at = NOW()
+        WHERE status = 'RUNNING'
+          AND updated_at &lt; NOW() - (#{value} || ' seconds')::INTERVAL
+          AND is_deleted = 0
+        RETURNING id
+    </update>
+
+    <!-- 任务完整 ResultMap（包含 JOIN 查询的 type_name 和 timeoutSeconds） -->
+    <resultMap id="TaskWithTypeNameResultMap" type="fun.commons.lotask4j.entity.AstTask">
+        <id column="id" property="id"/>
+        <result column="task_type_key" property="taskTypeKey"/>
+        <result column="status" property="status"/>
+        <result column="priority" property="priority"/>
+        <result column="retry_count" property="retryCount"/>
+        <result column="worker_ip" property="workerIp" typeHandler="fun.commons.lotask4j.config.PostgreSqlInetTypeHandler"/>
+        <result column="callback_url" property="callbackUrl"/>
+        <result column="callback_status" property="callbackStatus"/>
+        <result column="progress" property="progress"/>
+        <result column="current_step_key" property="currentStepKey"/>
+        <result column="current_step_progress" property="currentStepProgress"/>
+        <result column="steps_detail" property="stepsDetail" typeHandler="com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler"/>
+        <result column="payload" property="payload" typeHandler="com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler"/>
+        <result column="result" property="result" typeHandler="com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler"/>
+        <result column="error_msg" property="errorMsg"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+        <result column="started_at" property="startedAt"/>
+        <result column="finished_at" property="finishedAt"/>
+        <result column="expired_at" property="expiredAt"/>
+        <result column="is_deleted" property="isDeleted"/>
+        <!-- JOIN 查询的类型名称和超时配置 -->
+        <result column="type_name" property="typeName"/>
+        <result column="timeout_seconds" property="timeoutSeconds"/>
+    </resultMap>
+
+    <!-- 根据任务 ID 查询任务（包含类型名称和超时配置） -->
+    <select id="selectByIdWithTypeName" resultMap="TaskWithTypeNameResultMap">
+        SELECT
+            t.id, t.task_type_key, t.status, t.priority, t.retry_count,
+            t.worker_ip, t.callback_url, t.callback_status, t.progress,
+            t.current_step_key, t.current_step_progress, t.steps_detail,
+            t.payload, t.result, t.error_msg,
+            t.created_at, t.updated_at, t.started_at, t.finished_at, t.expired_at, t.is_deleted,
+            c.type_name,
+            c.exec_timeout_sec as timeout_seconds
+        FROM asts_task t
+        LEFT JOIN asts_task_type_config c
+            ON t.task_type_key = c.type_key AND c.is_deleted = 0
+        WHERE t.id = #{id}
+          AND t.is_deleted = 0
+        LIMIT 1
+    </select>
+
+    <!-- 查询任务列表（包含类型名称和超时配置，不含大字段 payload/result） -->
+    <select id="selectListWithTypeName" resultMap="TaskWithTypeNameResultMap">
+        SELECT
+            t.id, t.task_type_key, t.status, t.priority, t.retry_count,
+            t.worker_ip, t.callback_url, t.callback_status, t.progress,
+            t.current_step_key, t.current_step_progress, t.steps_detail,
+            t.error_msg,
+            t.created_at, t.updated_at, t.started_at, t.finished_at, t.expired_at, t.is_deleted,
+            c.type_name,
+            c.exec_timeout_sec as timeout_seconds
+        FROM asts_task t
+        LEFT JOIN asts_task_type_config c
+            ON t.task_type_key = c.type_key AND c.is_deleted = 0
+        WHERE t.is_deleted = 0
+        <if test="status != null and status != ''">
+            AND t.status = #{status}
+        </if>
+        <if test="taskType != null and taskType != ''">
+            AND t.task_type_key = #{taskType}
+        </if>
+        ORDER BY t.created_at DESC
+    </select>
+
+    <!-- 分页查询任务列表（包含类型名称和超时配置，不含大字段 payload/result） -->
+    <select id="selectPageWithTypeName" resultMap="TaskWithTypeNameResultMap">
+        SELECT
+            t.id, t.task_type_key, t.status, t.priority, t.retry_count,
+            t.worker_ip, t.callback_url, t.callback_status, t.progress,
+            t.current_step_key, t.current_step_progress, t.steps_detail,
+            t.error_msg,
+            t.created_at, t.updated_at, t.started_at, t.finished_at, t.expired_at, t.is_deleted,
+            c.type_name,
+            c.exec_timeout_sec as timeout_seconds
+        FROM asts_task t
+        LEFT JOIN asts_task_type_config c
+            ON t.task_type_key = c.type_key AND c.is_deleted = 0
+        WHERE 1=1
+        <choose>
+            <when test="isArchived != null and isArchived == true">
+                AND t.is_deleted = 1
+            </when>
+            <when test="isArchived != null and isArchived == false">
+                AND t.is_deleted = 0
+            </when>
+            <otherwise>
+                <!-- isArchived 为 null 时不限制，查询所有 -->
+            </otherwise>
+        </choose>
+        <if test="id != null">
+            AND t.id = #{id}
+        </if>
+        <if test="status != null and status != ''">
+            AND t.status = #{status}
+        </if>
+        <if test="taskType != null and taskType != ''">
+            AND t.task_type_key = #{taskType}
+        </if>
+        <if test="createdAtStart != null">
+            AND t.created_at &gt;= #{createdAtStart}
+        </if>
+        <if test="createdAtEnd != null">
+            AND t.created_at &lt;= #{createdAtEnd}
+        </if>
+        ORDER BY t.created_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <!-- 统计符合条件的任务总数 -->
+    <select id="countTasks" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM asts_task t
+        WHERE 1=1
+        <choose>
+            <when test="isArchived != null and isArchived == true">
+                AND t.is_deleted = 1
+            </when>
+            <when test="isArchived != null and isArchived == false">
+                AND t.is_deleted = 0
+            </when>
+            <otherwise>
+                <!-- isArchived 为 null 时不限制，查询所有 -->
+            </otherwise>
+        </choose>
+        <if test="id != null">
+            AND t.id = #{id}
+        </if>
+        <if test="status != null and status != ''">
+            AND t.status = #{status}
+        </if>
+        <if test="taskType != null and taskType != ''">
+            AND t.task_type_key = #{taskType}
+        </if>
+        <if test="createdAtStart != null">
+            AND t.created_at &gt;= #{createdAtStart}
+        </if>
+        <if test="createdAtEnd != null">
+            AND t.created_at &lt;= #{createdAtEnd}
+        </if>
+    </select>
+
+    <!-- 统计已过期的待处理任务数量 -->
+    <select id="countExpiredPendingTasks" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM asts_task
+        WHERE status = 'PENDING'
+          AND is_deleted = 0
+          AND expired_at IS NOT NULL
+          AND expired_at &lt;= CURRENT_TIMESTAMP
+    </select>
+
+    <!-- 将已过期的待处理任务标记为失败状态 -->
+    <update id="markExpiredTasksAsFailed">
+        UPDATE asts_task
+        SET status = 'FAILED',
+            error_msg = 'Task expired',
+            finished_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE status = 'PENDING'
+          AND is_deleted = 0
+          AND expired_at IS NOT NULL
+          AND expired_at &lt;= CURRENT_TIMESTAMP
+    </update>
+
+    <!-- Worker 抢占任务 (使用 SKIP LOCKED 乐观锁) -->
+    <select id="pollAndLockTask" resultType="fun.commons.lotask4j.entity.AstTask">
+        WITH locked_task AS (
+            SELECT id
+            FROM asts_task
+            WHERE status = 'PENDING'
+              AND task_type_key = #{taskType}
+              AND is_deleted = 0
+              AND (expired_at IS NULL OR expired_at > CURRENT_TIMESTAMP)
+            ORDER BY
+              <choose>
+                  <when test="strategy == 'FIFO'">
+                      created_at ASC, priority DESC
+                  </when>
+                  <otherwise>
+                      priority DESC, created_at ASC
+                  </otherwise>
+              </choose>
+            LIMIT 1
+            FOR UPDATE SKIP LOCKED
+        )
+        UPDATE asts_task t
+        SET status = 'RUNNING',
+            worker_ip = #{workerIp}::inet,
+            started_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+        FROM locked_task
+        WHERE t.id = locked_task.id
+        RETURNING t.*
+    </select>
+
+    <!-- 更新任务进度 -->
+    <update id="updateTaskProgress">
+        UPDATE asts_task
+        SET current_step_key = #{currentStepKey},
+            current_step_progress = #{stepProgress},
+            steps_detail = #{stepsDetail}::jsonb,
+            progress = #{globalProgress},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+          AND status = 'RUNNING'
+          AND is_deleted = 0
+    </update>
+
+    <!-- 更新任务最终结果 -->
+    <update id="updateTaskResult">
+        UPDATE asts_task
+        SET status = #{status},
+            result = COALESCE(#{result}::jsonb, '{}'::jsonb),
+            error_msg = COALESCE(#{errorMsg}, ''),
+            progress = CASE
+                WHEN #{status} = 'SUCCESS' THEN 100
+                WHEN #{status} = 'FAILED' THEN progress
+                WHEN #{status} = 'CANCELLED' THEN progress
+                ELSE progress
+            END,
+            finished_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+          AND (status = 'RUNNING' OR status = 'CANCELLING')
+          AND is_deleted = 0
+    </update>
+
+    <!-- 更新任务回调状态 -->
+    <update id="updateCallbackStatus">
+        UPDATE asts_task
+        SET callback_status = #{callbackStatus},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+          AND is_deleted = 0
+    </update>
+
+    <!-- 插入任务 (显式处理 JSONB 字段) -->
+    <insert id="insertTask">
+        INSERT INTO asts_task (
+            id, task_type_key, status, priority, retry_count,
+            worker_ip, callback_url, callback_status,
+            progress, current_step_key, current_step_progress,
+            steps_detail, payload, result,
+            error_msg, created_at, updated_at, started_at, finished_at, expired_at,
+            is_deleted
+        ) VALUES (
+            #{task.id},
+            #{task.taskTypeKey},
+            #{task.status},
+            #{task.priority},
+            #{task.retryCount},
+            #{task.workerIp}::inet,
+            #{task.callbackUrl},
+            #{task.callbackStatus},
+            #{task.progress},
+            #{task.currentStepKey},
+            #{task.currentStepProgress},
+            '[]'::jsonb,
+            #{payloadJson}::jsonb,
+            #{resultJson}::jsonb,
+            #{task.errorMsg},
+            #{task.createdAt},
+            #{task.updatedAt},
+            #{task.startedAt},
+            #{task.finishedAt},
+            #{task.expiredAt},
+            #{task.isDeleted}
+        )
+    </insert>
+
+</mapper>

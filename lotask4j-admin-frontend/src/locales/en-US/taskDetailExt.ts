@@ -1,0 +1,45 @@
+export default {
+    stats: {
+      status: 'Status',
+      progress: 'Progress',
+      priority: 'Priority',
+      retryCount: 'Retries',
+    },
+    currentStep: 'Current Step',
+    runningProgress: 'Running Progress',
+    alert: {
+      failedTitle: 'Task Execution Failed',
+      cancellingTitle: 'Task Cancelling',
+      cancellingDesc: 'Task marked as cancelling, waiting for Worker response',
+    },
+    execInfo: 'Execution Info',
+    callbackStatus: 'Callback Status',
+    callbackUrl: 'Callback URL',
+    callbackStatusMap: {
+      0: 'Not Called',
+      1: 'Callback Success',
+      2: 'Callback Failed',
+    },
+    timeInfo: 'Time Info',
+    time: {
+      updatedAt: 'Last Updated',
+      expiredAt: 'Expires At',
+      waitingDuration: 'Waiting Time',
+      execDuration: 'Execution Time',
+      totalDuration: 'Total Time',
+    },
+    steps: {
+      startTime: 'Start',
+      endTime: 'End',
+      costMs: 'Cost',
+    },
+    basicInfo: 'Basic Info',
+    copy: 'Copy',
+    copySuccess: 'Copied',
+    stepStatus: {
+      pending: 'Pending',
+      processing: 'Processing',
+      finished: 'Finished',
+      failed: 'Failed',
+    },
+  }

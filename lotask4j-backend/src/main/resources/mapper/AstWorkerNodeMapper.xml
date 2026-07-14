@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="fun.commons.lotask4j.mapper.AstWorkerNodeMapper">
+
+    <!-- 根据 Worker ID 查询 Worker 节点 -->
+    <select id="selectByWorkerId" resultType="fun.commons.lotask4j.entity.AstWorkerNode">
+        SELECT id, worker_id, worker_ip, worker_port, hostname, supported_task_types,
+               max_task_count, current_task_count, status, last_heartbeat_at,
+               total_tasks_done, total_tasks_failed, registered_at, updated_at, is_deleted
+        FROM asts_worker_node
+        WHERE worker_id = #{workerId}
+          AND is_deleted = 0
+        LIMIT 1
+    </select>
+
+    <!-- 查询在线 Worker 列表(基于 status 字段,由 WorkerCleaner 维护) -->
+    <select id="selectOnlineWorkers" resultType="fun.commons.lotask4j.entity.AstWorkerNode">
+        SELECT id, worker_id, task_type_key, worker_ip, worker_port, hostname, supported_task_types,
+               max_task_count, current_task_count, status, last_heartbeat_at,
+               total_tasks_done, total_tasks_failed, registered_at, updated_at, is_deleted
+        FROM asts_worker_node
+        WHERE status = 'ONLINE'
+          AND is_deleted = 0
+        ORDER BY last_heartbeat_at DESC
+    </select>
+
+    <!-- 更新 Worker 心跳时间 -->
+    <update id="updateHeartbeat">
+        INSERT INTO asts_worker_node (id, worker_id, worker_ip, worker_port, hostname, status,
+                                       last_heartbeat_at, registered_at, updated_at, is_deleted)
+        VALUES (#{id}, #{workerId}, #{workerIp}::inet, #{workerPort}, #{hostname}, 'ONLINE',
+                #{heartbeatTime}, #{heartbeatTime}, #{heartbeatTime}, 0)
+        ON CONFLICT (worker_id)
+        DO UPDATE SET
+            hostname = EXCLUDED.hostname,
+            worker_ip = EXCLUDED.worker_ip,
+            worker_port = EXCLUDED.worker_port,
+            status = 'ONLINE',
+            last_heartbeat_at = EXCLUDED.last_heartbeat_at,
+            updated_at = EXCLUDED.updated_at
+        WHERE asts_worker_node.is_deleted = 0
+    </update>
+
+    <!-- 根据 Worker IP 和任务类型查询 Worker 节点 -->
+    <select id="selectByIpAndType" resultType="fun.commons.lotask4j.entity.AstWorkerNode">
+        SELECT id, worker_id, task_type_key, worker_ip, worker_port, hostname, supported_task_types,
+               max_task_count, current_task_count, status, last_heartbeat_at,
+               total_tasks_done, total_tasks_failed, registered_at, updated_at, is_deleted
+        FROM asts_worker_node
+        WHERE worker_ip = #{workerIp}::inet
+          AND task_type_key = #{taskTypeKey}
+          AND is_deleted = 0
+        LIMIT 1
+    </select>
+
+    <!-- UPSERT Worker 心跳记录 (ON CONFLICT DO UPDATE) -->
+    <update id="upsertWorkerHeartbeat">
+        INSERT INTO asts_worker_node (
+            id, worker_id, task_type_key, worker_ip, worker_port, hostname,
+            supported_task_types, max_task_count, current_task_count, status,
+            last_heartbeat_at, total_tasks_done, total_tasks_failed,
+            registered_at, updated_at, is_deleted
+        )
+        VALUES (
+            #{worker.id},
+            #{worker.workerId},
+            #{worker.taskTypeKey},
+            #{worker.workerIp}::inet,
+            #{worker.workerPort},
+            #{worker.hostname},
+            #{worker.supportedTaskTypes},
+            #{worker.maxTaskCount},
+            COALESCE(#{worker.currentTaskCount}, 0),
+            'ONLINE',
+            CURRENT_TIMESTAMP,
+            COALESCE(#{worker.totalTasksDone}, 0),
+            COALESCE(#{worker.totalTasksFailed}, 0),
+            CURRENT_TIMESTAMP,
+            CURRENT_TIMESTAMP,
+            0
+        )
+        ON CONFLICT (worker_ip, task_type_key)
+        WHERE is_deleted = 0
+        DO UPDATE SET
+            worker_id = EXCLUDED.worker_id,
+            hostname = EXCLUDED.hostname,
+            worker_port = EXCLUDED.worker_port,
+            supported_task_types = EXCLUDED.supported_task_types,
+            max_task_count = EXCLUDED.max_task_count,
+            current_task_count = EXCLUDED.current_task_count,
+            status = 'ONLINE',
+            last_heartbeat_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+    </update>
+
+    <!-- 标记超时 Worker 为 OFFLINE -->
+    <update id="markOfflineWorkers">
+        UPDATE asts_worker_node
+        SET status = 'OFFLINE',
+            updated_at = CURRENT_TIMESTAMP
+        WHERE task_type_key = #{taskTypeKey}
+          AND last_heartbeat_at &lt; #{threshold}
+          AND status != 'OFFLINE'
+          AND is_deleted = 0
+    </update>
+
+    <!-- 物理删除严重超时的 Worker -->
+    <delete id="deleteExpiredWorkers">
+        DELETE FROM asts_worker_node
+        WHERE task_type_key = #{taskTypeKey}
+          AND last_heartbeat_at &lt; #{threshold}
+          AND is_deleted = 0
+    </delete>
+
+</mapper>

@@ -24,7 +24,7 @@ The repo root holds five sibling modules (no parent `pom.xml`, no npm workspaces
 - **ID generation is centralised in the `fun.commons.fwk4j:fwk4j-sdk`-compatible SDK (migrated to `com.github.funcommons.framework4j:framework4j-all`)**, not implemented in this repo. Production uses the Redis worker strategy (`framework4j.id.worker.strategy: redis`); local dev can use `ip`. The backend excludes MyBatis Plus, DataSource, and Redisson auto-configurations explicitly in `application.yml` so the SDK's own beans wire up cleanly.
 - **JaCoCo is enforced at ≥75% line coverage per package** at the `jacoco-check` phase. A green `mvn test` is not enough — coverage must clear the gate.
 - **There's a `WebMvcConfig.java`** (so don't add `@EnableWebMvc`) and **`HttpClientConfig.java`** that registers the shared HTTP client used for worker callbacks and webhook delivery.
-- **`@OpenId @PathVariable Long id` 必须显式写 `@PathVariable("id")`**：framework4j v1.1.3 的 `OpenIdFailFastValidator` 启动期检测 `@OpenId @PathVariable` 但 `@PathVariable` 没指定 `name` 又 class file 缺 `MethodParameters` attribute 的方法，**直接 fail-fast 启动崩溃**（不在 path 解析时 silent 抛 10106 了）。CI 也全绿（验证脚本见 https://github.com/funcommons/framework4j/issues/1）。
+- **`@OpenId @PathVariable Long id` 必须显式写 `@PathVariable("id")`**：framework4j v1.2.1 的 `OpenIdFailFastValidator` 启动期检测 `@OpenId @PathVariable` 但 `@PathVariable` 没指定 `name` 又 class file 缺 `MethodParameters` attribute 的方法，**直接 fail-fast 启动崩溃**（不在 path 解析时 silent 抛 10106 了）。CI 也全绿（验证脚本见 https://github.com/funcommons/framework4j/issues/1）。
 - **不要在 Maven 加 `<parameters>true</parameters>`**：详见下面 framework4j 行为合约。
 
 ## Backend architecture
@@ -57,9 +57,16 @@ The backend is a classic layered Spring Boot app: Controllers → Service interf
 
 Frontend surfaces differentiate "current tasks" (`is_deleted=0`) vs "archived tasks" (`is_deleted=1`, read-only).
 
-## framework4j v1.1.3 behavior contract
+## framework4j v1.2.1 behavior contract
 
-This project pins `com.github.funcommons.framework4j:framework4j-all:v1.1.3` (JitPack mirror of GitHub `funcommons/framework4j`). The SDK's `GlobalExceptionHandler` decides HTTP status + business code for every exception. Knowing this contract avoids trial-and-error when adding endpoints.
+This project pins `com.github.funcommons.framework4j:framework4j-all:v1.2.1` (JitPack mirror of GitHub `funcommons/framework4j`). The SDK's `GlobalExceptionHandler` decides HTTP status + business code for every exception. Knowing this contract avoids trial-and-error when adding endpoints.
+
+**v1.2.1 升级带来的影响**（与 v1.1.3 对比）：
+
+- **SDK API contract 不变**（[v1.2.0 release notes](https://github.com/funcommons/framework4j/releases/tag/v1.2.0) 明确说"API contract unchanged"），下面表格逐行适用。
+- **v1.2.1 patch commit**：仅修 v1.2.0 引入的 `framework4j-redis` 编译失败（`GenericObjectPoolConfig<?>` → `GenericObjectPoolConfig<StatefulConnection<?, ?>>`），不影响运行时行为。
+- **周边依赖对齐**：`pom.xml` 里 `spring-boot 3.2.0 → 3.5.16`、`Redisson 3.25.0 → 4.6.1`、`Druid 1.2.20 → 1.2.28`（artifactId 也从 `druid-spring-boot-starter` 切到 `druid-spring-boot-3-starter`）、`PostgreSQL JDBC 42.7.1 → 42.7.11`（CVE-2026-42198）。这些不影响 framework4j-web / -id 行为契约，但意味着我们自己的 application.yml 里如果写死 `druid-spring-boot-starter` 这种 artifact 名需要同步切到 `-3-`。
+- **PR D/E 状态**：issue #1 评论里汇报的 priority-3（OpenID-specific 失败 → 10102）和 BeanPostProcessor-static 已分别提 PR（#4 / #3），**当前 v1.2.1 仍未合入**。所以下面"OpenID-specific path validation"那段仍然准确：非法 OpenID 路径现在还走 `code=10106`。
 
 ### HTTP status vs business code
 
@@ -124,7 +131,7 @@ throw new RuntimeException("internal error");
 
 ### OpenID-specific path validation (作业码偏差注意)
 
-`OpenIdPathVariableArgumentResolver` 在 `IdObfuscator.fromOpenId()` 抛 IAE 时主动 `throw new ApiException(ApiCode.BUSINESS_RULE_ERROR, "Invalid @OpenId path variable ...")`,**不**走 `handleIllegalArgumentException` 的 10102 分流。所以非法 OpenID 路径拿到的是 **`code=10106` 而非 `10102`**。两种合理,但跟 issue #1 的优先级 3 提案不完全一致。看到这个不要误以为又是 v1.1.2 的 IAE bug。
+`OpenIdPathVariableArgumentResolver` 在 `IdObfuscator.fromOpenId()` 抛 IAE 时主动 `throw new ApiException(ApiCode.BUSINESS_RULE_ERROR, "Invalid @OpenId path variable ...")`,**不**走 `handleIllegalArgumentException` 的 10102 分流。所以非法 OpenID 路径拿到的是 **`code=10106` 而非 `10102`**。两种合理,但跟 issue #1 的优先级 3 提案不完全一致。看到这个不要误以为又是 v1.2.1 之前的 IAE bug。
 
 ## Common commands
 

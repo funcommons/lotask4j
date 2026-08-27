@@ -133,15 +133,29 @@ function pickMockResponse(config: MockConfig): unknown | undefined {
 }
 
 /**
- * 在 axios response 拦截器最前短路命中. 让真实业务代码零改动.
- * mock 数据不带 code 字段, 业务拦截器按「无 envelope 直通」返回.
+ * axios adapter 层短路 — 命中 mock 的请求完全不走网络 (无后端也能跑 UI).
+ * (benefit4j 原版挂 response 拦截器, 依赖后端真实返回 200 后替换 body;
+ *  lotask4j dev 环境常无后端, 网络层直接失败 response 拦截器不会触发,
+ *  故改为 adapter: 命中即合成 response, 未命中回落原 adapter。)
+ * mock 数据不带 code 字段, 业务拦截器按「无 envelope 直通」返回。
  */
 export function installDevMock(instance: AxiosInstance): void {
-  instance.interceptors.response.use((response) => {
-    const mock = pickMockResponse(response.config as MockConfig)
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const originalAdapter = instance.defaults.adapter
+  instance.defaults.adapter = async (config) => {
+    const mock = pickMockResponse(config as MockConfig)
     if (mock !== undefined) {
-      return { ...response, data: mock, status: 200, statusText: 'OK' } as typeof response
+      return {
+        data: mock,
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      }
     }
-    return response
-  })
+    if (typeof originalAdapter === 'function') {
+      return originalAdapter(config)
+    }
+    throw new Error(`[dev-mock] no adapter available for ${config.url}`)
+  }
 }

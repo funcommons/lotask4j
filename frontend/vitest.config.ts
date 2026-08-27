@@ -15,6 +15,8 @@ export default defineConfig({
     },
   },
   test: {
+    // 只跑 src 下的单测; e2e/** 是 playwright 的 (*.spec.ts 同名后缀, 排除之)
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
     environment: 'jsdom',
     // jsdom 29: opaque origin (about:blank) 下 localStorage 为 undefined, 必须给真实 URL
     environmentOptions: {

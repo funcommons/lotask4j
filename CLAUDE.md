@@ -6,20 +6,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is the monorepo for **lotask4j 异步慢任务服务 (ASTS) — Asynchronous Slow Task Service**: a distributed platform for executing long-running (>10s) business logic (data export, video transcoding, etc.) with real-time progress reporting, cancellation, and a visual admin backend. The README.md is the authoritative project overview, run instructions, and architecture diagram — read it first for the high-level picture.
 
-The repo root holds five sibling modules (no parent `pom.xml`, no npm workspaces — each module builds independently):
+The repo root holds sibling modules (no parent `pom.xml` at root, no npm workspaces — each module builds independently). **`frontend/` is the current, authoritative frontend** (2026-08 起取代下列三个旧前端; 旧目录保留并行, 不再演进):
 
 | Module | Stack | Purpose |
 |--------|-------|---------|
-| `lotask4j-backend` | Spring Boot 3.2.x / JDK 17+ / Maven | REST API server on **port 8080** — exposes client/worker/admin/web-embed APIs, scheduled jobs. `fun.commons.lotask4j.*` package root. |
+| `lotask4j-backend` | Spring Boot 3.5.x / JDK 17+ / Maven | REST API server on **port 9080** — exposes client/worker/admin/web-embed APIs, scheduled jobs, client_credentials auth. `fun.commons.lotask4j.*` package root. |
 | `lotask4j-demo` | Spring Boot / Maven | Standalone example showing how to integrate as a **client** (submit/get/cancel tasks) and as a **worker** (poll + execute). Separate from backend. |
-| `lotask4j-frontend` | React 18 + Vite + TypeScript + Antd + Zustand | Main user console. Dev port **9081**; proxies `/api` → `:9080`, `/web-embed` → `:9082`. |
-| `lotask4j-admin-frontend` | Vue 3 + Vite | Admin UI for task/worker/configuration management. |
-| `lotask4j-web-embed-frontend` | Vue 3 + Vite | Embeddable task-list widget served **by the backend** as static assets. |
+| `frontend` | **Vue 3.5 + Vite 7 + TS + Element Plus + Pinia + pnpm@9.12** | 统一前端: 控制台 + 管理后台 + 嵌入组件 (单仓多模式构建)。基于 benefit4j/frontend copy-裁剪-改造。Dev port **9083**; proxies `/api` `/web-embed` `/swagger-ui` → `:9080`。 |
+| `lotask4j-frontend` | *(legacy)* React 18 + Antd | 旧主控制台 (残缺)。已被 `frontend` 取代。 |
+| `lotask4j-admin-frontend` | *(legacy)* Vue 3 | 旧管理后台 (**package.json 已丢失, 无法构建**)。已被 `frontend` 取代。 |
+| `lotask4j-web-embed-frontend` | *(legacy)* Vue 3 | 旧嵌入组件。已被 `frontend` 的 `--mode embed` 构建取代。 |
 
 ## Important non-obvious facts
 
 - **No parent POM at the repo root.** The backend's `pom.xml` declares `<parent>fun.commons.lotask4j:lotask4j-parent:1.0.0-SNAPSHOT</parent>`, which is resolved from the **company's internal Maven repository** (configured via `~/.m2/settings.xml`). Building locally without that mirror configured will fail at dependency resolution.
-- **The embed widget is bundled into the backend JAR.** The web-embed frontend is built (`npm run build`) and its `dist/` copied into `lotask4j-backend/src/main/resources/static/web-embed/`. The backend serves those static files from the same Spring Boot process. **Build the embed frontend before packaging the backend**, or the embed widget will be stale/missing.
+- **The embed widget is bundled into the backend JAR.** `cd frontend && pnpm build:embed && pnpm sync-embed` builds `dist-embed/` (base `/web-embed/`) and copies it into `lotask4j-backend/src/main/resources/static/web-embed/` (该目录 gitignore, 本地重建)。**Build embed before packaging the backend**, or the embed widget will be stale/missing.
+- **ADMIN 域需要 Bearer token。** `POST /api/v1/auth/token` (form-encoded, `grant_type=client_credentials&client_id=ADMIN&client_secret=...`) 签发; `@RequiresToken("ADMIN")` 挂在 `AdminTaskController` + `AdminWebEmbedController`, 无 token → HTTP 401。secret 走环境变量 `ADMIN_CLIENT_SECRET` (空值回落 `lotask4j-admin-dev-secret` + 启动 WARN)。client/worker 域**无**门禁 (demo 与 embed cookie 兼容)。asts_application 表预留 client 凭据。
+- **frontend dev 零后端可跑**: dev-mock 走 axios **adapter 层**短路 (`src/mock/dev-interceptor.ts`), 拦截 auth/client/admin/embed-config 只读端点; 命中即合成 response, 不走网络。
+- **frontend 的 SDK 组件是零改动豁免区**: `src/components/sdk/**` 与 `src/views/dev/**` 来自 benefit4j, eslint 已豁免; **12 个 SDK 测试套件上游已红** (element-plus 类名漂移 + jsdom 29, 与 benefit4j 原仓同败), 已从默认 vitest 排除, `pnpm test:sdk` 可观察。���务代码必须用 Fc* 组件 / fc-* class (eslint 强制)。
 - **README references `documents/` and `MAVEN_INIT_GUIDE.md` — neither exists in this repo.** They live elsewhere (likely an internal wiki). Do not waste time hunting for them here.
 - **ID generation is centralised in the `fun.commons.fwk4j:fwk4j-sdk`-compatible SDK (migrated to `com.github.funcommons.framework4j:framework4j-all`)**, not implemented in this repo. Production uses the Redis worker strategy (`framework4j.id.worker.strategy: redis`); local dev can use `ip`. The backend excludes MyBatis Plus, DataSource, and Redisson auto-configurations explicitly in `application.yml` so the SDK's own beans wire up cleanly.
 - **JaCoCo is enforced at ≥75% line coverage per package** at the `jacoco-check` phase. A green `mvn test` is not enough — coverage must clear the gate.
@@ -157,21 +161,26 @@ mvn spring-boot:run                                   # runs DemoApplication, se
 
 See `WORKER_MIGRATION_GUIDE.md` in that module for the worker heartbeat migration instructions.
 
-### Frontends (each one is independent)
+### Frontend (`frontend/` — pnpm, 当前唯一维护的前端)
 
 ```bash
-cd lotask4j-frontend                # user console — dev :9081
-cd lotask4j-admin-frontend          # admin UI
-cd lotask4j-web-embed-frontend      # embed widget — build output is consumed by backend
-
-npm install
-npm run dev              # vite dev server
-npm run build            # tsc + vite build → dist/
-npm run lint             # eslint
-npm run type-check       # tsc --noEmit
+cd frontend
+pnpm install
+pnpm dev                 # vite dev server :9083 (零后端可跑, dev-mock adapter 短路)
+pnpm verify              # typecheck (vue-tsc) + eslint + vitest — 提交前必过
+pnpm build               # 主应用 → dist/ (base '/')
+pnpm build:embed         # 嵌入组件 → dist-embed/ (base '/web-embed/', 仅 /embed/* 路由)
+pnpm sync-embed          # dist-embed/ → backend static/web-embed/ (gitignore, 本地重建)
+pnpm test                # vitest (SDK 上游红名单已排除)
+pnpm test:sdk            # SDK 全量测试 (含上游已红套件, 观察用)
+pnpm test:e2e:smoke      # playwright smoke (需先 pnpm dev; 走 dev-mock 无需后端)
 ```
 
-**Deploy order:** build `lotask4j-web-embed-frontend` first, copy its `dist/` into `lotask4j-backend/src/main/resources/static/web-embed/`, then build the backend.
+**Deploy order:** `pnpm build:embed && pnpm sync-embed` first, then build the backend (embed 产物随 JAR 发布)。
+
+**Frontend conventions:** 页面在 `src/views/lotask/` (业务) 与 `src/views/dev/` (参考页, 零改动豁免); i18n 文案按域放 `src/locales/pages/{tasks,system,guides,embed}.{zh,en}.ts`; API 层 `src/api/{client,admin,embedConfig,worker,auth}.ts` (统一 http client, envelope 已解包, **embed-config 分页例外用 `items`**); 新页面找最接近的页 COPY 改造, 禁从 0 写; SDK 规则见 eslint (`Fc*` 组件 / `fc-*` class 强制)。
+
+*(旧三前端 lotask4j-frontend / lotask4j-admin-frontend / lotask4j-web-embed-frontend 已废弃保留并行, 勿在其中开发。)*
 
 ## When you change things
 

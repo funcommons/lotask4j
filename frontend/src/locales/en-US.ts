@@ -97,7 +97,7 @@ export default {
     resize: 'Drag to resize',
   },
   app: {
-    name: 'Visual Unified Scaffold',
+    name: 'lotask4j',
   },
   api: {
     'request-failed': 'Request failed',

@@ -97,7 +97,7 @@ export default {
     resize: '拖拽调整大小',
   },
   app: {
-    name: '视觉统一手脚架',
+    name: 'lotask4j',
   },
   api: {
     'request-failed': '请求失败',

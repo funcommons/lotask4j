@@ -10,6 +10,21 @@
         finished_at, expired_at, is_deleted
     </sql>
 
+    <!-- P0 扩展字段映射（包含乐观锁、execution_token、lease、attempt、idempotency 等） -->
+    <sql id="P0_Column_List">
+        id, task_type_key, status, priority,
+        attempt, max_attempts, next_run_at,
+        version,
+        execution_id, execution_token, worker_id, worker_ip, lease_expire_at,
+        requested_cancel_at, last_error_code, last_error_message,
+        idempotency_key,
+        callback_url, callback_status,
+        progress, current_step_key, current_step_progress,
+        steps_detail, payload, result, error_msg,
+        created_at, updated_at, started_at, finished_at,
+        expired_at, is_deleted
+    </sql>
+
     <!-- 获取待处理任务数 -->
     <select id="countPendingTasks" resultType="java.lang.Long">
         SELECT COUNT(*) FROM asts_task
@@ -24,7 +39,7 @@
         WHERE status = 'RUNNING' AND is_deleted = 0
     </select>
 
-    <!-- 重置超时的任务为 PENDING -->
+    <!-- 重置超时的任务为 PENDING（旧协议，按 updated_at） -->
     <update id="resetTimeoutTasks" parameterType="java.lang.Integer">
         UPDATE asts_task
         SET status = 'PENDING',
@@ -37,14 +52,25 @@
         RETURNING id
     </update>
 
-    <!-- 任务完整 ResultMap（包含 JOIN 查询的 type_name 和 timeoutSeconds） -->
+    <!-- 任务完整 ResultMap（含 type_name、timeoutSeconds 与 P0 扩展字段） -->
     <resultMap id="TaskWithTypeNameResultMap" type="fun.commons.lotask4j.entity.AstTask">
         <id column="id" property="id"/>
         <result column="task_type_key" property="taskTypeKey"/>
         <result column="status" property="status"/>
         <result column="priority" property="priority"/>
-        <result column="retry_count" property="retryCount"/>
+        <result column="attempt" property="attempt"/>
+        <result column="max_attempts" property="maxAttempts"/>
+        <result column="next_run_at" property="nextRunAt"/>
+        <result column="version" property="version"/>
+        <result column="execution_id" property="executionId"/>
+        <result column="execution_token" property="executionToken"/>
+        <result column="worker_id" property="workerId"/>
         <result column="worker_ip" property="workerIp" typeHandler="fun.commons.lotask4j.config.PostgreSqlInetTypeHandler"/>
+        <result column="lease_expire_at" property="leaseExpireAt"/>
+        <result column="requested_cancel_at" property="requestedCancelAt"/>
+        <result column="last_error_code" property="lastErrorCode"/>
+        <result column="last_error_message" property="lastErrorMessage"/>
+        <result column="idempotency_key" property="idempotencyKey"/>
         <result column="callback_url" property="callbackUrl"/>
         <result column="callback_status" property="callbackStatus"/>
         <result column="progress" property="progress"/>
@@ -60,7 +86,7 @@
         <result column="finished_at" property="finishedAt"/>
         <result column="expired_at" property="expiredAt"/>
         <result column="is_deleted" property="isDeleted"/>
-        <!-- JOIN 查询的类型名称和超时配置 -->
+        <!-- JOIN 查询字段 -->
         <result column="type_name" property="typeName"/>
         <result column="timeout_seconds" property="timeoutSeconds"/>
     </resultMap>
@@ -68,10 +94,15 @@
     <!-- 根据任务 ID 查询任务（包含类型名称和超时配置） -->
     <select id="selectByIdWithTypeName" resultMap="TaskWithTypeNameResultMap">
         SELECT
-            t.id, t.task_type_key, t.status, t.priority, t.retry_count,
-            t.worker_ip, t.callback_url, t.callback_status, t.progress,
-            t.current_step_key, t.current_step_progress, t.steps_detail,
-            t.payload, t.result, t.error_msg,
+            t.id, t.task_type_key, t.status, t.priority,
+            t.attempt, t.max_attempts, t.next_run_at,
+            t.version,
+            t.execution_id, t.execution_token, t.worker_id, t.worker_ip, t.lease_expire_at,
+            t.requested_cancel_at, t.last_error_code, t.last_error_message,
+            t.idempotency_key,
+            t.callback_url, t.callback_status,
+            t.progress, t.current_step_key, t.current_step_progress,
+            t.steps_detail, t.payload, t.result, t.error_msg,
             t.created_at, t.updated_at, t.started_at, t.finished_at, t.expired_at, t.is_deleted,
             c.type_name,
             c.exec_timeout_sec as timeout_seconds
@@ -83,13 +114,42 @@
         LIMIT 1
     </select>
 
+    <!-- 按幂等键查询（命中唯一约束） -->
+    <select id="findByIdempotencyKey" resultMap="TaskWithTypeNameResultMap">
+        SELECT
+            t.id, t.task_type_key, t.status, t.priority,
+            t.attempt, t.max_attempts, t.next_run_at,
+            t.version,
+            t.execution_id, t.execution_token, t.worker_id, t.worker_ip, t.lease_expire_at,
+            t.requested_cancel_at, t.last_error_code, t.last_error_message,
+            t.idempotency_key,
+            t.callback_url, t.callback_status,
+            t.progress, t.current_step_key, t.current_step_progress,
+            t.steps_detail, t.payload, t.result, t.error_msg,
+            t.created_at, t.updated_at, t.started_at, t.finished_at, t.expired_at, t.is_deleted,
+            c.type_name,
+            c.exec_timeout_sec as timeout_seconds
+        FROM asts_task t
+        LEFT JOIN asts_task_type_config c
+            ON t.task_type_key = c.type_key AND c.is_deleted = 0
+        WHERE t.task_type_key = #{taskTypeKey}
+          AND t.idempotency_key = #{idempotencyKey}
+          AND t.is_deleted = 0
+        LIMIT 1
+    </select>
+
     <!-- 查询任务列表（包含类型名称和超时配置，不含大字段 payload/result） -->
     <select id="selectListWithTypeName" resultMap="TaskWithTypeNameResultMap">
         SELECT
-            t.id, t.task_type_key, t.status, t.priority, t.retry_count,
-            t.worker_ip, t.callback_url, t.callback_status, t.progress,
-            t.current_step_key, t.current_step_progress, t.steps_detail,
-            t.error_msg,
+            t.id, t.task_type_key, t.status, t.priority,
+            t.attempt, t.max_attempts, t.next_run_at,
+            t.version,
+            t.execution_id, t.execution_token, t.worker_id, t.worker_ip, t.lease_expire_at,
+            t.requested_cancel_at, t.last_error_code, t.last_error_message,
+            t.idempotency_key,
+            t.callback_url, t.callback_status,
+            t.progress, t.current_step_key, t.current_step_progress,
+            t.steps_detail, t.error_msg,
             t.created_at, t.updated_at, t.started_at, t.finished_at, t.expired_at, t.is_deleted,
             c.type_name,
             c.exec_timeout_sec as timeout_seconds
@@ -109,10 +169,15 @@
     <!-- 分页查询任务列表（包含类型名称和超时配置，不含大字段 payload/result） -->
     <select id="selectPageWithTypeName" resultMap="TaskWithTypeNameResultMap">
         SELECT
-            t.id, t.task_type_key, t.status, t.priority, t.retry_count,
-            t.worker_ip, t.callback_url, t.callback_status, t.progress,
-            t.current_step_key, t.current_step_progress, t.steps_detail,
-            t.error_msg,
+            t.id, t.task_type_key, t.status, t.priority,
+            t.attempt, t.max_attempts, t.next_run_at,
+            t.version,
+            t.execution_id, t.execution_token, t.worker_id, t.worker_ip, t.lease_expire_at,
+            t.requested_cancel_at, t.last_error_code, t.last_error_message,
+            t.idempotency_key,
+            t.callback_url, t.callback_status,
+            t.progress, t.current_step_key, t.current_step_progress,
+            t.steps_detail, t.error_msg,
             t.created_at, t.updated_at, t.started_at, t.finished_at, t.expired_at, t.is_deleted,
             c.type_name,
             c.exec_timeout_sec as timeout_seconds
@@ -214,6 +279,7 @@
               AND task_type_key = #{taskType}
               AND is_deleted = 0
               AND (expired_at IS NULL OR expired_at > CURRENT_TIMESTAMP)
+              AND (next_run_at IS NULL OR next_run_at &lt;= CURRENT_TIMESTAMP)
             ORDER BY
               <choose>
                   <when test="strategy == 'FIFO'">
@@ -236,7 +302,7 @@
         RETURNING t.*
     </select>
 
-    <!-- 更新任务进度 -->
+    <!-- 更新任务进度（旧接口，逐步弃用） -->
     <update id="updateTaskProgress">
         UPDATE asts_task
         SET current_step_key = #{currentStepKey},
@@ -249,7 +315,7 @@
           AND is_deleted = 0
     </update>
 
-    <!-- 更新任务最终结果 -->
+    <!-- 更新任务最终结果（旧接口，逐步弃用） -->
     <update id="updateTaskResult">
         UPDATE asts_task
         SET status = #{status},
@@ -280,8 +346,13 @@
     <!-- 插入任务 (显式处理 JSONB 字段) -->
     <insert id="insertTask">
         INSERT INTO asts_task (
-            id, task_type_key, status, priority, retry_count,
-            worker_ip, callback_url, callback_status,
+            id, task_type_key, status, priority,
+            attempt, max_attempts, next_run_at,
+            version,
+            execution_id, execution_token, worker_id, worker_ip, lease_expire_at,
+            requested_cancel_at, last_error_code, last_error_message,
+            idempotency_key,
+            callback_url, callback_status,
             progress, current_step_key, current_step_progress,
             steps_detail, payload, result,
             error_msg, created_at, updated_at, started_at, finished_at, expired_at,
@@ -291,8 +362,19 @@
             #{task.taskTypeKey},
             #{task.status},
             #{task.priority},
-            #{task.retryCount},
+            1,                   -- attempt default
+            COALESCE(#{task.maxAttempts}, 1),
+            NULL,                -- next_run_at
+            0,                   -- version
+            NULL,                -- execution_id
+            NULL,                -- execution_token
+            NULL,                -- worker_id
             #{task.workerIp}::inet,
+            NULL,                -- lease_expire_at
+            NULL,                -- requested_cancel_at
+            NULL,                -- last_error_code
+            NULL,                -- last_error_message
+            #{task.idempotencyKey},
             #{task.callbackUrl},
             #{task.callbackStatus},
             #{task.progress},
@@ -310,5 +392,175 @@
             #{task.isDeleted}
         )
     </insert>
+
+    <!-- ====================================================================== -->
+    <!-- P0 CAS SQL：以乐观锁 (version) 与 fencing token (execution_token)        -->
+    <!-- 抑制并发写。所有 CAS SQL 影响行数 = 0 表示竞争失败。                      -->
+    <!-- ====================================================================== -->
+
+    <!-- PENDING/CANCELLING → DISPATCHED (CAS by version) -->
+    <update id="dispatchTask">
+        UPDATE asts_task
+        SET status = 'RUNNING',
+            version = version + 1,
+            worker_id = #{workerId},
+            execution_id = #{executionId},
+            execution_token = #{executionToken},
+            lease_expire_at = #{now} + (#{leaseSeconds} || ' seconds')::INTERVAL,
+            updated_at = #{now}
+        WHERE id = #{id}
+          AND version = #{expectedVersion}
+          AND status IN ('PENDING', 'CANCELLING')
+          AND is_deleted = 0
+    </update>
+
+    <!-- DISPATCHED → RUNNING（实际上 dispatch 已设为 RUNNING；startExecution 仅补 started_at 与 fencing 确认） -->
+    <update id="startExecution">
+        UPDATE asts_task
+        SET status = 'RUNNING',
+            version = version + 1,
+            started_at = COALESCE(started_at, #{startedAt}),
+            updated_at = #{startedAt}
+        WHERE id = #{id}
+          AND version = #{expectedVersion}
+          AND execution_token = #{executionToken}
+          AND status = 'RUNNING'
+          AND is_deleted = 0
+    </update>
+
+    <!-- 续约 (CAS by version + token) -->
+    <update id="extendLease">
+        UPDATE asts_task
+        SET lease_expire_at = #{now} + (#{leaseSeconds} || ' seconds')::INTERVAL,
+            updated_at = #{now}
+        WHERE id = #{id}
+          AND version = #{expectedVersion}
+          AND execution_token = #{executionToken}
+          AND status = 'RUNNING'
+          AND is_deleted = 0
+    </update>
+
+    <!-- 进度上报 (CAS by version + token) -->
+    <update id="progressWithVersion">
+        UPDATE asts_task
+        SET current_step_key = #{currentStepKey},
+            current_step_progress = #{stepProgress},
+            steps_detail = #{stepsDetail}::jsonb,
+            progress = #{globalProgress},
+            updated_at = #{now}
+        WHERE id = #{id}
+          AND version = #{expectedVersion}
+          AND execution_token = #{executionToken}
+          AND status IN ('RUNNING', 'CANCELLING')
+          AND is_deleted = 0
+    </update>
+
+    <!-- 终态提交 (CAS by version + token) -->
+    <update id="completeWithToken">
+        UPDATE asts_task
+        SET status = #{finalStatus},
+            version = version + 1,
+            result = COALESCE(#{resultJson}::jsonb, result),
+            error_msg = COALESCE(NULLIF(#{errorMsg}, ''), error_msg),
+            last_error_code = COALESCE(NULLIF(#{lastErrorCode}, ''), last_error_code),
+            last_error_message = COALESCE(NULLIF(#{lastErrorMessage}, ''), last_error_message),
+            progress = CASE
+                WHEN #{finalStatus} = 'SUCCESS' THEN 100
+                ELSE progress
+            END,
+            finished_at = #{now},
+            updated_at = #{now}
+        WHERE id = #{id}
+          AND version = #{expectedVersion}
+          AND execution_token = #{executionToken}
+          AND status IN ('RUNNING', 'CANCELLING')
+          AND is_deleted = 0
+    </update>
+
+    <!-- 用户请求取消 (CAS by version) — 不要求 token -->
+    <update id="markCancelRequested">
+        UPDATE asts_task
+        SET status = 'CANCELLING',
+            version = version + 1,
+            requested_cancel_at = #{requestedCancelAt},
+            updated_at = #{now}
+        WHERE id = #{id}
+          AND version = #{expectedVersion}
+          AND status IN ('PENDING', 'RUNNING')
+          AND is_deleted = 0
+    </update>
+
+    <!-- Worker 确认取消 (CAS by version + token) -->
+    <update id="confirmCancel">
+        UPDATE asts_task
+        SET status = 'CANCELLED',
+            version = version + 1,
+            finished_at = #{now},
+            updated_at = #{now}
+        WHERE id = #{id}
+          AND version = #{expectedVersion}
+          AND execution_token = #{executionToken}
+          AND status = 'CANCELLING'
+          AND is_deleted = 0
+    </update>
+
+    <!-- Reaper：lease 过期任务批量回退 -->
+    <update id="resetExpiredLeases">
+        UPDATE asts_task
+        SET status = CASE
+                WHEN attempt &lt; max_attempts THEN 'PENDING'
+                ELSE 'FAILED'
+            END,
+            version = version + 1,
+            -- 如果要重试，attempt + 1；否则 attempt 保持
+            attempt = CASE
+                WHEN attempt &lt; max_attempts THEN attempt + 1
+                ELSE attempt
+            END,
+            execution_id = NULL,
+            execution_token = NULL,
+            lease_expire_at = NULL,
+            worker_id = NULL,
+            worker_ip = NULL,
+            last_error_code = CASE
+                WHEN attempt &gt;= max_attempts THEN 'PO_TIMEOUT'
+                ELSE COALESCE(last_error_code, 'LEASE_EXPIRED')
+            END,
+            last_error_message = CASE
+                WHEN attempt &gt;= max_attempts THEN 'execution lease expired and max attempts reached'
+                ELSE COALESCE(last_error_message, 'execution lease expired, will be retried')
+            END,
+            finished_at = CASE
+                WHEN attempt &gt;= max_attempts THEN #{now}
+                ELSE finished_at
+            END,
+            updated_at = #{now}
+        WHERE status = 'RUNNING'
+          AND lease_expire_at IS NOT NULL
+          AND lease_expire_at &lt; #{leaseCutoff}
+          AND is_deleted = 0
+    </update>
+
+    <!-- 列出 lease 已过期的 RUNNING 任务（监控） -->
+    <select id="selectExpiredRunning" resultType="fun.commons.lotask4j.entity.AstTask">
+        SELECT <include refid="Base_Column_List"/>
+        FROM asts_task
+        WHERE status = 'RUNNING'
+          AND lease_expire_at IS NOT NULL
+          AND lease_expire_at &lt; #{leaseCutoff}
+          AND is_deleted = 0
+        ORDER BY lease_expire_at ASC
+        LIMIT 100
+    </select>
+
+    <!-- P1-5: 统计某任务类型未完成任务数 (PENDING + RUNNING, 排除过期/已删除/已 archive) -->
+    <select id="countInFlightByType" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM asts_task
+        WHERE task_type_key = #{taskType}
+          AND status IN ('PENDING', 'RUNNING', 'CANCELLING')
+          AND is_deleted = 0
+          AND (expired_at IS NULL OR expired_at > CURRENT_TIMESTAMP)
+    </select>
 
 </mapper>

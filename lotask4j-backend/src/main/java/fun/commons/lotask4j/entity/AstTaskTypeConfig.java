@@ -42,6 +42,13 @@ public class AstTaskTypeConfig {
     private Integer concurrencyLimit;
 
     /**
+     * 任务队列深度上限 (P1-5)。
+     * PENDING + RUNNING 数量超过此值时, submit 返 QUEUE_FULL。
+     */
+    @TableField("max_queued")
+    private Integer maxQueued;
+
+    /**
      * 任务超时时间(秒)
      */
     @TableField("exec_timeout_sec")

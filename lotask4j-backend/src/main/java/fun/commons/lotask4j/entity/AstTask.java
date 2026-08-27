@@ -18,6 +18,10 @@ import java.util.Map;
 /**
  * 异步任务核心实体类
  *
+ * P0 增强：乐观锁 (version)、execution_token (fencing)、lease 字段、attempt、
+ *         idempotency_key、cancel request 时间。所有状态变更都走
+ *         {@code TaskStateMachine}，通过 CAS (version + token) 保证一致性。
+ *
  * @author lotask4j-team
  * @version 1.0.0
  */
@@ -53,15 +57,72 @@ public class AstTask implements Serializable {
     private Integer priority = 0;
 
     /**
-     * 重试次数
+     * 当前尝试次数 (从 1 开始,首次提交后 attempt=1, 失败重试时递增)
      */
-    private Integer retryCount = 0;
+    private Integer attempt = 1;
 
     /**
-     * 当前执行该任务的 Worker IP
+     * 最大尝试次数 (来自 task_type_config.max_retry_count, 缺省 1)
+     */
+    private Integer maxAttempts = 1;
+
+    /**
+     * 下一次可执行时间 (重试时的调度时刻)
+     */
+    private OffsetDateTime nextRunAt;
+
+    /**
+     * 乐观锁版本号 (CAS)。每次状态变更 +1。
+     * 注意：未使用 MyBatis Plus 的 @Version 注解 — 我们通过专属 CAS mapper SQL 自己管理，
+     * 避免与 MP 的乐观锁插件与自定义 CAS SQL 重复叠加。
+     */
+    private Integer version = 0;
+
+    /**
+     * 当前执行的 execution ID (派发时分配,每次 dispatch 都生成新值)
+     */
+    private Long executionId;
+
+    /**
+     * 当前 Worker 持有的 fencing token (派发时递增, Worker 上报时匹配)
+     */
+    private Long executionToken;
+
+    /**
+     * 当前执行该任务的 Worker 实例 ID
+     */
+    private String workerId;
+
+    /**
+     * 当前执行的 Worker IP (兼底运维可读, 业务侧主要认 workerId)
      */
     @TableField(value = "worker_ip", typeHandler = PostgreSqlInetTypeHandler.class)
     private String workerIp;
+
+    /**
+     * 租约到期时间。Worker 心跳续约, lease 过期未续 → Reaper 回退。
+     */
+    private OffsetDateTime leaseExpireAt;
+
+    /**
+     * 用户请求取消的时间 (用于审计 + 让 Worker 知道什么时候被取消)
+     */
+    private OffsetDateTime requestedCancelAt;
+
+    /**
+     * 上次错误码 (与 BusinessCode 对齐, 例如 10001 / 10106)
+     */
+    private String lastErrorCode;
+
+    /**
+     * 上次错误描述
+     */
+    private String lastErrorMessage;
+
+    /**
+     * 幂等键 (提交时透传, 同 key 同 type 拒绝重复创建, 返回首次任务 ID)
+     */
+    private String idempotencyKey;
 
     /**
      * Webhook 回调地址

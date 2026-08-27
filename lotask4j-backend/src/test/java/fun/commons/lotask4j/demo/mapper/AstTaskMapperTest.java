@@ -36,7 +36,7 @@ class AstTaskMapperTest {
         task.setTaskTypeKey("data_export");
         task.setStatus("PENDING");
         task.setPriority(10);
-        task.setRetryCount(0);
+        // retryCount 已迁移到 attempt/maxAttempts（P0）
         task.setProgress(0);
         task.setCurrentStepProgress(0);
 

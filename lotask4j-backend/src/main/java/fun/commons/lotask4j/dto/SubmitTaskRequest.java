@@ -12,6 +12,8 @@ import java.util.Map;
 /**
  * 提交任务请求 DTO
  *
+ * P0 增强：支持幂等键（idempotencyKey）、最大尝试次数（maxAttempts）
+ *
  * @author lotask4j-team
  * @version 1.0.0
  */
@@ -46,6 +48,15 @@ public class SubmitTaskRequest {
     @Max(value = 100, message = "优先级最大值为 100")
     @Schema(description = "任务优先级 (0-100)", example = "10")
     private Integer priority = 0;
+
+    /**
+     * 幂等键（P0-5）。同 (type, idempotencyKey) 重复提交返首次任务 ID。
+     * 客户端常用 UUID/GUID，幂等键有效期建议 ≤ 7 天。
+     */
+    @Size(max = 128, message = "幂等键长度不应超过 128 字符")
+    @Schema(description = "幂等键 (相同任务类型下,同 key 重复提交会返回已存在任务 ID)",
+            example = "ord-2024-01-01-abcd")
+    private String idempotencyKey;
 
     /**
      * Webhook 回调地址 (可选)

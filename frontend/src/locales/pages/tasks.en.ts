@@ -1,0 +1,193 @@
+/** lotask4j page copy — tasks domain (English). Key space: lotask.tasks.* */
+export const tasks = {
+  // —— Dashboard ——
+  dashboard: {
+    realtimeStatus: 'Real-time Task Status',
+    todayStats: 'Today Task Statistics',
+    workerStatus: 'Worker Node Status',
+    pendingTasks: 'Pending Tasks',
+    runningTasks: 'Running Tasks',
+    onlineWorkers: 'Online Workers',
+    successToday: 'Today Success',
+    failedToday: 'Today Failed',
+    cancelledToday: 'Today Cancelled',
+    totalToday: 'Today Total',
+    successRate: 'Success Rate',
+    nodeDistribution: 'Node Distribution',
+    onlineNode: 'Online Nodes',
+    offlineNode: 'Offline Nodes',
+    onlineRate: 'Node Online Rate',
+    devResources: 'Dev Resources',
+    swaggerTitle: 'OpenAPI Docs',
+    swaggerDesc: 'Browse the full RESTful API documentation',
+  },
+
+  // —— ActiveTasks ——
+  active: {
+    title: 'Active Tasks',
+    empty: 'No active tasks',
+    tip: 'Live: refreshes every 2s | Max 50 active tasks | Click card to view detail',
+    stats: {
+      running: 'Running',
+      pending: 'Pending',
+      total: 'Total Active',
+    },
+    card: {
+      priority: 'Priority',
+      runningFor: 'Running for',
+      waitingFor: 'Waiting for',
+      expired: 'Expired',
+      expireIn: 'Expires in',
+      viewDetail: 'View Detail',
+      minutes: 'min',
+      hours: 'h',
+      days: 'd',
+      after: '',
+    },
+  },
+
+  // —— TaskList ——
+  list: {
+    title: 'Task List',
+    id: 'ID',
+    type: 'Type',
+    status: 'Status',
+    progress: 'Progress',
+    createdAt: 'Created',
+    filter: {
+      allStatus: 'All Status',
+      pending: 'Pending',
+      running: 'Running',
+      success: 'Success',
+      failed: 'Failed',
+      cancelled: 'Cancelled',
+    },
+    action: {
+      refresh: 'Refresh',
+      view: 'View',
+      cancel: 'Cancel',
+      confirming: 'Confirm cancel this task?',
+    },
+    empty: 'No tasks',
+    confirmCancel: 'Confirm Cancel',
+    cancelSuccess: 'Task cancelled',
+  },
+
+  // —— TaskListExt ——
+  listExt: {
+    tabs: {
+      current: 'Current',
+      archived: 'Archived',
+    },
+    search: {
+      taskId: 'Search Task ID',
+    },
+    filter: {
+      taskType: 'Task Type',
+      allTypes: 'All Types',
+      dateStart: 'Created From',
+      dateEnd: 'Created To',
+    },
+    column: {
+      priority: 'Priority',
+      runningTime: 'Running Time',
+      expiredAt: 'Expires At',
+      expired: 'Expired',
+      remaining: 'Remaining',
+      action: 'Action',
+    },
+    submitTask: {
+      title: 'Submit Task Manually',
+      type: 'Task Type',
+      typePlaceholder: 'e.g. data_export',
+      payload: 'Payload (JSON)',
+      payloadPlaceholder: '{\n  "key": "value"\n}',
+      priority: 'Priority',
+      callbackUrl: 'Callback URL (optional)',
+      callbackUrlPlaceholder: 'https://your-domain.com/webhook',
+      submit: 'Submit',
+      cancel: 'Cancel',
+      payloadInvalid: 'Invalid JSON payload',
+      submitSuccess: 'Task submitted successfully',
+      submitFailed: 'Failed to submit task',
+      tip: 'Manually submitted tasks default to high priority (100) for testing, debugging, or emergency retry scenarios',
+      viewDetail: 'View Task Detail',
+      submittedId: 'Task ID',
+    },
+  },
+
+  // —— TaskDetail ——
+  detail: {
+    title: 'Task Detail',
+    back: 'Back',
+    refresh: 'Refresh',
+    cancel: 'Cancel Task',
+    confirmCancel: 'Confirm Cancel',
+    cancelling: 'Cancelling...',
+    field: {
+      id: 'Task ID',
+      type: 'Task Type',
+      status: 'Status',
+      progress: 'Progress',
+      currentStep: 'Current Step',
+      priority: 'Priority',
+      workerIp: 'Worker IP',
+      createdAt: 'Created',
+      startedAt: 'Started',
+      finishedAt: 'Finished',
+    },
+    steps: {
+      title: 'Execution Steps',
+      empty: 'No steps info',
+    },
+    payload: 'Payload',
+    result: 'Result',
+    error: 'Error Message',
+    noTask: 'No task ID specified',
+  },
+
+  // —— TaskDetailExt ——
+  detailExt: {
+    stats: {
+      status: 'Status',
+      progress: 'Progress',
+      priority: 'Priority',
+      retryCount: 'Retries',
+    },
+    currentStep: 'Current Step',
+    alert: {
+      failedTitle: 'Task Execution Failed',
+      cancellingTitle: 'Task Cancelling',
+      cancellingDesc: 'Task marked as cancelling, waiting for Worker response',
+    },
+    execInfo: 'Execution Info',
+    callbackStatus: 'Callback Status',
+    callbackUrl: 'Callback URL',
+    callbackStatusMap: {
+      0: 'Not Called',
+      1: 'Callback Success',
+      2: 'Callback Failed',
+    },
+    timeInfo: 'Time Info',
+    time: {
+      updatedAt: 'Last Updated',
+      expiredAt: 'Expires At',
+      waitingDuration: 'Waiting Time',
+      execDuration: 'Execution Time',
+      totalDuration: 'Total Time',
+    },
+    steps: {
+      startTime: 'Start',
+      endTime: 'End',
+      costMs: 'Cost',
+    },
+    basicInfo: 'Basic Info',
+    copySuccess: 'Copied',
+    stepStatus: {
+      pending: 'Pending',
+      processing: 'Processing',
+      finished: 'Finished',
+      failed: 'Failed',
+    },
+  },
+}

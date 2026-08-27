@@ -19,6 +19,7 @@ export * from './useExcelPaste'
 export * from './useCommandPaletteState'
 export * from './useEmbedParams'
 export * from './useEmbedToken'
+export * from './usePolling'
 export { useIdempotentSubmit } from '@/utils/idempotency'
 export type { CommandItem } from '@/components/sdk/overlay/FcCommandPalette.vue'
 

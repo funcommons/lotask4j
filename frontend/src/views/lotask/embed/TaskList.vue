@@ -1,20 +1,274 @@
+<script setup lang="ts">
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router'
+import { getTaskList } from '@/api/client'
+import type { TaskDetail } from '@/api/types'
+import { reportHeightToParent } from '@/utils/postMessage'
+
+defineOptions({ name: 'LotaskEmbedTaskListPage' })
+
+const route = useRoute()
+const loading = ref(true)
+const tasks = ref<TaskDetail[]>([])
+const total = ref(0)
+const page = ref(1)
+const pageSize = ref(20)
+const filterStatus = ref<string>('')
+
+const filteredTasks = computed(() => {
+  if (!filterStatus.value) return tasks.value
+  return tasks.value.filter(t => t.status === filterStatus.value)
+})
+
+let stopResize: (() => void) | null = null
+
+async function loadTasks() {
+  loading.value = true
+  try {
+    const res = await getTaskList({
+      page: page.value,
+      pageSize: pageSize.value,
+      status: filterStatus.value || undefined,
+    })
+    tasks.value = res.list
+    total.value = res.total
+  } catch (err) {
+    console.error('加载任务失败:', err)
+  } finally {
+    loading.value = false
+  }
+}
+
+function getStatusClass(status: string) {
+  return `status-badge status-${status.toLowerCase()}`
+}
+
+function handleFilterChange() {
+  page.value = 1
+  loadTasks()
+}
+
+function prevPage() {
+  if (page.value > 1) {
+    page.value--
+    loadTasks()
+  }
+}
+
+function nextPage() {
+  if (page.value * pageSize.value < total.value) {
+    page.value++
+    loadTasks()
+  }
+}
+
+onMounted(() => {
+  // 支持 query 覆盖 (embed 接入方可能传入 ?status=)
+  const qStatus = route.query.status
+  if (typeof qStatus === 'string' && qStatus) {
+    filterStatus.value = qStatus
+  }
+  stopResize = reportHeightToParent()
+  loadTasks()
+})
+
+onUnmounted(() => {
+  if (stopResize) stopResize()
+})
+</script>
+
 <template>
-  <div class="lotask-page-stub">
-    <h2 class="lotask-page-stub__title">{{ t('router.embed-task-list') }}</h2>
-    <p class="lotask-page-stub__hint">Phase 3 填充: COPY benefit4j 最接近页面后改造</p>
+  <div class="task-list">
+    <div class="header">
+      <h3>任务列表</h3>
+      <div class="filters">
+        <select v-model="filterStatus" @change="handleFilterChange">
+          <option value="">全部状态</option>
+          <option value="PENDING">待处理</option>
+          <option value="RUNNING">执行中</option>
+          <option value="SUCCESS">成功</option>
+          <option value="FAILED">失败</option>
+          <option value="CANCELLING">取消中</option>
+          <option value="CANCELLED">已取消</option>
+        </select>
+        <button class="fc-button fc-button-primary" @click="loadTasks">刷新</button>
+      </div>
+    </div>
+
+    <div v-if="loading" class="spinner">加载中...</div>
+
+    <div v-else-if="tasks.length === 0" class="empty">
+      暂无任务
+    </div>
+
+    <table v-else class="task-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>类型</th>
+          <th>状态</th>
+          <th>进度</th>
+          <th>创建时间</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="task in filteredTasks" :key="task.id">
+          <td class="task-id">{{ task.id }}</td>
+          <td>{{ task.typeName || task.type }}</td>
+          <td>
+            <span :class="getStatusClass(task.status)">{{ task.status }}</span>
+          </td>
+          <td>
+            <div class="progress-bar">
+              <div class="progress-fill" :style="{ width: task.progress + '%' }"></div>
+              <span class="progress-text">{{ task.progress }}%</span>
+            </div>
+          </td>
+          <td class="time">{{ task.createdAt }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div v-if="total > pageSize" class="pagination">
+      <button class="fc-button" :disabled="page === 1" @click="prevPage">上一页</button>
+      <span>{{ page }} / {{ Math.ceil(total / pageSize) }}</span>
+      <button class="fc-button" :disabled="page * pageSize >= total" @click="nextPage">下一页</button>
+    </div>
   </div>
 </template>
 
-<script setup lang="ts">
-import { useI18n } from 'vue-i18n'
-const { t } = useI18n()
-</script>
+<style scoped>
+.task-list {
+  padding: 16px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+}
 
-<style scoped lang="scss">
-.lotask-page-stub {
-  padding: 48px 24px;
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.filters {
+  display: flex;
+  gap: 8px;
+}
+
+.filters select {
+  padding: 6px 12px;
+  border: 1px solid #d1d1d6;
+  border-radius: 6px;
+  background: white;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.spinner {
   text-align: center;
-  &__title { margin: 0 0 8px; font-size: 20px; }
-  &__hint { margin: 0; color: var(--el-text-color-secondary); font-size: 13px; }
+  padding: 40px;
+  color: #86868b;
+  font-size: 13px;
+}
+
+.task-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e5e5ea;
+}
+
+.task-table th {
+  background: #f5f5f7;
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: #86868b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.task-table td {
+  padding: 12px;
+  border-top: 1px solid #e5e5ea;
+  font-size: 13px;
+}
+
+.task-id {
+  font-family: 'SF Mono', Monaco, monospace;
+  color: #007aff;
+  font-size: 12px;
+}
+
+.time {
+  color: #86868b;
+  font-size: 12px;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.status-pending { background: #f2f2f7; color: #1d1d1f; }
+.status-running { background: #fff7e6; color: #fa8c16; }
+.status-success { background: #f6ffed; color: #52c41a; }
+.status-failed { background: #fff2f0; color: #ff4d4f; }
+.status-cancelled { background: #e5e5ea; color: #86868b; }
+.status-cancelling { background: #fff7e6; color: #fa8c16; }
+
+.progress-bar {
+  position: relative;
+  height: 18px;
+  background: #f5f5f7;
+  border-radius: 9px;
+  overflow: hidden;
+  min-width: 80px;
+}
+
+.progress-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #007aff, #5856d6);
+  transition: width 0.3s;
+}
+
+.progress-text {
+  position: relative;
+  z-index: 1;
+  display: block;
+  text-align: center;
+  line-height: 18px;
+  font-size: 11px;
+  color: #1d1d1f;
+}
+
+.empty {
+  text-align: center;
+  padding: 40px;
+  color: #86868b;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  font-size: 13px;
 }
 </style>

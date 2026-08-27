@@ -1,3 +1,8 @@
+import { tasks as tasksZh } from './pages/tasks.zh'
+import { system as systemZh } from './pages/system.zh'
+import { guides as guidesZh } from './pages/guides.zh'
+import { embed as embedZh } from './pages/embed.zh'
+
 export default {
   menu: {
     preview: '预览',
@@ -791,7 +796,7 @@ export default {
       THIRD_PARTY_ERROR: '第三方服务异常',
     },
   },
-  // —— lotask4j 业务文案 (Phase 3 持续补充) ——
+  // —— lotask4j 业务文案 (各域独立文件维护, 见 locales/pages/) ——
   lotask: {
     login: {
       'client-id-placeholder': 'Client ID',
@@ -804,5 +809,22 @@ export default {
       help: '帮助',
       dev: '开发者',
     },
+    status: {
+      pending: '等待中',
+      running: '执行中',
+      success: '成功',
+      failed: '失败',
+      cancelling: '取消中',
+      cancelled: '已取消',
+    },
+    callback: {
+      'not-called': '未回调',
+      success: '回调成功',
+      failed: '回调失败',
+    },
+    tasks: tasksZh,
+    system: systemZh,
+    guides: guidesZh,
+    embed: embedZh,
   },
 }

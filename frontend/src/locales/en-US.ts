@@ -1,3 +1,8 @@
+import { tasks as tasksEn } from './pages/tasks.en'
+import { system as systemEn } from './pages/system.en'
+import { guides as guidesEn } from './pages/guides.en'
+import { embed as embedEn } from './pages/embed.en'
+
 export default {
   menu: {
     preview: 'Preview',
@@ -791,7 +796,7 @@ export default {
       THIRD_PARTY_ERROR: 'Third-party service error',
     },
   },
-  // —— lotask4j business copy (extended in Phase 3) ——
+  // —— lotask4j business copy (per-domain files under locales/pages/) ——
   lotask: {
     login: {
       'client-id-placeholder': 'Client ID',
@@ -804,5 +809,22 @@ export default {
       help: 'Help',
       dev: 'Developer',
     },
+    status: {
+      pending: 'Pending',
+      running: 'Running',
+      success: 'Success',
+      failed: 'Failed',
+      cancelling: 'Cancelling',
+      cancelled: 'Cancelled',
+    },
+    callback: {
+      'not-called': 'Not Called',
+      success: 'Callback OK',
+      failed: 'Callback Failed',
+    },
+    tasks: tasksEn,
+    system: systemEn,
+    guides: guidesEn,
+    embed: embedEn,
   },
 }

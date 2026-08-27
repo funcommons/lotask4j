@@ -1,0 +1,193 @@
+/** lotask4j 页面文案 — tasks 域 (中文). key 空间: lotask.tasks.* */
+export const tasks = {
+  // —— Dashboard 仪表盘 ——
+  dashboard: {
+    realtimeStatus: '实时任务状态',
+    todayStats: '今日任务统计',
+    workerStatus: 'Worker 节点状态',
+    pendingTasks: '待处理任务',
+    runningTasks: '运行中任务',
+    onlineWorkers: '在线 Worker 节点',
+    successToday: '今日完成',
+    failedToday: '今日失败',
+    cancelledToday: '今日取消',
+    totalToday: '今日总计',
+    successRate: '成功率',
+    nodeDistribution: '节点分布',
+    onlineNode: '在线节点',
+    offlineNode: '离线节点',
+    onlineRate: '节点在线率',
+    devResources: '开发资源',
+    swaggerTitle: 'OpenAPI 接口文档',
+    swaggerDesc: '查看完整的 RESTful API 文档',
+  },
+
+  // —— ActiveTasks 活跃任务 ——
+  active: {
+    title: '活跃任务',
+    empty: '暂无活跃任务',
+    tip: '实时更新：每 2 秒自动刷新 | 最多显示 50 个活跃任务 | 点击卡片查看详情',
+    stats: {
+      running: '运行中任务',
+      pending: '待处理任务',
+      total: '活跃任务总数',
+    },
+    card: {
+      priority: '优先级',
+      runningFor: '已运行',
+      waitingFor: '等待中',
+      expired: '已过期',
+      expireIn: '过期',
+      viewDetail: '查看详情',
+      minutes: '分钟',
+      hours: '小时',
+      days: '天',
+      after: '后',
+    },
+  },
+
+  // —— TaskList 任务管理 (复用具名域, 跟 admin 蓝本一致) ——
+  list: {
+    title: '任务管理',
+    id: 'ID',
+    type: '类型',
+    status: '状态',
+    progress: '进度',
+    createdAt: '创建时间',
+    filter: {
+      allStatus: '全部状态',
+      pending: '待处理',
+      running: '运行中',
+      success: '成功',
+      failed: '失败',
+      cancelled: '已取消',
+    },
+    action: {
+      refresh: '刷新',
+      view: '查看详情',
+      cancel: '取消任务',
+      confirming: '确认取消该任务?',
+    },
+    empty: '暂无任务',
+    confirmCancel: '确认取消',
+    cancelSuccess: '任务已取消',
+  },
+
+  // —— TaskListExt 任务管理扩展 (tabs / 搜索 / 筛选 / 列 / 提交) ——
+  listExt: {
+    tabs: {
+      current: '当前任务',
+      archived: '归档任务',
+    },
+    search: {
+      taskId: '搜索任务 ID',
+    },
+    filter: {
+      taskType: '任务类型',
+      allTypes: '全部类型',
+      dateStart: '创建开始时间',
+      dateEnd: '创建结束时间',
+    },
+    column: {
+      priority: '优先级',
+      runningTime: '已运行时间',
+      expiredAt: '过期时间',
+      expired: '已过期',
+      remaining: '剩余',
+      action: '操作',
+    },
+    submitTask: {
+      title: '手动提交任务',
+      type: '任务类型',
+      typePlaceholder: '例如：data_export',
+      payload: '任务参数（JSON）',
+      payloadPlaceholder: '{\n  "key": "value"\n}',
+      priority: '优先级',
+      callbackUrl: '回调地址（可选）',
+      callbackUrlPlaceholder: 'https://your-domain.com/webhook',
+      submit: '提交',
+      cancel: '取消',
+      payloadInvalid: 'Payload 格式错误，请输入有效的 JSON',
+      submitSuccess: '任务提交成功',
+      submitFailed: '任务提交失败',
+      tip: '手动提交的任务默认为高优先级（100），用于测试、调试或紧急补单场景',
+      viewDetail: '查看任务详情',
+      submittedId: '任务 ID',
+    },
+  },
+
+  // —— TaskDetail 任务详情 ——
+  detail: {
+    title: '任务详情',
+    back: '返回列表',
+    refresh: '刷新',
+    cancel: '取消任务',
+    confirmCancel: '确认取消',
+    cancelling: '任务取消中...',
+    field: {
+      id: '任务 ID',
+      type: '任务类型',
+      status: '状态',
+      progress: '进度',
+      currentStep: '当前步骤',
+      priority: '优先级',
+      workerIp: '执行节点',
+      createdAt: '创建时间',
+      startedAt: '开始时间',
+      finishedAt: '完成时间',
+    },
+    steps: {
+      title: '执行步骤',
+      empty: '暂无步骤信息',
+    },
+    payload: '任务参数',
+    result: '执行结果',
+    error: '错误信息',
+    noTask: '未指定任务 ID',
+  },
+
+  // —— TaskDetailExt 详情扩展 (KPI / alert / 时间 / 步骤元信息) ——
+  detailExt: {
+    stats: {
+      status: '任务状态',
+      progress: '执行进度',
+      priority: '优先级',
+      retryCount: '重试次数',
+    },
+    currentStep: '当前步骤',
+    alert: {
+      failedTitle: '任务执行失败',
+      cancellingTitle: '任务取消中',
+      cancellingDesc: '任务已标记为取消中，等待 Worker 响应',
+    },
+    execInfo: '执行信息',
+    callbackStatus: '回调状态',
+    callbackUrl: '回调地址',
+    callbackStatusMap: {
+      0: '未回调',
+      1: '回调成功',
+      2: '回调失败',
+    },
+    timeInfo: '时间信息',
+    time: {
+      updatedAt: '最后更新',
+      expiredAt: '过期时间',
+      waitingDuration: '等待时长',
+      execDuration: '执行时长',
+      totalDuration: '总耗时',
+    },
+    steps: {
+      startTime: '开始',
+      endTime: '结束',
+      costMs: '耗时',
+    },
+    basicInfo: '基本信息',
+    copySuccess: '已复制',
+    stepStatus: {
+      pending: '待执行',
+      processing: '执行中',
+      finished: '已完成',
+      failed: '失败',
+    },
+  },
+}

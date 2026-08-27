@@ -3,6 +3,7 @@ package fun.commons.lotask4j.controller;
 import fun.commons.lotask4j.dto.WebEmbedConfigRequest;
 import fun.commons.lotask4j.dto.WebEmbedConfigResponse;
 import fun.commons.lotask4j.service.AdminWebEmbedService;
+import fun.commons.framework4j.accesstoken.annotation.RequiresToken;
 import fun.commons.framework4j.web.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,6 +28,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/admin/embed-config")
 @RequiredArgsConstructor
+@RequiresToken(value = "ADMIN")
 @Tag(name = "Admin Web Embed", description = "Web Embed 配置管理")
 public class AdminWebEmbedController {
 

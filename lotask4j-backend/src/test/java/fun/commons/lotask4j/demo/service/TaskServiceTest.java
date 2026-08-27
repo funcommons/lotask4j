@@ -42,7 +42,10 @@ class TaskServiceTest {
     private AstTaskTypeConfigMapper taskTypeConfigMapper;
 
     @Mock
-    private fun.commons.framework4j.id.generator.SnowflakeDistributor snowflakeDistributor;
+    private fun.commons.lotask4j.service.TaskStateMachine stateMachine;
+
+    @Mock
+    private fun.commons.lotask4j.service.TaskSubmitGuard submitGuard;
 
     @InjectMocks
     private TaskServiceImpl taskService;
@@ -72,16 +75,18 @@ class TaskServiceTest {
         sampleTask.setStatus("PENDING");
         sampleTask.setPriority(10);
         sampleTask.setProgress(0);
-
-        // Mock SnowflakeDistributor to return a fixed ID (lenient for tests that don't need it)
-        lenient().when(snowflakeDistributor.nextId()).thenReturn(100001L);
+        sampleTask.setVersion(0);
 
         // Mock taskTypeConfigMapper 返回 null (使用默认超时时间, lenient for tests that don't need it)
         lenient().when(taskTypeConfigMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
+        // 默认: idempotency 查找返 null
+        lenient().when(stateMachine.findByIdempotencyKey(any(), any())).thenReturn(null);
+        // 默认: 背压准入放行 (单测场景不模拟队列满)
+        lenient().doNothing().when(submitGuard).checkOrThrow(anyString());
     }
 
     @Test
-    @DisplayName("提交任务 - 成功场景")
+    @DisplayName("提交任务 - 成功场景 (P0: 由 IdWorker.nextId 分配)")
     void testSubmitTask_Success() {
         // Given: 模拟 mapper 插入成功
         when(astTaskMapper.insertTask(any(AstTask.class), anyString(), anyString())).thenReturn(1);
@@ -89,9 +94,9 @@ class TaskServiceTest {
         // When: 提交任务
         Long taskId = taskService.submitTask(validRequest);
 
-        // Then: 验证结果
+        // Then: 验证结果 (P0: 用 IdWorker 自动分配雪花 ID,不依赖 mock)
         assertNotNull(taskId, "任务ID不应为空");
-        assertEquals(100001L, taskId, "任务ID应该等于雪花ID");
+        assertTrue(taskId > 0L, "任务ID必须为正数");
 
         // 验证 mapper 被调用了一次
         verify(astTaskMapper, times(1)).insertTask(any(AstTask.class), anyString(), anyString());
@@ -172,21 +177,18 @@ class TaskServiceTest {
     }
 
     @Test
-    @DisplayName("取消任务 - 成功场景")
+    @DisplayName("取消任务 - 成功场景 (P0: 走 stateMachine.requestCancel CAS)")
     void testCancelTask_Success() {
         // Given: 任务状态为 PENDING
         sampleTask.setStatus("PENDING");
         when(astTaskMapper.selectById(100001L))
             .thenReturn(sampleTask);
-        when(astTaskMapper.updateById(any(AstTask.class))).thenReturn(1);
 
         // When: 取消任务
         taskService.cancelTask(100001L);
 
-        // Then: 验证状态被更新为 CANCELLING
-        verify(astTaskMapper, times(1)).updateById(argThat((AstTask task) ->
-            "CANCELLING".equals(task.getStatus())
-        ));
+        // Then: stateMachine.requestCancel 被调用
+        verify(stateMachine, times(1)).requestCancel(eq(100001L), eq(0));
     }
 
     @Test
@@ -200,6 +202,8 @@ class TaskServiceTest {
         assertThrows(Exception.class, () -> {
             taskService.cancelTask(100001L);
         });
+        // 终态不应调用 stateMachine
+        verify(stateMachine, never()).requestCancel(anyLong(), anyInt());
     }
 
     @Test

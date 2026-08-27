@@ -2,10 +2,14 @@ package fun.commons.lotask4j.controller;
 
 import fun.commons.lotask4j.dto.*;
 import fun.commons.lotask4j.dto.*;
+import fun.commons.lotask4j.entity.AstTaskExecutionEvent;
 import fun.commons.lotask4j.service.AdminService;
+import fun.commons.lotask4j.service.TaskEventRecorder;
+import fun.commons.framework4j.accesstoken.annotation.RequiresToken;
 import fun.commons.framework4j.web.ApiResponse;
 import fun.commons.framework4j.openid.annotation.OpenId;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,10 +26,12 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/admin")
 @RequiredArgsConstructor
+@RequiresToken(value = "ADMIN")
 @Tag(name = "Admin API", description = "管理后台接口")
 public class AdminTaskController {
 
     private final AdminService adminService;
+    private final TaskEventRecorder taskEventRecorder;
 
     /**
      * 获取在线 Worker 列表
@@ -82,6 +88,22 @@ public class AdminTaskController {
         StatsOverviewResponse response = adminService.getStatsOverview();
 
         return ApiResponse.success(response);
+    }
+
+    /**
+     * P1-3: 任务执行事件历史。
+     * 用于排查、审计、可视化任务时间线。
+     */
+    @GetMapping("/tasks/{id}/events")
+    @Operation(summary = "获取任务事件历史 (P1-3)", description = "返回该任务所有执行事件的倒序列表（默认最多 100 条）")
+    public ApiResponse<List<AstTaskExecutionEvent>> getTaskEvents(
+            @OpenId
+            @Parameter(description = "任务唯一标识", required = true, example = "YeirYkxHuQ")
+            @PathVariable("id") Long id,
+            @Parameter(description = "返回条数 (1-1000, 超出按 100 截断)")
+            @RequestParam(name = "limit", required = false, defaultValue = "100") Integer limit) {
+
+        return ApiResponse.success(taskEventRecorder.historyOf(id, limit == null ? 100 : limit));
     }
 
     /**

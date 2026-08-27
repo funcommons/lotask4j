@@ -16,6 +16,11 @@ public enum BusinessCode {
     TASK_SUBMIT_FAILED(20001, "任务提交失败"),
 
     /**
+     * P1-5: 队列已满 (max_concurrency / max_queued 触发)
+     */
+    QUEUE_FULL(20006, "任务队列已满"),
+
+    /**
      * 任务不存在 (兼容历史 20404 magic code,统一归一)
      */
     TASK_NOT_FOUND(20100, "任务不存在"),
@@ -39,7 +44,22 @@ public enum BusinessCode {
      * 任务状态非法（不允许当前操作）— 例如进度上报时任务非 RUNNING、结果上报时任务已变
      * （兼容历史 20409 magic code,统一归一）
      */
-    TASK_STATE_INVALID(20409, "任务状态已变更");
+    TASK_STATE_INVALID(20409, "任务状态已变更"),
+
+    /**
+     * 认证参数缺失 (grant_type / client_id / client_secret)
+     */
+    AUTH_PARAM_MISSING(20103, "缺少必要的认证参数"),
+
+    /**
+     * 不支持的 grant_type (仅支持 client_credentials)
+     */
+    AUTH_GRANT_TYPE_UNSUPPORTED(20104, "不支持的 grant_type, 仅支持 client_credentials"),
+
+    /**
+     * client_id 或 client_secret 无效
+     */
+    AUTH_INVALID_CREDENTIALS(20105, "client_id 或 client_secret 无效");
 
     private final int code;
     private final String message;

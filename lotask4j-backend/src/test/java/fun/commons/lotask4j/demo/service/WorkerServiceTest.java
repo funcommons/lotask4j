@@ -49,6 +49,7 @@ class WorkerServiceTest {
     @Mock private AstTaskTypeConfigMapper taskTypeConfigMapper;
     @Mock private WebhookService webhookService;
     @Mock private SnowflakeDistributor snowflakeDistributor;
+    @Mock private fun.commons.lotask4j.service.TaskStateMachine stateMachine;
 
     @InjectMocks private WorkerServiceImpl workerService;
 
@@ -61,6 +62,7 @@ class WorkerServiceTest {
         pollRequest = new PollTaskRequest();
         pollRequest.setTaskType("data_export");
         pollRequest.setStrategy("PRIORITY");
+        pollRequest.setWorkerId("wkr-test-001");
 
         enabledTypeConfig = new AstTaskTypeConfig();
         enabledTypeConfig.setTypeKey("data_export");
@@ -72,8 +74,11 @@ class WorkerServiceTest {
         sampleTask.setStatus("RUNNING");
         sampleTask.setPriority(50);
         sampleTask.setProgress(0);
+        sampleTask.setVersion(0);
 
         lenient().when(snowflakeDistributor.nextId()).thenReturn(999L);
+        // 默认 stub: dispatch 返回 1L token, 不抛异常 (P0 state machine 已在独立单元测试覆盖)
+        lenient().when(stateMachine.dispatch(anyLong(), anyInt(), anyString())).thenReturn(1L);
     }
 
     // ==================== pollTask ====================
@@ -83,7 +88,7 @@ class WorkerServiceTest {
     class PollTask {
 
         @Test
-        @DisplayName("正常抢占: 返回响应包含 id/type/payload/priority")
+        @DisplayName("正常抢占: 返回响应包含 id/type/payload/priority/executionToken/version")
         void pollTask_Success() {
             when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(enabledTypeConfig);
             when(workerNodeMapper.upsertWorkerHeartbeat(any(AstWorkerNode.class))).thenReturn(1);
@@ -92,10 +97,21 @@ class WorkerServiceTest {
             task.setId(100001L);
             task.setTaskTypeKey("data_export");
             task.setPriority(80);
+            task.setVersion(0);
             Map<String, Object> payload = new HashMap<>();
             payload.put("query", "SELECT 1");
             task.setPayload(payload);
             when(taskMapper.pollAndLockTask("data_export", "PRIORITY", "10.0.0.1")).thenReturn(task);
+            when(stateMachine.dispatch(anyLong(), anyInt(), anyString())).thenReturn(1234L);
+            // 重读返回新 token / version
+            AstTask reloaded = new AstTask();
+            reloaded.setId(100001L);
+            reloaded.setTaskTypeKey("data_export");
+            reloaded.setPriority(80);
+            reloaded.setPayload(payload);
+            reloaded.setAttempt(1);
+            reloaded.setVersion(1);
+            when(taskMapper.selectByIdWithTypeName(100001L)).thenReturn(reloaded);
 
             PollTaskResponse resp = workerService.pollTask(pollRequest, "10.0.0.1");
 
@@ -105,6 +121,8 @@ class WorkerServiceTest {
             assertEquals(80, resp.getPriority());
             assertNotNull(resp.getPayload());
             assertEquals("SELECT 1", resp.getPayload().get("query"));
+            assertEquals(1234L, resp.getExecutionToken());
+            assertEquals(1, resp.getVersion());
         }
 
         @Test
@@ -176,6 +194,8 @@ class WorkerServiceTest {
                     .thenThrow(new RuntimeException("DB connection lost"));
             when(taskMapper.pollAndLockTask("data_export", "PRIORITY", "10.0.0.1"))
                     .thenReturn(sampleTask);
+            when(stateMachine.dispatch(eq(100001L), eq(0), anyString())).thenReturn(1L);
+            when(taskMapper.selectByIdWithTypeName(100001L)).thenReturn(sampleTask);
 
             PollTaskResponse resp = workerService.pollTask(pollRequest, "10.0.0.1");
 
@@ -190,6 +210,8 @@ class WorkerServiceTest {
             when(workerNodeMapper.upsertWorkerHeartbeat(any())).thenReturn(0);
             when(taskMapper.pollAndLockTask("data_export", "PRIORITY", "10.0.0.1"))
                     .thenReturn(sampleTask);
+            when(stateMachine.dispatch(anyLong(), anyInt(), anyString())).thenReturn(1L);
+            when(taskMapper.selectByIdWithTypeName(100001L)).thenReturn(sampleTask);
 
             PollTaskResponse resp = workerService.pollTask(pollRequest, "10.0.0.1");
 
@@ -222,7 +244,7 @@ class WorkerServiceTest {
             sampleTask.setProgress(42);
             sampleTask.setCurrentStepKey("downloading");
             sampleTask.setErrorMsg(null);
-            when(taskMapper.selectById(100001L)).thenReturn(sampleTask);
+            when(taskMapper.selectByIdWithTypeName(100001L)).thenReturn(sampleTask);
 
             TaskDetailResponse resp = workerService.getTaskStatus(100001L);
 
@@ -237,7 +259,7 @@ class WorkerServiceTest {
         @Test
         @DisplayName("任务不存在: 抛 20404")
         void getTaskStatus_NotFound() {
-            when(taskMapper.selectById(999L)).thenReturn(null);
+            when(taskMapper.selectByIdWithTypeName(999L)).thenReturn(null);
 
             ApiException ex = assertThrows(ApiException.class,
                     () -> workerService.getTaskStatus(999L));
@@ -258,6 +280,8 @@ class WorkerServiceTest {
             req = new ReportProgressRequest();
             req.setCurrentStepKey("downloading");
             req.setStepProgress(50);
+            req.setExecutionToken(1L);
+            req.setVersion(0);
         }
 
         @Test
@@ -268,7 +292,7 @@ class WorkerServiceTest {
             ApiException ex = assertThrows(ApiException.class,
                     () -> workerService.reportProgress(999L, req));
             assertEquals(BusinessCode.TASK_NOT_FOUND.getCode(), ex.getCode());
-            verify(taskMapper, never()).updateTaskProgress(anyLong(), any(), any(), any(), anyInt());
+            verify(stateMachine, never()).reportProgress(anyLong(), anyInt(), anyLong(), any(), anyInt(), any(), anyInt());
         }
 
         @Test
@@ -280,18 +304,21 @@ class WorkerServiceTest {
             ApiException ex = assertThrows(ApiException.class,
                     () -> workerService.reportProgress(100001L, req));
             assertEquals(BusinessCode.TASK_STATE_INVALID.getCode(), ex.getCode());
-            verify(taskMapper, never()).updateTaskProgress(anyLong(), any(), any(), any(), anyInt());
+            verify(stateMachine, never()).reportProgress(anyLong(), anyInt(), anyLong(), any(), anyInt(), any(), anyInt());
         }
 
         @Test
-        @DisplayName("updateTaskProgress 影响 0 行 (并发被改): 抛 20409")
+        @DisplayName("stateMachine.reportProgress CAS 失败 (rows=0): 抛 20409")
         void reportProgress_UpdateAffectsZeroRows() {
             sampleTask.setStatus("RUNNING");
             sampleTask.setStepsDetail(null);
             when(taskMapper.selectById(100001L)).thenReturn(sampleTask);
             when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(null); // 无 steps 定义
-            when(taskMapper.updateTaskProgress(eq(100001L), eq("downloading"), eq(50), anyString(), eq(50)))
-                    .thenReturn(0);
+            // P0: stateMachine 内部 CAS 失败抛 ApiException
+            doThrow(new ApiException(BusinessCode.TASK_STATE_INVALID.getCode(),
+                    "progress CAS failed"))
+                    .when(stateMachine).reportProgress(anyLong(), anyInt(), anyLong(),
+                            any(), anyInt(), any(), anyInt());
 
             ApiException ex = assertThrows(ApiException.class,
                     () -> workerService.reportProgress(100001L, req));
@@ -310,8 +337,6 @@ class WorkerServiceTest {
 
             when(taskMapper.selectById(100001L)).thenReturn(sampleTask);
             when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(null);
-            when(taskMapper.updateTaskProgress(eq(100001L), eq("downloading"), eq(50), anyString(), eq(50)))
-                    .thenReturn(1);
 
             workerService.reportProgress(100001L, req);
 
@@ -328,8 +353,6 @@ class WorkerServiceTest {
 
             when(taskMapper.selectById(100001L)).thenReturn(sampleTask);
             when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(null);
-            when(taskMapper.updateTaskProgress(eq(100001L), eq("uploading"), eq(30), anyString(), eq(30)))
-                    .thenReturn(1);
             req.setCurrentStepKey("uploading");
             req.setStepProgress(30);
 
@@ -351,8 +374,6 @@ class WorkerServiceTest {
 
             when(taskMapper.selectById(100001L)).thenReturn(sampleTask);
             when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(null);
-            when(taskMapper.updateTaskProgress(anyLong(), any(), any(), anyString(), anyInt()))
-                    .thenReturn(1);
 
             workerService.reportProgress(100001L, req);
 
@@ -379,15 +400,13 @@ class WorkerServiceTest {
             when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(cfg);
 
             when(taskMapper.selectById(100001L)).thenReturn(sampleTask);
-            // 当前在第 2 步 transcoding 50% → 全局 = (40 + 40*0.5) / 100 * 100 = 60
             req.setCurrentStepKey("transcoding");
             req.setStepProgress(50);
-            when(taskMapper.updateTaskProgress(eq(100001L), eq("transcoding"), eq(50), anyString(), eq(60)))
-                    .thenReturn(1);
 
             workerService.reportProgress(100001L, req);
 
-            verify(taskMapper).updateTaskProgress(eq(100001L), eq("transcoding"), eq(50), anyString(), eq(60));
+            verify(stateMachine).reportProgress(eq(100001L), eq(0), eq(1L),
+                    eq("transcoding"), eq(50), any(), eq(60));
         }
 
         @Test
@@ -397,12 +416,11 @@ class WorkerServiceTest {
             sampleTask.setStepsDetail(null);
             when(taskMapper.selectById(100001L)).thenReturn(sampleTask);
             when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(null);
-            when(taskMapper.updateTaskProgress(anyLong(), any(), any(), anyString(), eq(50)))
-                    .thenReturn(1);
 
             workerService.reportProgress(100001L, req);
 
-            verify(taskMapper).updateTaskProgress(eq(100001L), eq("downloading"), eq(50), anyString(), eq(50));
+            verify(stateMachine).reportProgress(eq(100001L), eq(0), eq(1L),
+                    eq("downloading"), eq(50), any(), eq(50));
         }
     }
 
@@ -418,6 +436,8 @@ class WorkerServiceTest {
         void initReq() {
             req = new ReportResultRequest();
             req.setStatus("SUCCESS");
+            req.setExecutionToken(1L);
+            req.setVersion(0);
             Map<String, Object> result = new HashMap<>();
             result.put("rows", 100);
             req.setResult(result);
@@ -431,7 +451,7 @@ class WorkerServiceTest {
             ApiException ex = assertThrows(ApiException.class,
                     () -> workerService.reportResult(999L, req));
             assertEquals(BusinessCode.TASK_NOT_FOUND.getCode(), ex.getCode());
-            verify(taskMapper, never()).updateTaskResult(anyLong(), any(), any(), any());
+            verify(stateMachine, never()).completeAs(anyLong(), anyInt(), anyLong(), any(), any(), any(), any(), any());
         }
 
         @Test
@@ -443,21 +463,20 @@ class WorkerServiceTest {
             ApiException ex = assertThrows(ApiException.class,
                     () -> workerService.reportResult(100001L, req));
             assertEquals(BusinessCode.TASK_STATE_INVALID.getCode(), ex.getCode());
-            verify(taskMapper, never()).updateTaskResult(anyLong(), any(), any(), any());
+            verify(stateMachine, never()).completeAs(anyLong(), anyInt(), anyLong(), any(), any(), any(), any(), any());
         }
 
         @Test
-        @DisplayName("SUCCESS + 无 callback_url: 仅更新,不触发 webhook")
+        @DisplayName("SUCCESS + 无 callback_url: 仅调用 stateMachine.completeAs,不触发 webhook")
         void reportResult_SuccessNoCallback() {
             sampleTask.setStatus("RUNNING");
             sampleTask.setCallbackUrl(null);
             when(taskMapper.selectById(100001L)).thenReturn(sampleTask);
-            when(taskMapper.updateTaskResult(eq(100001L), eq("SUCCESS"), anyString(), eq(null)))
-                    .thenReturn(1);
 
             workerService.reportResult(100001L, req);
 
-            verify(taskMapper).updateTaskResult(eq(100001L), eq("SUCCESS"), anyString(), eq(null));
+            verify(stateMachine).completeAs(eq(100001L), eq(0), eq(1L),
+                    eq(fun.commons.lotask4j.enums.TaskStatus.SUCCESS), any(), eq(null), any(), any());
             verifyNoInteractions(webhookService);
         }
 
@@ -467,12 +486,10 @@ class WorkerServiceTest {
             sampleTask.setStatus("RUNNING");
             sampleTask.setCallbackUrl("https://example.com/cb");
             when(taskMapper.selectById(100001L)).thenReturn(sampleTask);
-            when(taskMapper.updateTaskResult(eq(100001L), eq("SUCCESS"), anyString(), eq(null)))
-                    .thenReturn(1);
+            when(taskMapper.selectByIdWithTypeName(100001L)).thenReturn(sampleTask);
 
             workerService.reportResult(100001L, req);
 
-            verify(taskMapper, times(2)).selectById(100001L); // 检查 + 回调前重查
             verify(webhookService).sendWebhookAsync(any(AstTask.class));
         }
 
@@ -482,8 +499,6 @@ class WorkerServiceTest {
             sampleTask.setStatus("RUNNING");
             sampleTask.setCallbackUrl(null);
             when(taskMapper.selectById(100001L)).thenReturn(sampleTask);
-            when(taskMapper.updateTaskResult(eq(100001L), eq("FAILED"), eq(null), eq("DB timeout")))
-                    .thenReturn(1);
 
             req.setStatus("FAILED");
             req.setResult(null);
@@ -491,7 +506,9 @@ class WorkerServiceTest {
 
             workerService.reportResult(100001L, req);
 
-            verify(taskMapper).updateTaskResult(eq(100001L), eq("FAILED"), eq(null), eq("DB timeout"));
+            verify(stateMachine).completeAs(eq(100001L), eq(0), eq(1L),
+                    eq(fun.commons.lotask4j.enums.TaskStatus.FAILED),
+                    eq(null), eq("DB timeout"), any(), any());
         }
 
         @Test
@@ -500,25 +517,26 @@ class WorkerServiceTest {
             sampleTask.setStatus("CANCELLING");
             sampleTask.setCallbackUrl(null);
             when(taskMapper.selectById(100001L)).thenReturn(sampleTask);
-            when(taskMapper.updateTaskResult(eq(100001L), eq("CANCELLED"), eq(null), eq(null)))
-                    .thenReturn(1);
 
             req.setStatus("CANCELLED");
             req.setResult(null);
 
             workerService.reportResult(100001L, req);
 
-            verify(taskMapper).updateTaskResult(eq(100001L), eq("CANCELLED"), eq(null), eq(null));
+            verify(stateMachine).completeAs(eq(100001L), eq(0), eq(1L),
+                    eq(fun.commons.lotask4j.enums.TaskStatus.CANCELLED),
+                    eq(null), eq(null), any(), any());
         }
 
         @Test
-        @DisplayName("updateTaskResult 影响 0 行 (并发被取消): 抛 20409")
+        @DisplayName("stateMachine.completeAs 抛异常: 不调用 webhookService")
         void reportResult_UpdateAffectsZeroRows() {
             sampleTask.setStatus("RUNNING");
             sampleTask.setCallbackUrl(null);
             when(taskMapper.selectById(100001L)).thenReturn(sampleTask);
-            when(taskMapper.updateTaskResult(anyLong(), any(), any(), any()))
-                    .thenReturn(0);
+            doThrow(new ApiException(BusinessCode.TASK_STATE_INVALID.getCode(),
+                    "complete CAS failed"))
+                    .when(stateMachine).completeAs(anyLong(), anyInt(), anyLong(), any(), any(), any(), any(), any());
 
             ApiException ex = assertThrows(ApiException.class,
                     () -> workerService.reportResult(100001L, req));
@@ -527,20 +545,20 @@ class WorkerServiceTest {
         }
 
         @Test
-        @DisplayName("result 为 null: resultJson 传 null (不是 'null' 字符串)")
+        @DisplayName("result 为 null: 不影响 stateMachine.completeAs 路径")
         void reportResult_NullResult() {
             sampleTask.setStatus("RUNNING");
             sampleTask.setCallbackUrl(null);
             when(taskMapper.selectById(100001L)).thenReturn(sampleTask);
-            when(taskMapper.updateTaskResult(eq(100001L), eq("SUCCESS"), eq(null), eq(null)))
-                    .thenReturn(1);
 
             req.setResult(null);
             req.setStatus("SUCCESS");
 
             workerService.reportResult(100001L, req);
 
-            verify(taskMapper).updateTaskResult(eq(100001L), eq("SUCCESS"), eq(null), eq(null));
+            verify(stateMachine).completeAs(eq(100001L), eq(0), eq(1L),
+                    eq(fun.commons.lotask4j.enums.TaskStatus.SUCCESS),
+                    eq(null), any(), any(), any());
         }
     }
 }

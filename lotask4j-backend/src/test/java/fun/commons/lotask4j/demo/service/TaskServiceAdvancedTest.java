@@ -49,6 +49,12 @@ class TaskServiceAdvancedTest {
     @Mock
     private fun.commons.framework4j.id.generator.SnowflakeDistributor snowflakeDistributor;
 
+    @Mock
+    private fun.commons.lotask4j.service.TaskStateMachine stateMachine;
+
+    @Mock
+    private fun.commons.lotask4j.service.TaskSubmitGuard submitGuard;
+
     @InjectMocks
     private TaskServiceImpl taskService;
 
@@ -307,20 +313,24 @@ class TaskServiceAdvancedTest {
     }
 
     @Test
-    @DisplayName("取消任务 - 数据库更新失败")
+    @DisplayName("取消任务 - stateMachine CAS 抛异常 (乐观锁失败)")
     void testCancelTask_UpdateFailed() {
         // Given
         AstTask task = new AstTask();
         task.setId(100004L);
         task.setStatus("PENDING");
+        task.setVersion(0);
         when(astTaskMapper.selectById(100004L)).thenReturn(task);
-        when(astTaskMapper.updateById(any(AstTask.class))).thenReturn(0);  // 更新失败
+        // 模拟乐观锁失败 — stateMachine.requestCancel 抛 ApiException
+        doThrow(new ApiException(fun.commons.lotask4j.enums.BusinessCode.TASK_STATE_INVALID.getCode(),
+                "CAS failed"))
+                .when(stateMachine).requestCancel(eq(100004L), anyInt());
 
-        // When
-        boolean result = taskService.cancelTask(100004L);
-
-        // Then
-        assertFalse(result);
+        // When & Then: 上层把 stateMachine 抛的 ApiException 重新抛为 TASK_STATE_INVALID
+        ApiException ex = assertThrows(ApiException.class, () -> {
+            taskService.cancelTask(100004L);
+        });
+        assertEquals(fun.commons.lotask4j.enums.BusinessCode.TASK_STATE_INVALID.getCode(), ex.getCode());
     }
 
     // ==================== 并发测试 ====================
@@ -335,7 +345,9 @@ class TaskServiceAdvancedTest {
         AtomicInteger successCount = new AtomicInteger(0);
 
         when(astTaskMapper.insertTask(any(AstTask.class), anyString(), anyString())).thenReturn(1);
-        when(snowflakeDistributor.nextId()).thenAnswer(invocation ->
+        // snowflakeDistributor 不再被 submitTask 使用 (P0: 用 MyBatis-Plus IdWorker)
+        // 这里保留 mock 仅为历史兼容: 不强依赖, 用 lenient 避免 UnnecessaryStubbing
+        lenient().when(snowflakeDistributor.nextId()).thenAnswer(invocation ->
             System.currentTimeMillis() + successCount.incrementAndGet()
         );
 
@@ -403,23 +415,22 @@ class TaskServiceAdvancedTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"PENDING", "RUNNING"})
-    @DisplayName("取消任务 - 可取消的状态")
+    @DisplayName("取消任务 - 可取消的状态 (P0: 调 stateMachine.requestCancel CAS)")
     void testCancelTask_ValidStatuses(String status) {
         // Given
         AstTask task = new AstTask();
         task.setId(100006L);
         task.setStatus(status);
+        task.setVersion(0);
         when(astTaskMapper.selectById(100006L)).thenReturn(task);
-        when(astTaskMapper.updateById(any(AstTask.class))).thenReturn(1);
 
         // When
         boolean result = taskService.cancelTask(100006L);
 
         // Then
         assertTrue(result);
-        verify(astTaskMapper).updateById(argThat((AstTask t) ->
-            "CANCELLING".equals(t.getStatus())
-        ));
+        // 验证 stateMachine.requestCancel 被调用
+        verify(stateMachine).requestCancel(eq(100006L), eq(0));
     }
 
     @ParameterizedTest
@@ -463,7 +474,8 @@ class TaskServiceAdvancedTest {
     void testSubmitTask_Performance() {
         // Given
         when(astTaskMapper.insertTask(any(AstTask.class), anyString(), anyString())).thenReturn(1);
-        when(snowflakeDistributor.nextId()).thenAnswer(invocation ->
+        // snowflakeDistributor 不再被 submitTask 使用 (P0: 用 MyBatis-Plus IdWorker)
+        lenient().when(snowflakeDistributor.nextId()).thenAnswer(invocation ->
             System.currentTimeMillis()
         );
 

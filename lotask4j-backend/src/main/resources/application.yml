@@ -145,27 +145,56 @@ framework4j:
         redisson:
           enabled: false
 
-  # 访问令牌配置
+  # 访问令牌配置 (client_credentials 认证 — 仿 benefit4j)
   access-token:
     enabled: true
-    secretKey: ${TOKEN_SECRET:default-secret-key-change-in-production}  # 生产环境必须通过环境变量配置
+    secretKey: ${TOKEN_SECRET:default-secret-key-change-in-production}  # 生产环境必须通过环境变量配置 (≥32 字符)
     hashSalt: ${LDX_HASH_SALT:lotask4j-token-salt-change-me-in-prod}
     expireTime: 86400  # 全局默认过期时间（秒）
-    redisDatasource: stringRedisTemplate  # 使用 cache Redis 存储 Token
+    redis-name: default  # framework4j-redis 多数据源的 cache 库 (default 别名 cache)
+
+    # 不做 token 校验的路径
+    exclude-path-patterns:
+      - /api/v1/auth/token
+      - /api/v1/client/**
+      - /api/v1/worker/**
+      - /web-embed/**
+      - /web-embed
+      - /actuator/**
+      - /swagger-ui/**
+      - /swagger-ui.html
+      - /v3/api-docs/**
+      - /error
 
     policies:
-      # API 客户端访问 Token
+      # 控制台管理 Token (AuthController 签发, @RequiresToken("ADMIN") 校验)
+      ADMIN:
+        key: [app_id]  # 互斥键：同一凭据新 Token 踢掉旧 Token
+        expireTime: 7200  # 2 小时
+        autoRenew: true  # 滑动续期
+        renewIncrement: 1800
+
+      # API 客户端访问 Token (预留 — client 域当前未挂 @RequiresToken, demo/embed 兼容)
       client:
-        key: [appId]  # 互斥键：同一 appId 新 Token 会踢掉旧 Token
+        key: [appId]
         expireTime: 86400  # 24 小时
         autoRenew: false
 
-      # Worker 心跳 Token
+      # Worker 心跳 Token (预留 — worker 域当前未挂 @RequiresToken, demo 兼容)
       worker:
-        key: [workerId]  # 互斥键：每个 Worker 独立 Token
-        expireTime: 7200  # 2 小时
-        autoRenew: true  # 自动续期
-        renewIncrement: 1800  # 每次续期延长 30 分钟
+        key: [workerId]
+        expireTime: 7200
+        autoRenew: true
+        renewIncrement: 1800
+
+# lotask4j 应用配置
+lotask4j:
+  security:
+    admin:
+      # 控制台合成 ADMIN 凭据 (client_credentials; app_id=0 不入库)
+      # 生产环境必须通过环境变量 ADMIN_CLIENT_SECRET 覆盖; 空值时用开发默认值并启动 WARN
+      client-id: ${ADMIN_CLIENT_ID:ADMIN}
+      client-secret: ${ADMIN_CLIENT_SECRET:}
 
 # 日志配置
 logging:

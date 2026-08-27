@@ -50,12 +50,22 @@ class TaskServiceListTest {
     @Mock
     private AstTaskTypeConfigMapper taskTypeConfigMapper;
 
+    @Mock
+    private fun.commons.lotask4j.service.TaskStateMachine stateMachine;
+
+    @Mock
+    private fun.commons.lotask4j.service.TaskSubmitGuard submitGuard;
+
     @InjectMocks
     private TaskServiceImpl taskService;
 
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(taskService, "baseMapper", astTaskMapper);
+        // 默认: idempotency 查找返 null
+        lenient().when(stateMachine.findByIdempotencyKey(any(), any())).thenReturn(null);
+        // 默认: 背压放行
+        lenient().doNothing().when(submitGuard).checkOrThrow(anyString());
     }
 
     // ==================== getTaskDetail ====================
@@ -114,7 +124,7 @@ class TaskServiceListTest {
     // ==================== cancelTask 成功路径 ====================
 
     @Nested
-    @DisplayName("cancelTask - 成功路径")
+    @DisplayName("cancelTask - 成功路径 (P0: 调 stateMachine.requestCancel)")
     class CancelTaskSuccess {
 
         @Test
@@ -123,15 +133,14 @@ class TaskServiceListTest {
             AstTask task = new AstTask();
             task.setId(1L);
             task.setStatus("PENDING");
+            task.setVersion(0);
 
             when(astTaskMapper.selectById(1L)).thenReturn(task);
-            when(astTaskMapper.updateById(any(AstTask.class))).thenReturn(1);
 
             boolean result = taskService.cancelTask(1L);
 
             assertTrue(result);
-            assertEquals("CANCELLING", task.getStatus());
-            assertNotNull(task.getUpdatedAt());
+            verify(stateMachine).requestCancel(eq(1L), eq(0));
         }
 
         @Test
@@ -140,16 +149,16 @@ class TaskServiceListTest {
             AstTask task = new AstTask();
             task.setId(2L);
             task.setStatus("RUNNING");
+            task.setVersion(0);
 
             when(astTaskMapper.selectById(2L)).thenReturn(task);
-            when(astTaskMapper.updateById(any(AstTask.class))).thenReturn(1);
 
             assertTrue(taskService.cancelTask(2L));
-            assertEquals("CANCELLING", task.getStatus());
+            verify(stateMachine).requestCancel(eq(2L), eq(0));
         }
 
         @Test
-        @DisplayName("CANCELLING 状态不允许再次取消")
+        @DisplayName("CANCELLING 状态不允许再次取消 (终态前不允许再切换语义)")
         void cancellingTask_NotAllowed() {
             AstTask task = new AstTask();
             task.setId(3L);
@@ -159,7 +168,9 @@ class TaskServiceListTest {
 
             ApiException ex = assertThrows(ApiException.class,
                     () -> taskService.cancelTask(3L));
-            assertEquals(20401, ex.getCode());
+            // P0: CANCELLING 是中间状态, 也被认作不可二次 cancel
+            assertEquals(fun.commons.lotask4j.enums.BusinessCode.TASK_CANCEL_NOT_ALLOWED.getCode(),
+                    ex.getCode());
         }
 
         @Test

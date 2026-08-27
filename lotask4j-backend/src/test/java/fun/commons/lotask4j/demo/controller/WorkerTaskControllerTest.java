@@ -67,6 +67,7 @@ class WorkerTaskControllerTest {
         pollRequest = new PollTaskRequest();
         pollRequest.setTaskType("data_export");
         pollRequest.setStrategy("PRIORITY");
+        pollRequest.setWorkerId("wkr-test-001");  // P0
 
         // Poll 响应：返回抢占到的任务
         pollResponse = new PollTaskResponse();
@@ -76,6 +77,9 @@ class WorkerTaskControllerTest {
         payload.put("query", "SELECT * FROM users");
         pollResponse.setPayload(payload);
         pollResponse.setPriority(100);
+        pollResponse.setExecutionToken(1L);     // P0
+        pollResponse.setVersion(0);             // P0
+        pollResponse.setAttempt(1);
 
         // 任务详情
         taskDetailResponse = new TaskDetailResponse();
@@ -85,17 +89,21 @@ class WorkerTaskControllerTest {
         taskDetailResponse.setProgress(35);
         taskDetailResponse.setPriority(100);
 
-        // 进度上报
+        // 进度上报 — P0: 必须带 executionToken + version
         progressRequest = new ReportProgressRequest();
         progressRequest.setCurrentStepKey("querying");
         progressRequest.setStepProgress(50);
+        progressRequest.setExecutionToken(1L);
+        progressRequest.setVersion(0);
 
-        // 结果上报 (SUCCESS)
+        // 结果上报 (SUCCESS) — P0: 必须带 executionToken + version
         resultRequest = new ReportResultRequest();
         resultRequest.setStatus("SUCCESS");
         Map<String, Object> result = new HashMap<>();
         result.put("rows", 100);
         resultRequest.setResult(result);
+        resultRequest.setExecutionToken(1L);
+        resultRequest.setVersion(0);
     }
 
     // ==================== POST /poll ====================
@@ -138,6 +146,7 @@ class WorkerTaskControllerTest {
     void testPollTask_MissingTaskType() throws Exception {
         PollTaskRequest invalid = new PollTaskRequest();
         invalid.setTaskType(null);
+        invalid.setWorkerId("wkr-test-001");
 
         mockMvc.perform(post("/api/v1/worker/tasks/poll")
                 .contentType(MediaType.APPLICATION_JSON)

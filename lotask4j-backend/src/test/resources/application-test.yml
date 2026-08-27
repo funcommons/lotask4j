@@ -34,6 +34,12 @@ framework4j:
           max-active: 10
           validation-query: SELECT 1
 
+  # 测试环境放开 ADMIN 域 token 守卫 (列表属性整组覆盖, 不与主配置合并);
+  # 守卫行为由 AdminAuthGuardTest 用 @SpringBootTest properties 单独开启验证
+  access-token:
+    exclude-path-patterns:
+      - /api/v1/**
+
 # MyBatis Plus 配置
 mybatis-plus:
   mapper-locations: classpath:mapper/**/*.xml

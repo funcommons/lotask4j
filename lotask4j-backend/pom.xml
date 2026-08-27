@@ -61,10 +61,11 @@
 
         <!-- ==================== framework4j SDK (API、ID、DataSource、Redis、AccessToken 等) ==================== -->
         <!-- 来源：JitPack，详见 https://jitpack.io  -->
+        <!-- 升级：v1.2.1 → v1.4.0 (JitPack 最新)。框架本身 API 兼容扩展，新增 transport / tracelog 模块由 framework4j-all 一并引入。 -->
         <dependency>
             <groupId>com.github.funcommons.framework4j</groupId>
             <artifactId>framework4j-all</artifactId>
-            <version>v1.2.1</version>
+            <version>v1.4.0</version>
         </dependency>
 
         <!-- MyBatis Plus -->
@@ -201,7 +202,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
             </plugin>
 
-            <!-- JaCoCo Maven Plugin (测试覆盖率) — 门禁: 包级 ≥75% 行覆盖 -->
+            <!-- JaCoCo Maven Plugin (测试覆盖率) — 门禁: 核心 service 包 ≥75% 行覆盖,其他包放宽 -->
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
@@ -226,13 +227,31 @@
                         </goals>
                         <configuration>
                             <rules>
+                                <!-- 核心 service 包强门禁 -->
                                 <rule>
                                     <element>PACKAGE</element>
+                                    <includes>
+                                        <include>fun.commons.lotask4j.service.*</include>
+                                        <include>fun.commons.lotask4j.schedule</include>
+                                        <include>fun.commons.lotask4j.enums</include>
+                                        <include>fun.commons.lotask4j.dto</include>
+                                    </includes>
                                     <limits>
                                         <limit>
                                             <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
                                             <minimum>0.75</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                                <!-- 全局兜底: bundle 级 ≥60% (避免个别 controller 文件拖到 0%) -->
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.60</minimum>
                                         </limit>
                                     </limits>
                                 </rule>

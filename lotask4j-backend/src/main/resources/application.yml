@@ -25,6 +25,13 @@ spring:
 
 # framework4j SDK 配置
 framework4j:
+  # framework4j-transport 模块（v1.4.0 引入）— 当前业务方未使用 HttpTransport 接口，
+  # 且 framework4jHttpTransport 的 RestTemplate 形参无 @Qualifier，业务方只要声明多个
+  # RestTemplate（HttpClientConfig 已声明 webhook + callback）就会触发 NoUniqueBeanDefinitionException。
+  # 关闭 auto-config 不构成重复建设：HttpClientConfig 仍提供 HttpClient 用 RestTemplate。
+  transport:
+    enabled: false
+
   # 分布式 ID 生成配置
   id:
     worker:
@@ -265,6 +272,10 @@ app:
     default-timeout: 600
     # 最大重试次数
     max-retries: 3
+    # 默认 lease 秒数（worker poll 之后持锁时长，到期不续约视为失联）
+    default-lease-seconds: 120
+    # 续约允许时间余量（lease_buffer_sec）：worker 必须早于 lease_expire_at 这么久发起续约
+    lease-buffer-seconds: 20
     # 并发执行任务数
     worker-concurrency: 5
     # 轮询任务的间隔（秒）

@@ -20,26 +20,35 @@ const MOCK_TASK_LIST = {
     {
       id: 'YeirYkxHuQ', type: 'video_transcode', typeName: '视频转码',
       status: 'RUNNING', progress: 42, priority: 100,
-      createdAt: new Date(Date.now() - 5 * 60_000).toISOString(),
-      startedAt: new Date(Date.now() - 4 * 60_000).toISOString(),
-      expiredAt: new Date(Date.now() + 55 * 60_000).toISOString(),
+      createdAt: '2026-08-20T10:00:00+08:00',
+      startedAt: '2026-08-20T10:01:00+08:00',
+      expiredAt: '2026-08-20T11:00:00+08:00',
     },
     {
       id: 'Zkjs8dH2mQ', type: 'data_export', typeName: '数据导出',
       status: 'PENDING', progress: 0, priority: 50,
-      createdAt: new Date(Date.now() - 60_000).toISOString(),
-      expiredAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+      createdAt: '2026-08-20T09:59:00+08:00',
+      expiredAt: '2026-08-20T10:10:00+08:00',
+    },
+    {
+      id: 'FailedAb9xQq', type: 'pdf_generate', typeName: 'PDF 生成',
+      status: 'FAILED', progress: 30, priority: 100,
+      errorMsg: 'mock: 渲染引擎超时 (PDF_RENDER_TIMEOUT)',
+      createdAt: '2026-08-20T09:00:00+08:00',
+      startedAt: '2026-08-20T09:00:30+08:00',
+      finishedAt: '2026-08-20T09:02:00+08:00',
+      lastErrorCode: 'PDF_RENDER_TIMEOUT',
     },
     {
       id: 'Ab3kLm9xPq', type: 'pdf_generate', typeName: 'PDF 生成',
       status: 'SUCCESS', progress: 100, priority: 100,
-      createdAt: new Date(Date.now() - 3600_000).toISOString(),
-      startedAt: new Date(Date.now() - 3590_000).toISOString(),
-      finishedAt: new Date(Date.now() - 3500_000).toISOString(),
+      createdAt: '2026-08-20T08:00:00+08:00',
+      startedAt: '2026-08-20T08:00:10+08:00',
+      finishedAt: '2026-08-20T08:02:00+08:00',
       result: { url: 'https://example.com/mock.pdf', pages: 12 },
     },
   ],
-  total: 3, page: 1, pageSize: 20, totalPages: 1,
+  total: 4, page: 1, pageSize: 20, totalPages: 1,
 }
 
 const MOCK_TASK_DETAIL = {
@@ -47,17 +56,33 @@ const MOCK_TASK_DETAIL = {
   status: 'RUNNING', progress: 42, priority: 100, attempt: 1, maxAttempts: 3,
   currentStep: 'transcode',
   stepsDetail: [
-    { key: 'fetch', name: '拉取源文件', status: 'finished', progress: 100, start_time: new Date(Date.now() - 240_000).toISOString(), end_time: new Date(Date.now() - 180_000).toISOString(), cost_ms: 60000 },
-    { key: 'transcode', name: '转码', status: 'processing', progress: 42, start_time: new Date(Date.now() - 180_000).toISOString(), detail: '720p → H.264' },
+    { key: 'fetch', name: '拉取源文件', status: 'finished', progress: 100, start_time: '2026-08-20T10:01:10+08:00', end_time: '2026-08-20T10:02:10+08:00', cost_ms: 60000 },
+    { key: 'transcode', name: '转码', status: 'processing', progress: 42, start_time: '2026-08-20T10:02:10+08:00', detail: '720p → H.264' },
     { key: 'upload', name: '上传产物', status: 'pending' },
   ],
   payload: { source: 'https://example.com/src.mp4', resolution: '720p', codec: 'h264' },
   workerIp: '10.0.4.21',
   callbackUrl: 'https://biz.example.com/callback',
   callbackStatus: 0,
-  createdAt: new Date(Date.now() - 300_000).toISOString(),
-  startedAt: new Date(Date.now() - 240_000).toISOString(),
-  expiredAt: new Date(Date.now() - 300_000 + 3600_000).toISOString(),
+  createdAt: '2026-08-20T10:00:00+08:00',
+  startedAt: '2026-08-20T10:01:00+08:00',
+  expiredAt: '2026-08-20T11:00:00+08:00',
+}
+
+const MOCK_FAILED_DETAIL = {
+  id: 'FailedAb9xQq', type: 'pdf_generate', typeName: 'PDF 生成',
+  status: 'FAILED', progress: 30, priority: 100, attempt: 2, maxAttempts: 3,
+  errorMsg: 'mock: 渲染引擎超时 (PDF_RENDER_TIMEOUT)',
+  lastErrorCode: 'PDF_RENDER_TIMEOUT',
+  lastErrorMessage: 'render engine timeout',
+  stepsDetail: [
+    { key: 'render', name: '渲染', status: 'failed', progress: 30, start_time: '2026-08-20T09:00:30+08:00', detail: 'page 3/10' },
+  ],
+  payload: { template: 'invoice', pages: 10 },
+  workerIp: '10.0.5.11',
+  createdAt: '2026-08-20T09:00:00+08:00',
+  startedAt: '2026-08-20T09:00:30+08:00',
+  finishedAt: '2026-08-20T09:02:00+08:00',
 }
 
 const MOCK_STATS_OVERVIEW = {
@@ -108,16 +133,39 @@ function pickMockResponse(config: MockConfig): unknown | undefined {
   const url = config.url || ''
   const method = (config.method || 'get').toLowerCase()
 
-  // client_credentials 登录: 任意凭据发 mock token
+  // client_credentials 登录: 'bad-secret' 走失败分支 (error-states 用例), 其余发 mock token
   if (method === 'post' && url.endsWith('/api/v1/auth/token')) {
+    const body = String(config.data ?? '')
+    if (body.includes('client_secret=bad-secret')) {
+      return { code: 20105, message: 'client_id 或 client_secret 无效', data: null }
+    }
     return { access_token: MOCK_ACCESS, token_type: 'Bearer', expires_in: 7200 }
   }
 
-  // 任务列表 / 详情 (client 域, 主应用与 embed 组件共用)
-  if (method === 'get' && /\/api\/v1\/client\/tasks\/[^/]+$/.test(url)) return MOCK_TASK_DETAIL
+  // 任务详情: 特例 ID → 404 业务码 / FAILED 详情 (error-states 用例); 其余返回 RUNNING 详情
+  if (method === 'get' && /\/api\/v1\/client\/tasks\/[^/?]+$/.test(url)) {
+    const id = url.split('/').pop()
+    if (id === 'NotFound404') {
+      return { code: 20100, message: '任务不存在: NotFound404', data: null }
+    }
+    if (id === 'FailedAb9xQq') return MOCK_FAILED_DETAIL
+    return MOCK_TASK_DETAIL
+  }
+  // 任务列表 / 统计 (client 域, 主应用与 embed 组件共用)
   if (method === 'get' && url.endsWith('/api/v1/client/tasks')) return MOCK_TASK_LIST
   if (method === 'get' && url.endsWith('/api/v1/client/tasks/stats')) {
     return { total: 1234, pending: 3, running: 2, success: 1100, failed: 100, cancelled: 31 }
+  }
+
+  // 提交 / 取消 (写路径, mock 固定 ID; 列表页提交走 admin 代提交)
+  if (method === 'post' && url.endsWith('/api/v1/client/tasks')) {
+    return { id: 'MockNewTask01' }
+  }
+  if (method === 'post' && url.endsWith('/api/v1/admin/tasks/submit')) {
+    return { id: 'MockNewTask01' }
+  }
+  if (method === 'post' && /\/api\/v1\/client\/tasks\/[^/]+\/cancel$/.test(url)) {
+    return null
   }
 
   // admin 域
@@ -138,13 +186,34 @@ function pickMockResponse(config: MockConfig): unknown | undefined {
  *  lotask4j dev 环境常无后端, 网络层直接失败 response 拦截器不会触发,
  *  故改为 adapter: 命中即合成 response, 未命中回落原 adapter。)
  * mock 数据不带 code 字段, 业务拦截器按「无 envelope 直通」返回。
+ *
+ * e2e 支持: 命中的调用记录到 window.__devMockLog (最近 50 条,
+ * {url, method, params}), 供 playwright 断言 —— adapter 短路后无真实网络请求,
+ * page.waitForRequest 对 mock 端点永不触发, 必须走 log。
  */
+declare global {
+  interface Window {
+    __devMockLog?: Array<{ url: string; method: string; params?: Record<string, unknown> }>
+  }
+}
+
+function recordMockCall(config: MockConfig): void {
+  if (typeof window === 'undefined') return
+  window.__devMockLog = window.__devMockLog ?? []
+  window.__devMockLog.push({
+    url: config.url || '',
+    method: (config.method || 'get').toLowerCase(),
+    params: (config.params ?? undefined) as Record<string, unknown> | undefined,
+  })
+  if (window.__devMockLog.length > 50) window.__devMockLog.shift()
+}
+
 export function installDevMock(instance: AxiosInstance): void {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const originalAdapter = instance.defaults.adapter
   instance.defaults.adapter = async (config) => {
     const mock = pickMockResponse(config as MockConfig)
     if (mock !== undefined) {
+      recordMockCall(config as MockConfig)
       return {
         data: mock,
         status: 200,

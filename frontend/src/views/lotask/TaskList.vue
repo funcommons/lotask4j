@@ -46,12 +46,12 @@
           class="filter-status"
           @change="onFilterChange"
         >
-          <FcSelect.Option :label="t('lotask.tasks.list.filter.allStatus')" value="" />
-          <FcSelect.Option :label="t('lotask.tasks.list.filter.pending')" value="PENDING" />
-          <FcSelect.Option :label="t('lotask.tasks.list.filter.running')" value="RUNNING" />
-          <FcSelect.Option :label="t('lotask.tasks.list.filter.success')" value="SUCCESS" />
-          <FcSelect.Option :label="t('lotask.tasks.list.filter.failed')" value="FAILED" />
-          <FcSelect.Option :label="t('lotask.tasks.list.filter.cancelled')" value="CANCELLED" />
+          <el-option :label="t('lotask.tasks.list.filter.allStatus')" value="" />
+          <el-option :label="t('lotask.tasks.list.filter.pending')" value="PENDING" />
+          <el-option :label="t('lotask.tasks.list.filter.running')" value="RUNNING" />
+          <el-option :label="t('lotask.tasks.list.filter.success')" value="SUCCESS" />
+          <el-option :label="t('lotask.tasks.list.filter.failed')" value="FAILED" />
+          <el-option :label="t('lotask.tasks.list.filter.cancelled')" value="CANCELLED" />
         </FcSelect>
         <FcSelect
           v-model="filterTaskType"
@@ -61,8 +61,8 @@
           class="filter-type"
           @change="onFilterChange"
         >
-          <FcSelect.Option :label="t('lotask.tasks.listExt.filter.allTypes')" value="" />
-          <FcSelect.Option
+          <el-option :label="t('lotask.tasks.listExt.filter.allTypes')" value="" />
+          <el-option
             v-for="cfg in taskTypeOptions"
             :key="cfg.typeKey"
             :label="`${cfg.name} (${cfg.typeKey})`"

@@ -382,7 +382,9 @@ useKeyboardShortcut('mod+k', () => openCommandPalette())
   padding: var(--app-main-padding-y) var(--app-main-padding-x);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767.98px) {
+  /* 767.98 对齐 useResponsive 的 JS 断点 (<768): 恰好 768px 时保持桌面侧栏,
+     否则 768px 宽度下侧栏被 CSS 隐藏而 JS 仍判 desktop, 导航不可达 (回归测试发现) */
   .app-body {
     grid-template-columns: 1fr;
   }

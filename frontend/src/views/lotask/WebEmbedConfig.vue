@@ -80,9 +80,9 @@
       <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
         <el-form-item :label="t('lotask.system.webEmbed.componentType')" prop="componentType" class="fc-form-item">
           <FcSelect v-model="form.componentType" :disabled="!!editing">
-            <FcSelect.Option label="task-list" value="task-list" />
-            <FcSelect.Option label="task-detail" value="task-detail" />
-            <FcSelect.Option label="task-card" value="task-card" />
+            <el-option label="task-list" value="task-list" />
+            <el-option label="task-detail" value="task-detail" />
+            <el-option label="task-card" value="task-card" />
           </FcSelect>
         </el-form-item>
         <el-form-item :label="t('lotask.system.webEmbed.configKey')" prop="configKey" class="fc-form-item">

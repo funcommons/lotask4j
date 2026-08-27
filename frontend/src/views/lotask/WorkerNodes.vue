@@ -16,9 +16,9 @@
           clearable
           class="filter-status"
         >
-          <FcSelect.Option :label="t('lotask.system.workerNodes.online')" value="ONLINE" />
-          <FcSelect.Option :label="t('lotask.system.workerNodes.busy')" value="BUSY" />
-          <FcSelect.Option :label="t('lotask.system.workerNodes.offline')" value="OFFLINE" />
+          <el-option :label="t('lotask.system.workerNodes.online')" value="ONLINE" />
+          <el-option :label="t('lotask.system.workerNodes.busy')" value="BUSY" />
+          <el-option :label="t('lotask.system.workerNodes.offline')" value="OFFLINE" />
         </FcSelect>
         <span class="counter">{{ t('lotask.system.workerNodes.total', { n: filtered.length }) }}</span>
       </div>

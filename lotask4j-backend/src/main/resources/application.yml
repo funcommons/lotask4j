@@ -25,12 +25,11 @@ spring:
 
 # framework4j SDK 配置
 framework4j:
-  # framework4j-transport 模块（v1.4.0 引入）— 当前业务方未使用 HttpTransport 接口，
-  # 且 framework4jHttpTransport 的 RestTemplate 形参无 @Qualifier，业务方只要声明多个
-  # RestTemplate（HttpClientConfig 已声明 webhook + callback）就会触发 NoUniqueBeanDefinitionException。
-  # 关闭 auto-config 不构成重复建设：HttpClientConfig 仍提供 HttpClient 用 RestTemplate。
-  transport:
-    enabled: false
+  # framework4j-transport (v1.4.2+) — 修复 issue #18：使用 ObjectProvider<RestTemplate> +
+  # 可选 rest-template-bean-name 配置；多 RestTemplate 场景下不再抛 NoUniqueBeanDefinitionException。
+  # 项目未直接使用 HttpTransport 接口，框架默认装配的 framework4jHttpTransport 走降级路径
+  # (多 RestTemplate + 未配置 bean-name + 无 @Primary → 框架内置默认实例 + WARN)，不影响业务。
+  # 若后续业务要复用 framework4jHttpTransport,再按需指定 rest-template-bean-name。
 
   # 分布式 ID 生成配置
   id:

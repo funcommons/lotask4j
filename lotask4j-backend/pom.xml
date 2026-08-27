@@ -61,11 +61,12 @@
 
         <!-- ==================== framework4j SDK (API、ID、DataSource、Redis、AccessToken 等) ==================== -->
         <!-- 来源：JitPack，详见 https://jitpack.io  -->
-        <!-- 升级：v1.2.1 → v1.4.0 (JitPack 最新)。框架本身 API 兼容扩展，新增 transport / tracelog 模块由 framework4j-all 一并引入。 -->
+        <!-- 升级：v1.2.1 → v1.4.2。v1.4.2 修复 issue #18 (TransportAutoConfiguration 多 RestTemplate 注入歧义)，
+             通过 ObjectProvider + 可选 rest-template-bean-name 配置实现；无破坏性变更。 -->
         <dependency>
             <groupId>com.github.funcommons.framework4j</groupId>
             <artifactId>framework4j-all</artifactId>
-            <version>v1.4.0</version>
+            <version>v1.4.2</version>
         </dependency>
 
         <!-- MyBatis Plus -->

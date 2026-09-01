@@ -116,8 +116,8 @@ class WorkerTaskControllerTest {
 
         mockMvc.perform(post("/api/v1/worker/tasks/poll")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(pollRequest)))
-            .andDo(print())
+                .content("{\"taskType\":\"data_export\",\"strategy\":\"PRIORITY\",\"workerId\":\"wkr-test-001\"}")
+                )
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(0))
             .andExpect(jsonPath("$.data.id").exists()) // @OpenId 转字符串
@@ -134,8 +134,8 @@ class WorkerTaskControllerTest {
 
         mockMvc.perform(post("/api/v1/worker/tasks/poll")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(pollRequest)))
-            .andDo(print())
+                .content("{\"taskType\":\"data_export\",\"strategy\":\"PRIORITY\",\"workerId\":\"wkr-test-001\"}")
+                )
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(0));
         // data 为 null 是合法的（无任务可执行）
@@ -171,7 +171,7 @@ class WorkerTaskControllerTest {
         mockMvc.perform(post("/api/v1/worker/tasks/poll")
                 .header("X-Forwarded-For", "203.0.113.10, 10.0.0.1")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(pollRequest)))
+                .content("{\"taskType\":\"data_export\",\"strategy\":\"PRIORITY\",\"workerId\":\"wkr-test-001\"}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(0));
 
@@ -227,7 +227,7 @@ class WorkerTaskControllerTest {
         // void 方法，不需要 when...thenReturn
         mockMvc.perform(post("/api/v1/worker/tasks/pX6s9o7dLoTL/progress")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(progressRequest)))
+                .content("{\"currentStepKey\":\"querying\",\"stepProgress\":50,\"executionToken\":1,\"version\":0}"))
             .andDo(print())
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(0));
@@ -299,7 +299,7 @@ class WorkerTaskControllerTest {
         // (业务上应让 service 抛 ApiException(BusinessCode.TASK_CANCEL_NOT_ALLOWED))
         mockMvc.perform(post("/api/v1/worker/tasks/pX6s9o7dLoTL/progress")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(progressRequest)))
+                .content("{\"currentStepKey\":\"querying\",\"stepProgress\":50,\"executionToken\":1,\"version\":0}"))
             .andDo(print())
             .andExpect(status().isInternalServerError())
             .andExpect(jsonPath("$.code").value(10001))
@@ -313,7 +313,7 @@ class WorkerTaskControllerTest {
     void testReportResult_Success() throws Exception {
         mockMvc.perform(post("/api/v1/worker/tasks/pX6s9o7dLoTL/result")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(resultRequest)))
+                .content("{\"status\":\"SUCCESS\",\"result\":{\"rows\":100},\"executionToken\":1,\"version\":0}"))
             .andDo(print())
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(0));
@@ -324,13 +324,10 @@ class WorkerTaskControllerTest {
     @Test
     @DisplayName("POST /api/v1/worker/tasks/{id}/result - FAILED 状态上报")
     void testReportResult_Failed() throws Exception {
-        resultRequest.setStatus("FAILED");
-        resultRequest.setResult(null);
-        resultRequest.setErrorMsg("DB connection timeout");
-
+        // status=FAILED
         mockMvc.perform(post("/api/v1/worker/tasks/pX6s9o7dLoTL/result")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(resultRequest)))
+                .content("{\"status\":\"FAILED\",\"errorMsg\":\"DB connection timeout\",\"executionToken\":1,\"version\":0}"))
             .andDo(print())
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(0));
@@ -341,12 +338,10 @@ class WorkerTaskControllerTest {
     @Test
     @DisplayName("POST /api/v1/worker/tasks/{id}/result - CANCELLED 状态上报 (确认取消)")
     void testReportResult_Cancelled() throws Exception {
-        resultRequest.setStatus("CANCELLED");
-        resultRequest.setResult(null);
-
+        // status=CANCELLED
         mockMvc.perform(post("/api/v1/worker/tasks/pX6s9o7dLoTL/result")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(resultRequest)))
+                .content("{\"status\":\"CANCELLED\",\"executionToken\":1,\"version\":0}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.code").value(0));
 
@@ -356,11 +351,11 @@ class WorkerTaskControllerTest {
     @Test
     @DisplayName("POST /api/v1/worker/tasks/{id}/result - status 非法 (RUNNING)，校验失败")
     void testReportResult_InvalidStatus() throws Exception {
-        resultRequest.setStatus("RUNNING");
+        // status=RUNNING (非法)
 
         mockMvc.perform(post("/api/v1/worker/tasks/pX6s9o7dLoTL/result")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(resultRequest)))
+                .content("{\"status\":\"RUNNING\",\"result\":{\"rows\":100},\"executionToken\":1,\"version\":0}"))
             .andDo(print())
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.success").value(false))
@@ -372,11 +367,9 @@ class WorkerTaskControllerTest {
     @Test
     @DisplayName("POST /api/v1/worker/tasks/{id}/result - status 缺失，校验失败")
     void testReportResult_MissingStatus() throws Exception {
-        resultRequest.setStatus(null);
-
         mockMvc.perform(post("/api/v1/worker/tasks/pX6s9o7dLoTL/result")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(resultRequest)))
+                .content("{\"result\":{\"rows\":100},\"executionToken\":1,\"version\":0}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.success").value(false));
 

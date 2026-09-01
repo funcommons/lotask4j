@@ -29,6 +29,34 @@ public class SimpleWorkerExample {
     private final String baseUrl;
     private final String taskType;
     private final int pollIntervalSeconds;
+    private final String authBaseUrl;   // /api/v1 (token 端点)
+    private final String clientId;
+    private final String clientSecret;
+    private volatile String accessToken;
+
+    /** 应用凭据换 worker token (scope=worker); 401 时调用方重取 */
+    private synchronized void refreshToken() {
+        String url = authBaseUrl + "/auth/token";
+        HttpHeaders h = new HttpHeaders();
+        h.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        String form = "grant_type=client_credentials&client_id=" + clientId
+                + "&client_secret=" + clientSecret + "&scope=worker";
+        try {
+            ResponseEntity<String> resp = restTemplate.postForEntity(url,
+                    new HttpEntity<>(form, h), String.class);
+            com.alibaba.fastjson2.JSONObject json = JSON.parseObject(resp.getBody());
+            this.accessToken = json.getJSONObject("data").getString("access_token");
+            log.info("Worker token acquired (scope=worker)");
+        } catch (Exception e) {
+            log.error("Failed to acquire worker token", e);
+            throw new IllegalStateException("worker token 获取失败", e);
+        }
+    }
+
+    private void auth(HttpHeaders headers) {
+        if (accessToken == null) refreshToken();
+        headers.setBearerAuth(accessToken);
+    }
 
     /**
      * 构造 Worker 实例
@@ -38,9 +66,26 @@ public class SimpleWorkerExample {
      * @param pollIntervalSeconds 轮询间隔（秒）
      */
     public SimpleWorkerExample(String baseUrl, String taskType, int pollIntervalSeconds) {
+        this(baseUrl, taskType, pollIntervalSeconds, "ADMIN", "lotask4j-admin-dev-secret");
+    }
+
+    /**
+     * 构造 Worker 实例 (带应用凭据 — worker 域已收口, 所有请求需 Bearer token)
+     *
+     * @param baseUrl Worker API 基础 URL (例如: http://localhost:8080/api/v1/worker)
+     * @param taskType 处理的任务类型 (例如: video_transcode)
+     * @param pollIntervalSeconds 轮询间隔（秒）
+     * @param clientId 应用凭据 (管理端创建应用返回; 本地开发可用合成 ADMIN)
+     * @param clientSecret 应用 secret
+     */
+    public SimpleWorkerExample(String baseUrl, String taskType, int pollIntervalSeconds,
+                               String clientId, String clientSecret) {
         this.baseUrl = baseUrl;
         this.taskType = taskType;
         this.pollIntervalSeconds = pollIntervalSeconds;
+        this.clientId = clientId;
+        this.clientSecret = clientSecret;
+        this.authBaseUrl = baseUrl.substring(0, baseUrl.lastIndexOf('/'));
     }
 
     /**
@@ -57,7 +102,7 @@ public class SimpleWorkerExample {
 
                 if (task != null) {
                     // 获取任务信息
-                    String taskId = (String) task.get("task_id");
+                    String taskId = (String) task.get("taskId");
                     String type = (String) task.get("type");
                     Map<String, Object> payload = (Map<String, Object>) task.get("payload");
 
@@ -103,16 +148,24 @@ public class SimpleWorkerExample {
 
         // 构造请求体
         Map<String, Object> request = new HashMap<>();
-        request.put("task_type", taskType);
+        request.put("taskType", taskType);
         request.put("strategy", "PRIORITY"); // 可选: PRIORITY 或 FIFO
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
+        auth(headers);
 
         HttpEntity<String> entity = new HttpEntity<>(JSON.toJSONString(request), headers);
 
         try {
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+
+            if (response.getStatusCode().value() == 401) {
+                // token 失效, 重取一次
+                accessToken = null;
+                auth(entity.getHeaders());
+                response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+            }
 
             if (response.getStatusCode().is2xxSuccessful()) {
                 Map<String, Object> result = JSON.parseObject(response.getBody(), Map.class);
@@ -191,8 +244,11 @@ public class SimpleWorkerExample {
     private void checkTaskStatus(String taskId) {
         String url = baseUrl + "/tasks/" + taskId + "/status";
 
+        HttpHeaders statusHeaders = new HttpHeaders();
+        auth(statusHeaders);
         try {
-            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET,
+                    new HttpEntity<>(statusHeaders), String.class);
 
             if (response.getStatusCode().is2xxSuccessful()) {
                 Map<String, Object> result = JSON.parseObject(response.getBody(), Map.class);
@@ -220,11 +276,12 @@ public class SimpleWorkerExample {
         String url = baseUrl + "/tasks/" + taskId + "/progress";
 
         Map<String, Object> request = new HashMap<>();
-        request.put("current_step_key", currentStepKey);
-        request.put("step_progress", stepProgress);
+        request.put("currentStepKey", currentStepKey);
+        request.put("stepProgress", stepProgress);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
+        auth(headers);
 
         HttpEntity<String> entity = new HttpEntity<>(JSON.toJSONString(request), headers);
 
@@ -253,11 +310,12 @@ public class SimpleWorkerExample {
             request.put("result", result);
         }
         if (errorMsg != null) {
-            request.put("error_msg", errorMsg);
+            request.put("errorMsg", errorMsg);
         }
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
+        auth(headers);
 
         HttpEntity<String> entity = new HttpEntity<>(JSON.toJSONString(request), headers);
 

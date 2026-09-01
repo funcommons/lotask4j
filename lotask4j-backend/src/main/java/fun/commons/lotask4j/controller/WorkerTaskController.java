@@ -5,6 +5,7 @@ import fun.commons.lotask4j.dto.*;
 import fun.commons.lotask4j.service.WorkerService;
 import fun.commons.framework4j.web.ApiResponse;
 import fun.commons.framework4j.openid.annotation.OpenId;
+import fun.commons.framework4j.accesstoken.annotation.RequiresToken;
 import fun.commons.framework4j.ratelimit.annotation.RateLimit;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/worker")
 @RequiredArgsConstructor
+@RequiresToken("worker")   // Worker 域全收口 (应用凭据 scope=worker 换 token; embed 不涉及)
 @Tag(name = "Worker API", description = "Worker 节点接口")
 public class WorkerTaskController {
 

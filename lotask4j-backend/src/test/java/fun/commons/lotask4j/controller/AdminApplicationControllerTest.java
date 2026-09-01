@@ -62,9 +62,16 @@ class AdminApplicationControllerTest {
 
     private static String extractJsonString(String json, String key) {
         int i = json.indexOf("\"" + key + "\":\"");
+        if (i >= 0) {
+            int start = i + key.length() + 4;
+            return json.substring(start, json.indexOf('"', start));
+        }
+        // 数字形式 (id 无 OpenId 序列化时为数字)
+        i = json.indexOf("\"" + key + "\":");
         if (i < 0) return null;
-        int start = i + key.length() + 4;
-        int end = json.indexOf('"', start);
+        int start = i + key.length() + 3;
+        int end = start;
+        while (end < json.length() && (Character.isDigit(json.charAt(end)) || json.charAt(end) == '-')) end++;
         return json.substring(start, end);
     }
 
@@ -88,7 +95,7 @@ class AdminApplicationControllerTest {
                 .andExpect(status().isUnauthorized());
 
         String body = createApp("app-enc").getResponse().getContentAsString();
-        String secret = extractJsonString(body, "app_secret");
+        String secret = extractJsonString(body, "appSecret");
         assertThat(secret).isNotBlank().hasSize(40);
         long id = Long.parseLong(extractJsonString(body, "id"));
 
@@ -112,7 +119,7 @@ class AdminApplicationControllerTest {
     @DisplayName("reset-secret 后旧 secret 失效, 新 secret 可用")
     void resetSecret_oldInvalid() throws Exception {
         String body = createApp("app-reset").getResponse().getContentAsString();
-        String oldSecret = extractJsonString(body, "app_secret");
+        String oldSecret = extractJsonString(body, "appSecret");
         long id = Long.parseLong(extractJsonString(body, "id"));
 
         String newBody = mockMvc.perform(post("/api/v1/admin/applications/" + id + "/reset-secret")
@@ -120,7 +127,7 @@ class AdminApplicationControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andReturn().getResponse().getContentAsString();
-        String newSecret = extractJsonString(newBody, "app_secret");
+        String newSecret = extractJsonString(newBody, "appSecret");
         assertThat(newSecret).isNotEqualTo(oldSecret);
 
         // 旧 secret 拒绝
@@ -141,7 +148,7 @@ class AdminApplicationControllerTest {
     @DisplayName("停用后不可换 token; 列表不含 secret")
     void inactivate_blocksToken_and_listHasNoSecret() throws Exception {
         String body = createApp("app-disable").getResponse().getContentAsString();
-        String secret = extractJsonString(body, "app_secret");
+        String secret = extractJsonString(body, "appSecret");
         long id = Long.parseLong(extractJsonString(body, "id"));
 
         // 停用
@@ -163,6 +170,6 @@ class AdminApplicationControllerTest {
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data.items[?(@.name=='app-disable')].app_secret").doesNotExist());
+                .andExpect(jsonPath("$.data.items[?(@.name=='app-disable')].appSecret").doesNotExist());
     }
 }

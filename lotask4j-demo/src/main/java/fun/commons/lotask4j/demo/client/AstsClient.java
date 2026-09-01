@@ -44,6 +44,22 @@ public class AstsClient {
     @Value("${asts.client.secret:lotask4j-admin-dev-secret}")
     private String secret;
 
+    /** client 域写端点已收口 (@RequiresToken("client")): 应用凭据换 Bearer */
+    private volatile String accessToken;
+
+    private synchronized Mono<String> bearerToken() {
+        if (accessToken != null) return Mono.just(accessToken);
+        String form = "grant_type=client_credentials&client_id=" + accessKey
+                + "&client_secret=" + secret;   // scope 默认 client
+        return webClient.post().uri(serverUrl + "/api/v1/auth/token")
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .bodyValue(form)
+                .retrieve().bodyToMono(String.class)
+                .map(body -> com.alibaba.fastjson2.JSONObject.parseObject(body)
+                        .getJSONObject("data").getString("access_token"))
+                .doOnNext(t -> accessToken = t);
+    }
+
     public AstsClient(WebClient.Builder webClientBuilder) {
         this.webClient = webClientBuilder.build();
     }
@@ -61,14 +77,17 @@ public class AstsClient {
         // 自行序列化: 签名 MD5 与实际发送 body 必须是同一份字节
         String body = JSONObject.toJSONString(request);
 
-        return webClient
+        return bearerToken().flatMap(token -> webClient
             .post()
             .uri(serverUrl + "/api/v1/client/tasks/submit")
-            .headers(h -> signInto(h, "POST", "/api/v1/client/tasks/submit", body))
+            .headers(h -> {
+                signInto(h, "POST", "/api/v1/client/tasks/submit", body);
+                h.setBearerAuth(token);
+            })
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(body)
             .retrieve()
-            .bodyToMono(String.class)
+            .bodyToMono(String.class))
             .map(response -> {
                 JSONObject json = JSONObject.parseObject(response);
                 JSONObject data = json.getJSONObject("data");
@@ -111,12 +130,15 @@ public class AstsClient {
         log.info("取消任务: taskId={}", taskId);
         String path = "/api/v1/client/tasks/" + taskId + "/cancel";
 
-        return webClient
+        return bearerToken().flatMap(token -> webClient
             .post()
             .uri(serverUrl + path)
-            .headers(h -> signInto(h, "POST", path, ""))
+            .headers(h -> {
+                signInto(h, "POST", path, "");
+                h.setBearerAuth(token);
+            })
             .retrieve()
-            .bodyToMono(Void.class)
+            .bodyToMono(Void.class))
             .doOnError(error -> log.error("取消任务失败", error));
     }
 

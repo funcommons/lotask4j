@@ -87,8 +87,8 @@ class AdminTaskControllerEventsTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 // FastJSON2 默认序列化使用 snake_case (framework4j 行为)
-                .andExpect(jsonPath("$.data[0].event_type").value("TASK_DISPATCHED"))
-                .andExpect(jsonPath("$.data[0].worker_id").value("wkr-test-001"));
+                .andExpect(jsonPath("$.data[0].eventType").value("TASK_DISPATCHED"))
+                .andExpect(jsonPath("$.data[0].workerId").value("wkr-test-001"));
 
         verify(taskEventRecorder).historyOf(eq(123456789L), eq(100));
     }
@@ -136,7 +136,7 @@ class AdminTaskControllerEventsTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 // FastJSON2 默认使用 snake_case (framework4j 行为)
-                .andExpect(jsonPath("$.data[0].worker_key").value("wkr-test-001"))
+                .andExpect(jsonPath("$.data[0].workerKey").value("wkr-test-001"))
                 .andExpect(jsonPath("$.data[0].status").value("ONLINE"));
     }
 
@@ -161,9 +161,9 @@ class AdminTaskControllerEventsTest {
                 .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data.total_pending").value(10))
-                .andExpect(jsonPath("$.data.total_running").value(5))
-                .andExpect(jsonPath("$.data.today_stats.success").value(100))
-                .andExpect(jsonPath("$.data.worker_count.online").value(2));
+                .andExpect(jsonPath("$.data.totalPending").value(10))
+                .andExpect(jsonPath("$.data.totalRunning").value(5))
+                .andExpect(jsonPath("$.data.todayStats.success").value(100))
+                .andExpect(jsonPath("$.data.workerCount.online").value(2));
     }
 }

@@ -170,8 +170,8 @@ framework4j:
     # 不做 token 校验的路径
     exclude-path-patterns:
       - /api/v1/auth/token
-      - /api/v1/client/**
-      - /api/v1/worker/**
+      # client/worker 域已收口 (2026-09): 不再整域豁免, 由 @RequiresToken 方法/类级注解驱动 —
+      # client GET (embed 依赖) 无注解自动放行, 写端点需 Bearer; worker 域类级全收
       - /web-embed/**
       - /web-embed
       - /actuator/**

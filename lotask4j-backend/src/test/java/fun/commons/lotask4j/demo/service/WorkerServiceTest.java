@@ -490,7 +490,7 @@ class WorkerServiceTest {
 
             workerService.reportResult(100001L, req);
 
-            verify(webhookService).sendWebhookAsync(any(AstTask.class));
+            verify(webhookService).enqueueFinished(any(AstTask.class));
         }
 
         @Test

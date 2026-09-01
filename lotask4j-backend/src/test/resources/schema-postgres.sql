@@ -5,6 +5,7 @@
 --       月分区由 TaskArchiver 运维逻辑建, 测试只保证 default 兜底即可写入)
 
 DROP TABLE IF EXISTS asts_task_execution_event CASCADE;
+DROP TABLE IF EXISTS asts_outbox CASCADE;
 DROP TABLE IF EXISTS asts_task CASCADE;
 DROP TABLE IF EXISTS asts_task_type_config CASCADE;
 DROP TABLE IF EXISTS asts_application CASCADE;
@@ -108,6 +109,25 @@ CREATE TABLE asts_task_execution_event (
 CREATE INDEX idx_atee_task_id ON asts_task_execution_event(task_id);
 CREATE INDEX idx_atee_event_type ON asts_task_execution_event(event_type);
 CREATE INDEX idx_atee_created_at ON asts_task_execution_event(created_at);
+
+-- Webhook 投递 outbox (V3 对齐; 测试库平铺建表)
+CREATE TABLE asts_outbox (
+    id              BIGINT PRIMARY KEY,
+    aggregate_type  VARCHAR(32)  NOT NULL,
+    aggregate_id    BIGINT       NOT NULL,
+    event_type      VARCHAR(32)  NOT NULL,
+    callback_url    VARCHAR(512) NOT NULL,
+    payload         TEXT         NOT NULL,
+    status          VARCHAR(16)  NOT NULL DEFAULT 'PENDING',
+    attempt_count   INT          NOT NULL DEFAULT 0,
+    max_attempts    INT          NOT NULL DEFAULT 8,
+    next_retry_at   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    sent_at         TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX idx_asts_outbox_pending ON asts_outbox (status, next_retry_at)
+    WHERE status = 'PENDING';
 
 -- 接入应用表 (client_credentials 凭据; 本期预留, 控制台走合成 ADMIN)
 CREATE TABLE asts_application (

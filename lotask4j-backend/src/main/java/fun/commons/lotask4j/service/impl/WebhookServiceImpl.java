@@ -1,24 +1,28 @@
 package fun.commons.lotask4j.service.impl;
 
 import com.alibaba.fastjson2.JSON;
+import fun.commons.framework4j.id.generator.SnowflakeDistributor;
 import fun.commons.lotask4j.entity.AstTask;
-import fun.commons.lotask4j.mapper.AstTaskMapper;
+import fun.commons.lotask4j.entity.AstsOutbox;
+import fun.commons.lotask4j.mapper.AstsOutboxMapper;
 import fun.commons.lotask4j.service.WebhookService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.*;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Webhook 回调服务实现
+ * Webhook 回调服务实现 (outbox 模式)
+ *
+ * enqueueFinished: 终态事务内落 asts_outbox (payload/callback_url 快照);
+ * deliver: 同步 HTTP POST, 2xx 即成功 — 状态迁移由 OutboxPublisher CAS 完成。
  */
 @Slf4j
 @Service
@@ -29,68 +33,65 @@ public class WebhookServiceImpl implements WebhookService {
     @Qualifier("webhookRestTemplate")
     private RestTemplate restTemplate;
 
-    private final AstTaskMapper taskMapper;
+    private final AstsOutboxMapper outboxMapper;
+
+    private final SnowflakeDistributor snowflakeDistributor;
 
     @Override
-    @Async("asyncExecutor")
-    public void sendWebhookAsync(AstTask task) {
+    public void enqueueFinished(AstTask task) {
         if (task.getCallbackUrl() == null || task.getCallbackUrl().isEmpty()) {
-            log.debug("Task {} has no callback URL, skipping webhook", task.getId());
+            log.debug("Task {} has no callback URL, skipping webhook enqueue", task.getId());
             return;
         }
 
-        log.info("Sending webhook for task: {} to {}", task.getId(), task.getCallbackUrl());
+        Map<String, Object> webhookBody = new HashMap<>();
+        webhookBody.put("event", "TASK_FINISHED");
+        webhookBody.put("task_id", String.valueOf(task.getId()));
+        webhookBody.put("type", task.getTaskTypeKey());
+        webhookBody.put("status", task.getStatus());
+        webhookBody.put("result", task.getResult());
+        webhookBody.put("timestamp", System.currentTimeMillis());
 
+        AstsOutbox event = new AstsOutbox();
+        event.setId(snowflakeDistributor.nextId());
+        event.setAggregateType("TASK");
+        event.setAggregateId(task.getId());
+        event.setEventType("TASK_FINISHED");
+        event.setCallbackUrl(task.getCallbackUrl());
+        event.setPayload(JSON.toJSONString(webhookBody));
+        event.setStatus(AstsOutbox.STATUS_PENDING);
+        event.setAttemptCount(0);
+        event.setMaxAttempts(AstsOutbox.MAX_ATTEMPTS);
+        event.setNextRetryAt(OffsetDateTime.now());
+        event.setCreatedAt(OffsetDateTime.now());
+
+        outboxMapper.insert(event);
+        log.info("Webhook 入队: task={}, event={}, url={}",
+                task.getId(), event.getId(), task.getCallbackUrl());
+    }
+
+    @Override
+    public boolean deliver(AstsOutbox event) {
         try {
-            // 构造 Webhook 请求体
-            Map<String, Object> webhookBody = new HashMap<>();
-            webhookBody.put("event", "TASK_FINISHED");
-            webhookBody.put("task_id", task.getId()); // 注意: 实际发送时会自动转换为 OpenID 字符串
-            webhookBody.put("type", task.getTaskTypeKey());
-            webhookBody.put("status", task.getStatus());
-            webhookBody.put("result", task.getResult());
-            webhookBody.put("timestamp", Instant.now().toEpochMilli());
-
-            // 发送 HTTP POST 请求
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
 
-            HttpEntity<String> request = new HttpEntity<>(JSON.toJSONString(webhookBody), headers);
+            HttpEntity<String> request = new HttpEntity<>(event.getPayload(), headers);
 
             ResponseEntity<String> response = restTemplate.exchange(
-                    task.getCallbackUrl(),
-                    HttpMethod.POST,
-                    request,
-                    String.class
-            );
+                    event.getCallbackUrl(), HttpMethod.POST, request, String.class);
 
             if (response.getStatusCode().is2xxSuccessful()) {
-                log.info("Webhook sent successfully for task: {}", task.getId());
-                updateCallbackStatus(task.getId(), 1); // 1 = 发送成功
-            } else {
-                log.warn("Webhook failed for task: {}, status: {}", task.getId(), response.getStatusCode());
-                updateCallbackStatus(task.getId(), 2); // 2 = 发送失败
+                log.info("Webhook 投递成功: event={}, task={}, url={}",
+                        event.getId(), event.getAggregateId(), event.getCallbackUrl());
+                return true;
             }
-
+            log.warn("Webhook 投递非 2xx: event={}, status={}", event.getId(), response.getStatusCode());
+            return false;
         } catch (Exception e) {
-            log.error("Error sending webhook for task: {}", task.getId(), e);
-            updateCallbackStatus(task.getId(), 2); // 2 = 发送失败
-
-            // TODO: 实现重试机制(指数退避)
-        }
-    }
-
-    /**
-     * 更新回调状态
-     */
-    private void updateCallbackStatus(Long id, int status) {
-        try {
-            int updated = taskMapper.updateCallbackStatus(id, status);
-            if (updated == 0) {
-                log.warn("Failed to update callback status for task: {}, task may not exist", id);
-            }
-        } catch (Exception e) {
-            log.error("Failed to update callback status for task: {}", id, e);
+            log.warn("Webhook 投递异常: event={}, url={}, err={}",
+                    event.getId(), event.getCallbackUrl(), e.getMessage());
+            return false;
         }
     }
 }

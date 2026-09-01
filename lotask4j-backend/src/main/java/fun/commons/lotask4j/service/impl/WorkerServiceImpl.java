@@ -259,7 +259,7 @@ public class WorkerServiceImpl implements WorkerService {
         if (task.getCallbackUrl() != null && !task.getCallbackUrl().isEmpty()) {
             AstTask updated = taskMapper.selectByIdWithTypeName(id);
             if (updated != null) {
-                webhookService.sendWebhookAsync(updated);
+                webhookService.enqueueFinished(updated);
             }
         }
     }

@@ -9,6 +9,8 @@ DROP TABLE IF EXISTS asts_outbox CASCADE;
 DROP TABLE IF EXISTS asts_task CASCADE;
 DROP TABLE IF EXISTS asts_task_type_config CASCADE;
 DROP TABLE IF EXISTS asts_tenant CASCADE;
+DROP TABLE IF EXISTS asts_worker_node CASCADE;
+DROP TABLE IF EXISTS asts_web_embed_config CASCADE;
 
 CREATE TABLE asts_task (
     id                      BIGINT NOT NULL,
@@ -163,3 +165,47 @@ CREATE UNIQUE INDEX uk_asts_tenant_email ON asts_tenant (email)
 -- 默认租户 (id=1; secret 为测试已知明文, C 阶段认证测试换 token 用)
 INSERT INTO asts_tenant (id, name, channel, status, tenant_secret, created_at, updated_at)
 VALUES (1, 'default', 'OPS', 'ACTIVE', 'test-default-tenant-secret', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+-- ==================== Worker 节点注册表 (V1+V4 对齐) ====================
+CREATE TABLE asts_worker_node (
+    id                    BIGINT PRIMARY KEY,
+    tenant_id             BIGINT,
+    worker_id             VARCHAR(64) NOT NULL,
+    task_type_key         VARCHAR(64) NOT NULL,
+    worker_ip             INET,
+    worker_port           INT,
+    hostname              VARCHAR(128),
+    supported_task_types  VARCHAR(512),
+    max_task_count        INT DEFAULT 10,
+    current_task_count    INT DEFAULT 0,
+    status                VARCHAR(20) NOT NULL DEFAULT 'OFFLINE',
+    last_heartbeat_at     TIMESTAMP WITH TIME ZONE,
+    total_tasks_done      BIGINT DEFAULT 0,
+    total_tasks_failed    BIGINT DEFAULT 0,
+    registered_at         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at            TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    is_deleted            SMALLINT NOT NULL DEFAULT 0
+);
+
+CREATE UNIQUE INDEX uq_asts_worker_node ON asts_worker_node (tenant_id, worker_id, task_type_key)
+    WHERE is_deleted = 0;
+
+-- ==================== Web Embed 组件配置 (V1+V4 对齐) ====================
+CREATE TABLE asts_web_embed_config (
+    id               BIGINT PRIMARY KEY,
+    tenant_id        BIGINT,
+    config_key       VARCHAR(64) NOT NULL UNIQUE,
+    config_name      VARCHAR(100) NOT NULL,
+    user_id          VARCHAR(64),
+    is_open          SMALLINT NOT NULL DEFAULT 0,
+    callback_url     VARCHAR(512),
+    config           TEXT NOT NULL DEFAULT '{}',
+    component_type   VARCHAR(32) NOT NULL,
+    allowed_domains  VARCHAR(1024),
+    is_enabled       SMALLINT NOT NULL DEFAULT 1,
+    created_at       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    is_deleted       SMALLINT NOT NULL DEFAULT 0
+);
+
+CREATE INDEX idx_asts_weconfig_tenant ON asts_web_embed_config (tenant_id, config_key);

@@ -36,17 +36,17 @@ public interface AstTaskMapper extends BaseMapper<AstTask> {
      * @param id 任务唯一标识
      * @return 任务实体（包含 typeName）
      */
-    AstTask selectByIdWithTypeName(@Param("id") Long id);
+    AstTask selectByIdWithTypeName(@Param("id") Long id, @Param("tenantId") Long tenantId);
 
     /**
      * 获取待处理任务数
      */
-    long countPendingTasks();
+    long countPendingTasks(@Param("tenantId") Long tenantId);
 
     /**
      * 获取运行中的任务数
      */
-    long countRunningTasks();
+    long countRunningTasks(@Param("tenantId") Long tenantId);
 
     /**
      * 重置超时的任务为 PENDING（仅 updated_at 维度，旧协议；保留兼容）
@@ -58,7 +58,8 @@ public interface AstTaskMapper extends BaseMapper<AstTask> {
      */
     AstTask pollAndLockTask(@Param("taskType") String taskType,
                              @Param("strategy") String strategy,
-                             @Param("workerIp") String workerIp);
+                             @Param("workerIp") String workerIp,
+                             @Param("tenantId") Long tenantId);
 
     /**
      * 更新任务进度（保留兼容 — 旧路径,逐步改用 progressWithVersion）
@@ -67,7 +68,8 @@ public interface AstTaskMapper extends BaseMapper<AstTask> {
                            @Param("currentStepKey") String currentStepKey,
                            @Param("stepProgress") Integer stepProgress,
                            @Param("stepsDetail") String stepsDetail,
-                           @Param("globalProgress") Integer globalProgress);
+                           @Param("globalProgress") Integer globalProgress,
+                           @Param("tenantId") Long tenantId);
 
     /**
      * 更新任务最终结果（保留兼容 — 旧路径,逐步改用 completeWithToken）
@@ -75,13 +77,15 @@ public interface AstTaskMapper extends BaseMapper<AstTask> {
     int updateTaskResult(@Param("id") Long id,
                          @Param("status") String status,
                          @Param("result") String result,
-                         @Param("errorMsg") String errorMsg);
+                         @Param("errorMsg") String errorMsg,
+                         @Param("tenantId") Long tenantId);
 
     /**
      * 更新任务回调状态
      */
     int updateCallbackStatus(@Param("id") Long id,
-                             @Param("callbackStatus") Integer callbackStatus);
+                             @Param("callbackStatus") Integer callbackStatus,
+                             @Param("tenantId") Long tenantId);
 
     /**
      * 插入任务 (处理 JSONB 字段)
@@ -94,7 +98,8 @@ public interface AstTaskMapper extends BaseMapper<AstTask> {
      * 查询任务列表（包含类型名称）
      */
     List<AstTask> selectListWithTypeName(@Param("status") String status,
-                                          @Param("taskType") String taskType);
+                                          @Param("taskType") String taskType,
+       @Param("tenantId") Long tenantId);
 
     /**
      * 分页查询任务列表（包含类型名称）
@@ -106,7 +111,8 @@ public interface AstTaskMapper extends BaseMapper<AstTask> {
                                           @Param("taskType") String taskType,
                                           @Param("isArchived") Boolean isArchived,
                                           @Param("createdAtStart") OffsetDateTime createdAtStart,
-                                          @Param("createdAtEnd") OffsetDateTime createdAtEnd);
+                                          @Param("createdAtEnd") OffsetDateTime createdAtEnd,
+       @Param("tenantId") Long tenantId);
 
     /**
      * 统计符合条件的任务总数
@@ -116,7 +122,8 @@ public interface AstTaskMapper extends BaseMapper<AstTask> {
                     @Param("taskType") String taskType,
                     @Param("isArchived") Boolean isArchived,
                     @Param("createdAtStart") OffsetDateTime createdAtStart,
-                    @Param("createdAtEnd") OffsetDateTime createdAtEnd);
+                    @Param("createdAtEnd") OffsetDateTime createdAtEnd,
+       @Param("tenantId") Long tenantId);
 
     /**
      * 统计已过期的待处理任务数量
@@ -138,7 +145,8 @@ public interface AstTaskMapper extends BaseMapper<AstTask> {
      * 命中返回任务，未命中返回 null。
      */
     AstTask findByIdempotencyKey(@Param("taskTypeKey") String taskTypeKey,
-                                  @Param("idempotencyKey") String idempotencyKey);
+                                  @Param("idempotencyKey") String idempotencyKey,
+       @Param("tenantId") Long tenantId);
 
     /**
      * PENDING/CANCELLING → DISPATCHED 状态迁移（CAS by version）。
@@ -152,7 +160,8 @@ public interface AstTaskMapper extends BaseMapper<AstTask> {
                       @Param("executionId") Long executionId,
                       @Param("executionToken") Long executionToken,
                       @Param("leaseSeconds") Integer leaseSeconds,
-                      @Param("now") OffsetDateTime now);
+                      @Param("now") OffsetDateTime now,
+       @Param("tenantId") Long tenantId);
 
     /**
      * DISPATCHED → RUNNING 状态迁移（CAS by version + token）。
@@ -162,7 +171,8 @@ public interface AstTaskMapper extends BaseMapper<AstTask> {
     int startExecution(@Param("id") Long id,
                         @Param("expectedVersion") Integer expectedVersion,
                         @Param("executionToken") Long executionToken,
-                        @Param("startedAt") OffsetDateTime startedAt);
+                        @Param("startedAt") OffsetDateTime startedAt,
+       @Param("tenantId") Long tenantId);
 
     /**
      * 续约 lease（CAS by version + token）。
@@ -174,7 +184,8 @@ public interface AstTaskMapper extends BaseMapper<AstTask> {
                      @Param("expectedVersion") Integer expectedVersion,
                      @Param("executionToken") Long executionToken,
                      @Param("leaseSeconds") Integer leaseSeconds,
-                     @Param("now") OffsetDateTime now);
+                     @Param("now") OffsetDateTime now,
+       @Param("tenantId") Long tenantId);
 
     /**
      * 进度上报（CAS by version + token）。
@@ -188,7 +199,8 @@ public interface AstTaskMapper extends BaseMapper<AstTask> {
                              @Param("stepProgress") Integer stepProgress,
                              @Param("stepsDetail") String stepsDetail,
                              @Param("globalProgress") Integer globalProgress,
-                             @Param("now") OffsetDateTime now);
+                             @Param("now") OffsetDateTime now,
+       @Param("tenantId") Long tenantId);
 
     /**
      * 终态 CAS（CAS by version + token）。
@@ -205,7 +217,8 @@ public interface AstTaskMapper extends BaseMapper<AstTask> {
                            @Param("errorMsg") String errorMsg,
                            @Param("lastErrorCode") String lastErrorCode,
                            @Param("lastErrorMessage") String lastErrorMessage,
-                           @Param("now") OffsetDateTime now);
+                           @Param("now") OffsetDateTime now,
+       @Param("tenantId") Long tenantId);
 
     /**
      * 用户请求取消（PENDING/RUNNING → CANCELLING，CAS by version）。
@@ -216,7 +229,8 @@ public interface AstTaskMapper extends BaseMapper<AstTask> {
     int markCancelRequested(@Param("id") Long id,
                              @Param("expectedVersion") Integer expectedVersion,
                              @Param("requestedCancelAt") OffsetDateTime requestedCancelAt,
-                             @Param("now") OffsetDateTime now);
+                             @Param("now") OffsetDateTime now,
+       @Param("tenantId") Long tenantId);
 
     /**
      * Worker 确认取消完成（CANCELLING → CANCELLED，CAS by version + token）。
@@ -224,7 +238,8 @@ public interface AstTaskMapper extends BaseMapper<AstTask> {
     int confirmCancel(@Param("id") Long id,
                        @Param("expectedVersion") Integer expectedVersion,
                        @Param("executionToken") Long executionToken,
-                       @Param("now") OffsetDateTime now);
+                       @Param("now") OffsetDateTime now,
+       @Param("tenantId") Long tenantId);
 
     /**
      * Reaper：把 lease 过期但未确认的任务回退。

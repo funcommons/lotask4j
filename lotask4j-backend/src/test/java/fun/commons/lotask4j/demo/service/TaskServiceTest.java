@@ -80,7 +80,7 @@ class TaskServiceTest {
         // Mock taskTypeConfigMapper 返回 null (使用默认超时时间, lenient for tests that don't need it)
         lenient().when(taskTypeConfigMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
         // 默认: idempotency 查找返 null
-        lenient().when(stateMachine.findByIdempotencyKey(any(), any())).thenReturn(null);
+        lenient().when(stateMachine.findByIdempotencyKey(any(), any(), isNull())).thenReturn(null);
         // 默认: 背压准入放行 (单测场景不模拟队列满)
         lenient().doNothing().when(submitGuard).checkOrThrow(anyString());
     }
@@ -147,7 +147,7 @@ class TaskServiceTest {
     @DisplayName("查询任务详情 - 成功场景")
     void testGetTaskDetail_Success() {
         // Given: 模拟查询返回任务
-        when(astTaskMapper.selectByIdWithTypeName(100001L))
+        when(astTaskMapper.selectByIdWithTypeName(100001L, null))
             .thenReturn(sampleTask);
 
         // When: 查询任务详情
@@ -161,14 +161,14 @@ class TaskServiceTest {
         assertEquals(0, response.getProgress());
 
         // 验证 mapper 被调用
-        verify(astTaskMapper, times(1)).selectByIdWithTypeName(anyLong());
+        verify(astTaskMapper, times(1)).selectByIdWithTypeName(anyLong(), isNull());
     }
 
     @Test
     @DisplayName("查询任务详情 - 任务不存在")
     void testGetTaskDetail_NotFound() {
         // Given: 模拟查询返回 null
-        when(astTaskMapper.selectByIdWithTypeName(anyLong())).thenReturn(null);
+        when(astTaskMapper.selectByIdWithTypeName(anyLong(), isNull())).thenReturn(null);
 
         // When & Then: 应该抛出异常
         assertThrows(Exception.class, () -> {
@@ -188,7 +188,7 @@ class TaskServiceTest {
         taskService.cancelTask(100001L);
 
         // Then: stateMachine.requestCancel 被调用
-        verify(stateMachine, times(1)).requestCancel(eq(100001L), eq(0));
+        verify(stateMachine, times(1)).requestCancel(eq(100001L), eq(0), isNull());
     }
 
     @Test
@@ -203,35 +203,35 @@ class TaskServiceTest {
             taskService.cancelTask(100001L);
         });
         // 终态不应调用 stateMachine
-        verify(stateMachine, never()).requestCancel(anyLong(), anyInt());
+        verify(stateMachine, never()).requestCancel(anyLong(), anyInt(), isNull());
     }
 
     @Test
     @DisplayName("获取待处理任务数")
     void testGetPendingTaskCount() {
         // Given
-        when(astTaskMapper.countPendingTasks()).thenReturn(15L);
+        when(astTaskMapper.countPendingTasks(null)).thenReturn(15L);
 
         // When
         long count = taskService.getPendingTaskCount();
 
         // Then
         assertEquals(15L, count);
-        verify(astTaskMapper, times(1)).countPendingTasks();
+        verify(astTaskMapper, times(1)).countPendingTasks(null);
     }
 
     @Test
     @DisplayName("获取运行中任务数")
     void testGetRunningTaskCount() {
         // Given
-        when(astTaskMapper.countRunningTasks()).thenReturn(8L);
+        when(astTaskMapper.countRunningTasks(null)).thenReturn(8L);
 
         // When
         long count = taskService.getRunningTaskCount();
 
         // Then
         assertEquals(8L, count);
-        verify(astTaskMapper, times(1)).countRunningTasks();
+        verify(astTaskMapper, times(1)).countRunningTasks(null);
     }
 
     @Test

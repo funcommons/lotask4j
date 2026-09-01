@@ -82,28 +82,28 @@ class TaskStateMachineTest {
         @Test
         @DisplayName("CAS 成功: 返回 fencing token")
         void dispatch_Success() {
-            when(taskMapper.dispatchTask(eq(1L), eq(0), eq("wkr-1"), anyLong(), anyLong(), eq(120), any()))
+            when(taskMapper.dispatchTask(eq(1L), eq(0), eq("wkr-1"), anyLong(), anyLong(), eq(120), any(), isNull()))
                     .thenReturn(1);
 
-            Long token = stateMachine.dispatch(1L, 0, "wkr-1");
+            Long token = stateMachine.dispatch(1L, 0, "wkr-1", null);
 
             assertNotNull(token);
             // 二次 dispatch 生成不同 token
-            when(taskMapper.dispatchTask(eq(2L), eq(0), eq("wkr-1"), anyLong(), anyLong(), eq(120), any()))
+            when(taskMapper.dispatchTask(eq(2L), eq(0), eq("wkr-1"), anyLong(), anyLong(), eq(120), any(), isNull()))
                     .thenReturn(1);
             when(snowflakeDistributor.nextId()).thenReturn(88888L);
-            Long token2 = stateMachine.dispatch(2L, 0, "wkr-1");
+            Long token2 = stateMachine.dispatch(2L, 0, "wkr-1", null);
             assertNotEquals(token, token2);
         }
 
         @Test
         @DisplayName("CAS 失败 (rows=0): 抛 20409")
         void dispatch_CasFailure() {
-            when(taskMapper.dispatchTask(anyLong(), anyInt(), anyString(), anyLong(), anyLong(), anyInt(), any()))
+            when(taskMapper.dispatchTask(anyLong(), anyInt(), anyString(), anyLong(), anyLong(), anyInt(), any(), isNull()))
                     .thenReturn(0);
 
             ApiException ex = assertThrows(ApiException.class,
-                    () -> stateMachine.dispatch(1L, 0, "wkr-1"));
+                    () -> stateMachine.dispatch(1L, 0, "wkr-1", null));
             assertEquals(BusinessCode.TASK_STATE_INVALID.getCode(), ex.getCode());
         }
     }
@@ -117,19 +117,19 @@ class TaskStateMachineTest {
         @Test
         @DisplayName("CAS 成功: 不抛")
         void extendLease_Success() {
-            when(taskMapper.extendLease(eq(1L), eq(0), eq(7L), eq(120), any())).thenReturn(1);
+            when(taskMapper.extendLease(eq(1L), eq(0), eq(7L), eq(120), any(), isNull())).thenReturn(1);
 
-            assertDoesNotThrow(() -> stateMachine.extendLease(1L, 0, 7L));
-            verify(taskMapper).extendLease(eq(1L), eq(0), eq(7L), eq(120), any());
+            assertDoesNotThrow(() -> stateMachine.extendLease(1L, 0, 7L, null));
+            verify(taskMapper).extendLease(eq(1L), eq(0), eq(7L), eq(120), any(), isNull());
         }
 
         @Test
         @DisplayName("CAS 失败 (rows=0): 抛 20409")
         void extendLease_CasFailure() {
-            when(taskMapper.extendLease(anyLong(), anyInt(), anyLong(), anyInt(), any())).thenReturn(0);
+            when(taskMapper.extendLease(anyLong(), anyInt(), anyLong(), anyInt(), any(), isNull())).thenReturn(0);
 
             ApiException ex = assertThrows(ApiException.class,
-                    () -> stateMachine.extendLease(1L, 0, 7L));
+                    () -> stateMachine.extendLease(1L, 0, 7L, null));
             assertEquals(BusinessCode.TASK_STATE_INVALID.getCode(), ex.getCode());
         }
     }
@@ -150,22 +150,22 @@ class TaskStateMachineTest {
         @DisplayName("CAS 成功: 不抛")
         void reportProgress_Success() {
             when(taskMapper.progressWithVersion(eq(TASK_ID), eq(0), eq(7L),
-                    eq("step1"), eq(50), anyString(), eq(50), any()))
+                    eq("step1"), eq(50), anyString(), eq(50), any(), isNull()))
                     .thenReturn(1);
 
             ArrayList<Map<String, Object>> steps = new ArrayList<>();
             assertDoesNotThrow(() -> stateMachine.reportProgress(
-                    TASK_ID, 0, 7L, "step1", 50, steps, 50));
+                    TASK_ID, 0, 7L, "step1", 50, steps, 50, null));
         }
 
         @Test
         @DisplayName("CAS 失败 (rows=0): 抛 20409")
         void reportProgress_CasFailure() {
             lenient().when(taskMapper.progressWithVersion(anyLong(), anyInt(), anyLong(),
-                    anyString(), anyInt(), anyString(), anyInt(), any())).thenReturn(0);
+                    anyString(), anyInt(), anyString(), anyInt(), any(), isNull())).thenReturn(0);
 
             ApiException ex = assertThrows(ApiException.class,
-                    () -> stateMachine.reportProgress(TASK_ID, 0, 7L, "step1", 50, null, 50));
+                    () -> stateMachine.reportProgress(TASK_ID, 0, 7L, "step1", 50, null, 50, null));
             assertEquals(BusinessCode.TASK_STATE_INVALID.getCode(), ex.getCode());
         }
     }
@@ -179,18 +179,18 @@ class TaskStateMachineTest {
         @Test
         @DisplayName("CAS 成功: 不抛")
         void requestCancel_Success() {
-            when(taskMapper.markCancelRequested(anyLong(), anyInt(), any(), any())).thenReturn(1);
+            when(taskMapper.markCancelRequested(anyLong(), anyInt(), any(), any(), isNull())).thenReturn(1);
 
-            assertDoesNotThrow(() -> stateMachine.requestCancel(1L, 0));
+            assertDoesNotThrow(() -> stateMachine.requestCancel(1L, 0, null));
         }
 
         @Test
         @DisplayName("CAS 失败 (rows=0): 抛 20409")
         void requestCancel_CasFailure() {
-            when(taskMapper.markCancelRequested(anyLong(), anyInt(), any(), any())).thenReturn(0);
+            when(taskMapper.markCancelRequested(anyLong(), anyInt(), any(), any(), isNull())).thenReturn(0);
 
             ApiException ex = assertThrows(ApiException.class,
-                    () -> stateMachine.requestCancel(1L, 0));
+                    () -> stateMachine.requestCancel(1L, 0, null));
             assertEquals(BusinessCode.TASK_STATE_INVALID.getCode(), ex.getCode());
         }
     }
@@ -204,18 +204,18 @@ class TaskStateMachineTest {
         @Test
         @DisplayName("CAS 成功: 不抛")
         void confirmCancel_Success() {
-            when(taskMapper.confirmCancel(anyLong(), anyInt(), anyLong(), any())).thenReturn(1);
+            when(taskMapper.confirmCancel(anyLong(), anyInt(), anyLong(), any(), isNull())).thenReturn(1);
 
-            assertDoesNotThrow(() -> stateMachine.confirmCancellation(1L, 0, 7L));
+            assertDoesNotThrow(() -> stateMachine.confirmCancellation(1L, 0, 7L, null));
         }
 
         @Test
         @DisplayName("CAS 失败 (rows=0): 抛 20409")
         void confirmCancel_CasFailure() {
-            when(taskMapper.confirmCancel(anyLong(), anyInt(), anyLong(), any())).thenReturn(0);
+            when(taskMapper.confirmCancel(anyLong(), anyInt(), anyLong(), any(), isNull())).thenReturn(0);
 
             ApiException ex = assertThrows(ApiException.class,
-                    () -> stateMachine.confirmCancellation(1L, 0, 7L));
+                    () -> stateMachine.confirmCancellation(1L, 0, 7L, null));
             assertEquals(BusinessCode.TASK_STATE_INVALID.getCode(), ex.getCode());
         }
     }
@@ -230,33 +230,33 @@ class TaskStateMachineTest {
         @DisplayName("SUCCESS: CAS 成功")
         void completeAs_Success() {
             when(taskMapper.completeWithToken(anyLong(), anyInt(), anyLong(),
-                    eq("SUCCESS"), any(), any(), any(), any(), any())).thenReturn(1);
+                    eq("SUCCESS"), any(), any(), any(), any(), any(), isNull())).thenReturn(1);
 
             Map<String, Object> result = new HashMap<>();
             result.put("rows", 100);
 
             assertDoesNotThrow(() -> stateMachine.completeAs(1L, 0, 7L, TaskStatus.SUCCESS,
-                    result, null, null, null));
+                    result, null, null, null, null));
         }
 
         @Test
         @DisplayName("FAILED: 携带 errorMsg")
         void completeAs_Failed() {
             when(taskMapper.completeWithToken(anyLong(), anyInt(), anyLong(),
-                    eq("FAILED"), any(), any(), any(), any(), any())).thenReturn(1);
+                    eq("FAILED"), any(), any(), any(), any(), any(), isNull())).thenReturn(1);
 
             assertDoesNotThrow(() -> stateMachine.completeAs(1L, 0, 7L, TaskStatus.FAILED,
-                    null, "DB timeout", "PO_DB_TIMEOUT", "Connection lost"));
+                    null, "DB timeout", "PO_DB_TIMEOUT", "Connection lost", null));
         }
 
         @Test
         @DisplayName("CANCELLED: 携带 errorCode = PO_USER_CANCEL")
         void completeAs_Cancelled() {
             when(taskMapper.completeWithToken(anyLong(), anyInt(), anyLong(),
-                    eq("CANCELLED"), any(), any(), any(), any(), any())).thenReturn(1);
+                    eq("CANCELLED"), any(), any(), any(), any(), any(), isNull())).thenReturn(1);
 
             assertDoesNotThrow(() -> stateMachine.completeAs(1L, 0, 7L, TaskStatus.CANCELLED,
-                    null, null, null, null));
+                    null, null, null, null, null));
         }
 
         @Test
@@ -264,7 +264,7 @@ class TaskStateMachineTest {
         void completeAs_InvalidStatus() {
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                     () -> stateMachine.completeAs(1L, 0, 7L, TaskStatus.PENDING,
-                            null, null, null, null));
+                            null, null, null, null, null));
             assertTrue(ex.getMessage().contains("completeAs"));
         }
 
@@ -272,11 +272,11 @@ class TaskStateMachineTest {
         @DisplayName("CAS 失败: 抛 ApiException 20409")
         void completeAs_CasFailure() {
             when(taskMapper.completeWithToken(anyLong(), anyInt(), anyLong(),
-                    anyString(), any(), any(), any(), any(), any())).thenReturn(0);
+                    anyString(), any(), any(), any(), any(), any(), isNull())).thenReturn(0);
 
             ApiException ex = assertThrows(ApiException.class,
                     () -> stateMachine.completeAs(1L, 0, 7L, TaskStatus.SUCCESS,
-                            null, null, null, null));
+                            null, null, null, null, null));
             assertEquals(BusinessCode.TASK_STATE_INVALID.getCode(), ex.getCode());
         }
     }
@@ -321,9 +321,9 @@ class TaskStateMachineTest {
             AstTask existing = new AstTask();
             existing.setId(123L);
             existing.setTaskTypeKey("data_export");
-            when(taskMapper.findByIdempotencyKey("data_export", "ord-2024-001")).thenReturn(existing);
+            when(taskMapper.findByIdempotencyKey("data_export", "ord-2024-001", null)).thenReturn(existing);
 
-            AstTask result = stateMachine.findByIdempotencyKey("data_export", "ord-2024-001");
+            AstTask result = stateMachine.findByIdempotencyKey("data_export", "ord-2024-001", null);
             assertNotNull(result);
             assertEquals(123L, result.getId());
         }
@@ -331,16 +331,16 @@ class TaskStateMachineTest {
         @Test
         @DisplayName("未命中: 返 null")
         void findByKey_Miss() {
-            when(taskMapper.findByIdempotencyKey(anyString(), anyString())).thenReturn(null);
+            when(taskMapper.findByIdempotencyKey(anyString(), anyString(), isNull())).thenReturn(null);
 
-            AstTask result = stateMachine.findByIdempotencyKey("data_export", "ord-2024-999");
+            AstTask result = stateMachine.findByIdempotencyKey("data_export", "ord-2024-999", null);
             assertNull(result);
         }
 
         @Test
         @DisplayName("key=null: 直接返 null, 不查 DB")
         void findByKey_NullKeySkips() {
-            AstTask result = stateMachine.findByIdempotencyKey("data_export", null);
+            AstTask result = stateMachine.findByIdempotencyKey("data_export", null, null);
             assertNull(result);
             verifyNoInteractions(taskMapper);
         }
@@ -348,7 +348,7 @@ class TaskStateMachineTest {
         @Test
         @DisplayName("key=\"\" 空串: 直接返 null")
         void findByKey_EmptyKeySkips() {
-            AstTask result = stateMachine.findByIdempotencyKey("data_export", "");
+            AstTask result = stateMachine.findByIdempotencyKey("data_export", "", null);
             assertNull(result);
             verifyNoInteractions(taskMapper);
         }

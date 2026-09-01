@@ -44,6 +44,10 @@ public class AstTask implements Serializable {
      * 任务类型 Key (如 video_transcode, data_export)
      */
     private String taskTypeKey;
+    /** 租户归属 (租户级隔离; 只从 token claim 取, body 同名字段忽略) */
+    @TableField("tenant_id")
+    private Long tenantId;
+
 
     /**
      * 任务状态

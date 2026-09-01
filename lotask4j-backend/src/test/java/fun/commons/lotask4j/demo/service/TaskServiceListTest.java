@@ -63,7 +63,7 @@ class TaskServiceListTest {
     void setUp() {
         ReflectionTestUtils.setField(taskService, "baseMapper", astTaskMapper);
         // 默认: idempotency 查找返 null
-        lenient().when(stateMachine.findByIdempotencyKey(any(), any())).thenReturn(null);
+        lenient().when(stateMachine.findByIdempotencyKey(any(), any(), isNull())).thenReturn(null);
         // 默认: 背压放行
         lenient().doNothing().when(submitGuard).checkOrThrow(anyString());
     }
@@ -79,7 +79,7 @@ class TaskServiceListTest {
         void fullFieldMapping_WithDuration() {
             AstTask task = buildFinishedTask();
 
-            when(astTaskMapper.selectByIdWithTypeName(123L)).thenReturn(task);
+            when(astTaskMapper.selectByIdWithTypeName(123L, null)).thenReturn(task);
 
             TaskDetailResponse resp = taskService.getTaskDetail(123L);
 
@@ -103,7 +103,7 @@ class TaskServiceListTest {
             task.setStartedAt(OffsetDateTime.of(2026, 6, 24, 10, 0, 0, 0, ZoneOffset.UTC));
             task.setFinishedAt(null); // 未完成
 
-            when(astTaskMapper.selectByIdWithTypeName(99L)).thenReturn(task);
+            when(astTaskMapper.selectByIdWithTypeName(99L, null)).thenReturn(task);
 
             TaskDetailResponse resp = taskService.getTaskDetail(99L);
             assertNull(resp.getDurationSeconds());
@@ -112,7 +112,7 @@ class TaskServiceListTest {
         @Test
         @DisplayName("任务不存在抛 TASK_NOT_FOUND")
         void notFound_Throws() {
-            when(astTaskMapper.selectByIdWithTypeName(anyLong())).thenReturn(null);
+            when(astTaskMapper.selectByIdWithTypeName(anyLong(), isNull())).thenReturn(null);
 
             ApiException ex = assertThrows(ApiException.class,
                     () -> taskService.getTaskDetail(-1L));
@@ -140,7 +140,7 @@ class TaskServiceListTest {
             boolean result = taskService.cancelTask(1L);
 
             assertTrue(result);
-            verify(stateMachine).requestCancel(eq(1L), eq(0));
+            verify(stateMachine).requestCancel(eq(1L), eq(0), isNull());
         }
 
         @Test
@@ -154,7 +154,7 @@ class TaskServiceListTest {
             when(astTaskMapper.selectById(2L)).thenReturn(task);
 
             assertTrue(taskService.cancelTask(2L));
-            verify(stateMachine).requestCancel(eq(2L), eq(0));
+            verify(stateMachine).requestCancel(eq(2L), eq(0), isNull());
         }
 
         @Test
@@ -212,14 +212,14 @@ class TaskServiceListTest {
         @Test
         @DisplayName("getPendingTaskCount 委托给 mapper")
         void pendingCount_Delegates() {
-            when(astTaskMapper.countPendingTasks()).thenReturn(42L);
+            when(astTaskMapper.countPendingTasks(null)).thenReturn(42L);
             assertEquals(42L, taskService.getPendingTaskCount());
         }
 
         @Test
         @DisplayName("getRunningTaskCount 委托给 mapper")
         void runningCount_Delegates() {
-            when(astTaskMapper.countRunningTasks()).thenReturn(5L);
+            when(astTaskMapper.countRunningTasks(null)).thenReturn(5L);
             assertEquals(5L, taskService.getRunningTaskCount());
         }
     }
@@ -233,8 +233,8 @@ class TaskServiceListTest {
         @Test
         @DisplayName("null 分页参数时使用默认值 1/20")
         void defaultPagination_WhenNull() {
-            when(astTaskMapper.countTasks(any(), any(), any(), any(), any(), any())).thenReturn(0L);
-            when(astTaskMapper.selectPageWithTypeName(anyLong(), anyLong(), any(), any(), any(), any(), any(), any()))
+            when(astTaskMapper.countTasks(any(), any(), any(), any(), any(), any(), isNull())).thenReturn(0L);
+            when(astTaskMapper.selectPageWithTypeName(anyLong(), anyLong(), any(), any(), any(), any(), any(), any(), isNull()))
                     .thenReturn(Collections.emptyList());
 
             PageResponse<TaskDetailResponse> page = taskService.getTaskList(
@@ -244,43 +244,43 @@ class TaskServiceListTest {
             assertEquals(20, page.getPageSize());
             assertEquals(0L, page.getTotal());
             // offset = (1-1) * 20 = 0
-            verify(astTaskMapper).selectPageWithTypeName(eq(0L), eq(20L), any(), any(), any(), any(), any(), any());
+            verify(astTaskMapper).selectPageWithTypeName(eq(0L), eq(20L), any(), any(), any(), any(), any(), any(), isNull());
         }
 
         @Test
         @DisplayName("非法 page/pageSize（<=0）使用默认值")
         void invalidPagination_FallsBackToDefault() {
-            when(astTaskMapper.countTasks(any(), any(), any(), any(), any(), any())).thenReturn(0L);
-            when(astTaskMapper.selectPageWithTypeName(anyLong(), anyLong(), any(), any(), any(), any(), any(), any()))
+            when(astTaskMapper.countTasks(any(), any(), any(), any(), any(), any(), isNull())).thenReturn(0L);
+            when(astTaskMapper.selectPageWithTypeName(anyLong(), anyLong(), any(), any(), any(), any(), any(), any(), isNull()))
                     .thenReturn(Collections.emptyList());
 
             taskService.getTaskList(null, null, null, null, null, null, 0, -5);
 
             // 默认 1/20
-            verify(astTaskMapper).selectPageWithTypeName(eq(0L), eq(20L), any(), any(), any(), any(), any(), any());
+            verify(astTaskMapper).selectPageWithTypeName(eq(0L), eq(20L), any(), any(), any(), any(), any(), any(), isNull());
         }
 
         @Test
         @DisplayName("第 3 页 pageSize=10 时 offset=20")
         void offsetCalculation() {
-            when(astTaskMapper.countTasks(any(), any(), any(), any(), any(), any())).thenReturn(100L);
-            when(astTaskMapper.selectPageWithTypeName(anyLong(), anyLong(), any(), any(), any(), any(), any(), any()))
+            when(astTaskMapper.countTasks(any(), any(), any(), any(), any(), any(), isNull())).thenReturn(100L);
+            when(astTaskMapper.selectPageWithTypeName(anyLong(), anyLong(), any(), any(), any(), any(), any(), any(), isNull()))
                     .thenReturn(Collections.emptyList());
 
             taskService.getTaskList(null, null, null, null, null, null, 3, 10);
 
             // offset = (3-1) * 10 = 20
-            verify(astTaskMapper).selectPageWithTypeName(eq(20L), eq(10L), any(), any(), any(), any(), any(), any());
+            verify(astTaskMapper).selectPageWithTypeName(eq(20L), eq(10L), any(), any(), any(), any(), any(), any(), isNull());
         }
 
         @Test
         @DisplayName("归档任务列表 isArchived=true 透传给 mapper")
         void archivedFilter_Passed() {
-            when(astTaskMapper.countTasks(any(), any(), any(), eq(true), any(), any())).thenReturn(1L);
+            when(astTaskMapper.countTasks(any(), any(), any(), eq(true), any(), any(), isNull())).thenReturn(1L);
 
             AstTask archived = buildFinishedTask();
             archived.setId(77L);
-            when(astTaskMapper.selectPageWithTypeName(anyLong(), anyLong(), any(), any(), any(), eq(true), any(), any()))
+            when(astTaskMapper.selectPageWithTypeName(anyLong(), anyLong(), any(), any(), any(), eq(true), any(), any(), isNull()))
                     .thenReturn(Arrays.asList(archived));
 
             PageResponse<TaskDetailResponse> page = taskService.getTaskList(
@@ -295,8 +295,8 @@ class TaskServiceListTest {
         @DisplayName("列表结果按 AstTask 字段映射为 TaskDetailResponse（含 durationSeconds）")
         void listResult_MappedToDetail() {
             AstTask task = buildFinishedTask();
-            when(astTaskMapper.countTasks(any(), any(), any(), any(), any(), any())).thenReturn(1L);
-            when(astTaskMapper.selectPageWithTypeName(anyLong(), anyLong(), any(), any(), any(), any(), any(), any()))
+            when(astTaskMapper.countTasks(any(), any(), any(), any(), any(), any(), isNull())).thenReturn(1L);
+            when(astTaskMapper.selectPageWithTypeName(anyLong(), anyLong(), any(), any(), any(), any(), any(), any(), isNull()))
                     .thenReturn(List.of(task));
 
             PageResponse<TaskDetailResponse> page = taskService.getTaskList(

@@ -38,6 +38,10 @@ public class WebEmbedConfig implements Serializable {
      * 访问密钥（accessKey），唯一标识一个配置
      */
     private String configKey;
+    /** 租户归属 (租户级隔离; 只从 token claim 取, body 同名字段忽略) */
+    @TableField("tenant_id")
+    private Long tenantId;
+
 
     /**
      * 配置名称

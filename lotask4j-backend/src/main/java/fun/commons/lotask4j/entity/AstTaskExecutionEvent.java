@@ -45,6 +45,10 @@ public class AstTaskExecutionEvent implements Serializable {
     private Long id;
 
     private Long taskId;
+    /** 租户归属 (租户级隔离; 只从 token claim 取, body 同名字段忽略) */
+    @TableField("tenant_id")
+    private Long tenantId;
+
 
     /** 同 task.execution_id */
     private Long executionId;

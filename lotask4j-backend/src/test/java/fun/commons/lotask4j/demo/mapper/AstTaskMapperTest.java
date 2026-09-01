@@ -119,7 +119,7 @@ class AstTaskMapperTest {
         }
 
         // When
-        long count = astTaskMapper.countPendingTasks();
+        long count = astTaskMapper.countPendingTasks(null);
 
         // Then
         assertTrue(count >= 3, "待处理任务数应该 >= 3");
@@ -145,7 +145,7 @@ class AstTaskMapperTest {
         }
 
         // When
-        long count = astTaskMapper.countRunningTasks();
+        long count = astTaskMapper.countRunningTasks(null);
 
         // Then
         assertTrue(count >= 2, "运行中任务数应该 >= 2");

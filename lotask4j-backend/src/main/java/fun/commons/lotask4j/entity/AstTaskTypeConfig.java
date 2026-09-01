@@ -1,5 +1,6 @@
 package fun.commons.lotask4j.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.*;
 import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
 import lombok.Getter;
@@ -28,6 +29,10 @@ public class AstTaskTypeConfig {
      * 任务类型标识(业务主键)，如 video_transcode
      */
     private String typeKey;
+    /** 租户归属 (租户级隔离; 只从 token claim 取, body 同名字段忽略) */
+    @TableField("tenant_id")
+    private Long tenantId;
+
 
     /**
      * 任务类型名称

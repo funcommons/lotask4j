@@ -199,8 +199,8 @@ class AdminServiceImplTest {
         @Test
         @DisplayName("聚合今日任务统计与 Worker 在线数")
         void aggregatesTodayStats_AndWorkerCount() {
-            when(taskMapper.countPendingTasks()).thenReturn(3L);
-            when(taskMapper.countRunningTasks()).thenReturn(2L);
+            when(taskMapper.countPendingTasks(null)).thenReturn(3L);
+            when(taskMapper.countRunningTasks(null)).thenReturn(2L);
 
             AstTask successTask = taskWithStatus("SUCCESS");
             AstTask failedTask = taskWithStatus("FAILED");
@@ -227,8 +227,8 @@ class AdminServiceImplTest {
         @Test
         @DisplayName("心跳为 null 的 Worker 计为 offline")
         void workerNullHeartbeat_CountsOffline() {
-            when(taskMapper.countPendingTasks()).thenReturn(0L);
-            when(taskMapper.countRunningTasks()).thenReturn(0L);
+            when(taskMapper.countPendingTasks(null)).thenReturn(0L);
+            when(taskMapper.countRunningTasks(null)).thenReturn(0L);
             when(taskMapper.selectList(any())).thenReturn(Collections.emptyList());
 
             AstWorkerNode w = new AstWorkerNode();
@@ -342,16 +342,16 @@ class AdminServiceImplTest {
         @Test
         @DisplayName("默认分页 1/20，isArchived 固定为 false")
         void defaultPagination_FixedNotArchived() {
-            when(taskMapper.countTasks(any(), any(), any(), eq(false), any(), any())).thenReturn(0L);
-            when(taskMapper.selectPageWithTypeName(anyLong(), anyLong(), any(), any(), any(), eq(false), any(), any()))
+            when(taskMapper.countTasks(any(), any(), any(), eq(false), any(), any(), isNull())).thenReturn(0L);
+            when(taskMapper.selectPageWithTypeName(anyLong(), anyLong(), any(), any(), any(), eq(false), any(), any(), isNull()))
                     .thenReturn(Collections.emptyList());
 
             PageResponse<TaskDetailResponse> page = adminService.getTaskList(null, null, null, null, null);
 
             assertEquals(1, page.getPage());
             assertEquals(20, page.getPageSize());
-            verify(taskMapper).countTasks(isNull(), isNull(), isNull(), eq(false), isNull(), isNull());
-            verify(taskMapper).selectPageWithTypeName(eq(0L), eq(20L), isNull(), isNull(), isNull(), eq(false), isNull(), isNull());
+            verify(taskMapper).countTasks(isNull(), isNull(), isNull(), eq(false), isNull(), isNull(), isNull());
+            verify(taskMapper).selectPageWithTypeName(eq(0L), eq(20L), isNull(), isNull(), isNull(), eq(false), isNull(), isNull(), isNull());
         }
 
         @Test
@@ -363,8 +363,8 @@ class AdminServiceImplTest {
             task.setStartedAt(OffsetDateTime.parse("2026-06-24T10:00:00Z"));
             task.setFinishedAt(OffsetDateTime.parse("2026-06-24T10:00:45Z"));
 
-            when(taskMapper.countTasks(any(), any(), any(), eq(false), any(), any())).thenReturn(1L);
-            when(taskMapper.selectPageWithTypeName(anyLong(), anyLong(), any(), any(), any(), eq(false), any(), any()))
+            when(taskMapper.countTasks(any(), any(), any(), eq(false), any(), any(), isNull())).thenReturn(1L);
+            when(taskMapper.selectPageWithTypeName(anyLong(), anyLong(), any(), any(), any(), eq(false), any(), any(), isNull()))
                     .thenReturn(List.of(task));
 
             PageResponse<TaskDetailResponse> page = adminService.getTaskList(null, null, null, 1, 10);
@@ -397,7 +397,7 @@ class AdminServiceImplTest {
         @Test
         @DisplayName("聚合所有子块不抛异常")
         void aggregatesAllSections_NoException() {
-            when(taskMapper.countTasks(any(), any(), any(), eq(false), any(), any())).thenReturn(10L);
+            when(taskMapper.countTasks(any(), any(), any(), eq(false), any(), any(), isNull())).thenReturn(10L);
             when(taskService.getPendingTaskCount()).thenReturn(3L);
             when(taskService.getRunningTaskCount()).thenReturn(2L);
             when(taskTypeConfigMapper.selectCount(any())).thenReturn(4L);
@@ -415,7 +415,7 @@ class AdminServiceImplTest {
         @Test
         @DisplayName("数据库 URL 中敏感信息被遮罩")
         void databaseUrl_Masked() {
-            when(taskMapper.countTasks(any(), any(), any(), anyBoolean(), any(), any())).thenReturn(0L);
+            when(taskMapper.countTasks(any(), any(), any(), anyBoolean(), any(), any(), isNull())).thenReturn(0L);
             when(taskService.getPendingTaskCount()).thenReturn(0L);
             when(taskService.getRunningTaskCount()).thenReturn(0L);
             when(taskTypeConfigMapper.selectCount(any())).thenReturn(0L);
@@ -432,7 +432,7 @@ class AdminServiceImplTest {
         @Test
         @DisplayName("Redis 配置从 environment 读取")
         void redisConfig_ReadsFromEnvironment() {
-            when(taskMapper.countTasks(any(), any(), any(), anyBoolean(), any(), any())).thenReturn(0L);
+            when(taskMapper.countTasks(any(), any(), any(), anyBoolean(), any(), any(), isNull())).thenReturn(0L);
             when(taskService.getPendingTaskCount()).thenReturn(0L);
             when(taskService.getRunningTaskCount()).thenReturn(0L);
             when(taskTypeConfigMapper.selectCount(any())).thenReturn(0L);
@@ -448,10 +448,10 @@ class AdminServiceImplTest {
         @Test
         @DisplayName("TaskStats 聚合各状态计数")
         void taskStats_AggregatesByStatus() {
-            when(taskMapper.countTasks(isNull(), isNull(), isNull(), eq(false), isNull(), isNull())).thenReturn(100L);
-            when(taskMapper.countTasks(isNull(), eq("SUCCESS"), isNull(), eq(false), isNull(), isNull())).thenReturn(80L);
-            when(taskMapper.countTasks(isNull(), eq("FAILED"), isNull(), eq(false), isNull(), isNull())).thenReturn(15L);
-            when(taskMapper.countTasks(isNull(), eq("CANCELLED"), isNull(), eq(false), isNull(), isNull())).thenReturn(5L);
+            when(taskMapper.countTasks(isNull(), isNull(), isNull(), eq(false), isNull(), isNull(), isNull())).thenReturn(100L);
+            when(taskMapper.countTasks(isNull(), eq("SUCCESS"), isNull(), eq(false), isNull(), isNull(), isNull())).thenReturn(80L);
+            when(taskMapper.countTasks(isNull(), eq("FAILED"), isNull(), eq(false), isNull(), isNull(), isNull())).thenReturn(15L);
+            when(taskMapper.countTasks(isNull(), eq("CANCELLED"), isNull(), eq(false), isNull(), isNull(), isNull())).thenReturn(5L);
             when(taskService.getPendingTaskCount()).thenReturn(3L);
             when(taskService.getRunningTaskCount()).thenReturn(2L);
             when(taskTypeConfigMapper.selectCount(any())).thenReturn(8L);
@@ -476,7 +476,7 @@ class AdminServiceImplTest {
     @DisplayName("getSystemConfig 在 environment 返回 null 时仍能工作（默认值兜底）")
     void systemConfig_WorksWithMissingProperties() {
         // buildDatabaseConfig/buildRedisConfig 调用 environment 时都给默认值兜底
-        when(taskMapper.countTasks(any(), any(), any(), anyBoolean(), any(), any())).thenReturn(0L);
+        when(taskMapper.countTasks(any(), any(), any(), anyBoolean(), any(), any(), isNull())).thenReturn(0L);
         when(taskService.getPendingTaskCount()).thenReturn(0L);
         when(taskService.getRunningTaskCount()).thenReturn(0L);
         when(taskTypeConfigMapper.selectCount(any())).thenReturn(0L);

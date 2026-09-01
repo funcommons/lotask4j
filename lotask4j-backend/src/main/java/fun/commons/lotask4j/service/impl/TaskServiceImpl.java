@@ -13,6 +13,7 @@ import fun.commons.lotask4j.mapper.AstTaskTypeConfigMapper;
 import fun.commons.lotask4j.service.TaskService;
 import fun.commons.lotask4j.service.TaskStateMachine;
 import fun.commons.lotask4j.service.TaskSubmitGuard;
+import fun.commons.framework4j.tenant.context.TenantIdentity;
 import fun.commons.framework4j.web.ApiException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,9 @@ import java.util.stream.Collectors;
 
 /**
  * 异步任务业务服务实现 — P0: 状态变更全走 {@link TaskStateMachine}。
+ *
+ * 租户隔离 (D 阶段): tenantId 只从 token claim 取 (TenantIdentity.currentTenantId(null),
+ * body 同名字段忽略); claim 缺失 (单测/裸调) 不过滤。生产由 @TenantDomain 保证 claim 必在。
  *
  * @author lotask4j-team
  * @version 1.0.0
@@ -44,11 +48,12 @@ public class TaskServiceImpl extends ServiceImpl<AstTaskMapper, AstTask> impleme
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long submitTask(SubmitTaskRequest request) {
+        Long tenantId = TenantIdentity.currentTenantId(null);
         try {
-            // P0-5: 同 key 同 type 直接命中已存在任务
+            // P0-5: 同 (租户, key, type) 直接命中已存在任务
             if (request.getIdempotencyKey() != null && !request.getIdempotencyKey().isEmpty()) {
                 AstTask existing = stateMachine.findByIdempotencyKey(
-                        request.getType(), request.getIdempotencyKey());
+                        request.getType(), request.getIdempotencyKey(), tenantId);
                 if (existing != null) {
                     log.info("幂等命中: 已存在任务 id={}, type={}, key={}",
                             existing.getId(), request.getType(), request.getIdempotencyKey());
@@ -95,6 +100,7 @@ public class TaskServiceImpl extends ServiceImpl<AstTaskMapper, AstTask> impleme
             task.setExpiredAt(expiredAt);
             task.setIdempotencyKey(request.getIdempotencyKey());
             task.setIsDeleted(0);
+            task.setTenantId(tenantId);
 
             String payloadJson = com.alibaba.fastjson2.JSON.toJSONString(
                     request.getPayload() != null ? request.getPayload() : new java.util.HashMap<>());
@@ -121,7 +127,7 @@ public class TaskServiceImpl extends ServiceImpl<AstTaskMapper, AstTask> impleme
      */
     @Override
     public TaskDetailResponse getTaskDetail(Long taskId) {
-        AstTask task = baseMapper.selectByIdWithTypeName(taskId);
+        AstTask task = baseMapper.selectByIdWithTypeName(taskId, TenantIdentity.currentTenantId(null));
         if (task == null) {
             throw new ApiException(BusinessCode.TASK_NOT_FOUND.getCode(),
                     BusinessCode.TASK_NOT_FOUND.getMessage());
@@ -135,7 +141,10 @@ public class TaskServiceImpl extends ServiceImpl<AstTaskMapper, AstTask> impleme
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean cancelTask(Long taskId) {
-        AstTask task = baseMapper.selectById(taskId);
+        Long tenantId = TenantIdentity.currentTenantId(null);
+        AstTask task = tenantId != null
+                ? baseMapper.selectByIdWithTypeName(taskId, tenantId)
+                : baseMapper.selectById(taskId);
         if (task == null) {
             throw new ApiException(BusinessCode.TASK_NOT_FOUND.getCode(),
                     BusinessCode.TASK_NOT_FOUND.getMessage());
@@ -148,7 +157,7 @@ public class TaskServiceImpl extends ServiceImpl<AstTaskMapper, AstTask> impleme
         }
 
         try {
-            stateMachine.requestCancel(taskId, task.getVersion());
+            stateMachine.requestCancel(taskId, task.getVersion(), tenantId);
             return true;
         } catch (ApiException e) {
             // CAS 失败 — 任务已被改
@@ -182,12 +191,12 @@ public class TaskServiceImpl extends ServiceImpl<AstTaskMapper, AstTask> impleme
 
     @Override
     public long getPendingTaskCount() {
-        return baseMapper.countPendingTasks();
+        return baseMapper.countPendingTasks(TenantIdentity.currentTenantId(null));
     }
 
     @Override
     public long getRunningTaskCount() {
-        return baseMapper.countRunningTasks();
+        return baseMapper.countRunningTasks(TenantIdentity.currentTenantId(null));
     }
 
     @Override
@@ -214,9 +223,10 @@ public class TaskServiceImpl extends ServiceImpl<AstTaskMapper, AstTask> impleme
         long offset = (long) (currentPage - 1) * size;
         long limit = size;
 
-        long total = baseMapper.countTasks(id, status, taskType, isArchived, createdAtStart, createdAtEnd);
+        Long tenantId = TenantIdentity.currentTenantId(null);
+        long total = baseMapper.countTasks(id, status, taskType, isArchived, createdAtStart, createdAtEnd, tenantId);
         List<AstTask> tasks = baseMapper.selectPageWithTypeName(offset, limit, id, status, taskType,
-                isArchived, createdAtStart, createdAtEnd);
+                isArchived, createdAtStart, createdAtEnd, tenantId);
 
         List<TaskDetailResponse> list = tasks.stream().map(this::toResponse).collect(Collectors.toList());
         return PageResponse.of(list, total, currentPage, size);

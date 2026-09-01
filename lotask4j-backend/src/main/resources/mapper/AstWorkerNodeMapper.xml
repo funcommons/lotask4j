@@ -56,13 +56,14 @@
     <!-- UPSERT Worker 心跳记录 (ON CONFLICT DO UPDATE) -->
     <update id="upsertWorkerHeartbeat">
         INSERT INTO asts_worker_node (
-            id, worker_id, task_type_key, worker_ip, worker_port, hostname,
+            id, tenant_id, worker_id, task_type_key, worker_ip, worker_port, hostname,
             supported_task_types, max_task_count, current_task_count, status,
             last_heartbeat_at, total_tasks_done, total_tasks_failed,
             registered_at, updated_at, is_deleted
         )
         VALUES (
             #{worker.id},
+            #{worker.tenantId},
             #{worker.workerId},
             #{worker.taskTypeKey},
             #{worker.workerIp}::inet,
@@ -79,7 +80,7 @@
             CURRENT_TIMESTAMP,
             0
         )
-        ON CONFLICT (worker_ip, task_type_key)
+        ON CONFLICT (tenant_id, worker_id, task_type_key)
         WHERE is_deleted = 0
         DO UPDATE SET
             worker_id = EXCLUDED.worker_id,

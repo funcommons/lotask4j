@@ -64,6 +64,8 @@ public class TaskEventRecorder {
         try {
             AstTaskExecutionEvent event = new AstTaskExecutionEvent();
             event.setTaskId(taskId);
+            // 租户归属随任务 (claim 缺失/后台路径为 null, 不阻断 append-only)
+            event.setTenantId(fun.commons.framework4j.tenant.context.TenantIdentity.currentTenantId(null));
             event.setExecutionId(null);
             event.setAttempt(attempt);
             event.setEventType(type.name());

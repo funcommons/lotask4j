@@ -82,11 +82,11 @@ public class TaskStateMachine {
      * 按幂等键查已存在任务（P0-5）。
      * 命中 → 返回任务；未命中 → 返回 null。
      */
-    public AstTask findByIdempotencyKey(String taskTypeKey, String idempotencyKey) {
+    public AstTask findByIdempotencyKey(String taskTypeKey, String idempotencyKey, Long tenantId) {
         if (idempotencyKey == null || idempotencyKey.isEmpty()) {
             return null;
         }
-        return taskMapper.findByIdempotencyKey(taskTypeKey, idempotencyKey);
+        return taskMapper.findByIdempotencyKey(taskTypeKey, idempotencyKey, tenantId);
     }
 
     // =====================================================================
@@ -97,7 +97,7 @@ public class TaskStateMachine {
      * 派发任务：PENDING/CANCELLING → RUNNING，分配 execution_id + execution_token + lease。
      */
     @Transactional(propagation = Propagation.REQUIRED)
-    public Long dispatch(Long taskId, Integer expectedVersion, String workerId) {
+    public Long dispatch(Long taskId, Integer expectedVersion, String workerId, Long tenantId) {
         // 先读历史任务以便计量 queue_delay
         AstTask before = taskMapper.selectById(taskId);
 
@@ -108,7 +108,7 @@ public class TaskStateMachine {
 
         int rows = taskMapper.dispatchTask(
                 taskId, expectedVersion, workerId, newExecutionId, newToken,
-                defaultLeaseSeconds, now);
+                defaultLeaseSeconds, now, tenantId);
 
         if (rows == 0) {
             log.warn("CAS 失败 dispatch: id={}, expectedVersion={}, worker={}",
@@ -141,8 +141,8 @@ public class TaskStateMachine {
      * Dispatch + start (保留语义)。
      */
     @Transactional(propagation = Propagation.REQUIRED)
-    public Long dispatchAndStart(Long taskId, Integer expectedVersion, String workerId) {
-        return dispatch(taskId, expectedVersion, workerId);
+    public Long dispatchAndStart(Long taskId, Integer expectedVersion, String workerId, Long tenantId) {
+        return dispatch(taskId, expectedVersion, workerId, tenantId);
     }
 
     // =====================================================================
@@ -150,10 +150,10 @@ public class TaskStateMachine {
     // =====================================================================
 
     @Transactional(propagation = Propagation.REQUIRED)
-    public void extendLease(Long taskId, Integer expectedVersion, Long executionToken) {
+    public void extendLease(Long taskId, Integer expectedVersion, Long executionToken, Long tenantId) {
         OffsetDateTime now = OffsetDateTime.now();
         int rows = taskMapper.extendLease(taskId, expectedVersion, executionToken,
-                defaultLeaseSeconds, now);
+                defaultLeaseSeconds, now, tenantId);
         if (rows == 0) {
             throw casFailure("续约失败：lease 已过期或被抢占 (id=" + taskId + ")");
         }
@@ -170,7 +170,8 @@ public class TaskStateMachine {
                                 String currentStepKey,
                                 Integer stepProgress,
                                 List<Map<String, Object>> stepsDetail,
-                                Integer globalProgress) {
+                                Integer globalProgress,
+                                Long tenantId) {
         String stepsDetailJson = stepsDetail == null
                 ? null
                 : com.alibaba.fastjson2.JSON.toJSONString(stepsDetail);
@@ -178,7 +179,7 @@ public class TaskStateMachine {
         OffsetDateTime now = OffsetDateTime.now();
 
         int rows = taskMapper.progressWithVersion(taskId, expectedVersion, executionToken,
-                currentStepKey, stepProgress, stepsDetailJson, globalProgress, now);
+                currentStepKey, stepProgress, stepsDetailJson, globalProgress, now, tenantId);
 
         if (rows == 0) {
             throw casFailure("进度上报失败：状态已被改或 fencing 不匹配 (id=" + taskId + ")");
@@ -190,10 +191,10 @@ public class TaskStateMachine {
     // =====================================================================
 
     @Transactional(propagation = Propagation.REQUIRED)
-    public void requestCancel(Long taskId, Integer expectedVersion) {
+    public void requestCancel(Long taskId, Integer expectedVersion, Long tenantId) {
         AstTask before = taskMapper.selectById(taskId);
         OffsetDateTime now = OffsetDateTime.now();
-        int rows = taskMapper.markCancelRequested(taskId, expectedVersion, now, now);
+        int rows = taskMapper.markCancelRequested(taskId, expectedVersion, now, now, tenantId);
         if (rows == 0) {
             throw casFailure("取消失败：任务已不可取消或已被改 (id=" + taskId + ")");
         }
@@ -211,9 +212,10 @@ public class TaskStateMachine {
     @Transactional(propagation = Propagation.REQUIRED)
     public void confirmCancellation(Long taskId,
                                      Integer expectedVersion,
-                                     Long executionToken) {
+                                     Long executionToken,
+                                     Long tenantId) {
         OffsetDateTime now = OffsetDateTime.now();
-        int rows = taskMapper.confirmCancel(taskId, expectedVersion, executionToken, now);
+        int rows = taskMapper.confirmCancel(taskId, expectedVersion, executionToken, now, tenantId);
         if (rows == 0) {
             throw casFailure("确认取消失败：fencing 不匹配 (id=" + taskId + ")");
         }
@@ -240,7 +242,8 @@ public class TaskStateMachine {
                             Map<String, Object> result,
                             String errorMsg,
                             String lastErrorCode,
-                            String lastErrorMessage) {
+                            String lastErrorMessage,
+                            Long tenantId) {
         if (finalStatus != TaskStatus.SUCCESS
                 && finalStatus != TaskStatus.FAILED
                 && finalStatus != TaskStatus.CANCELLED) {
@@ -254,7 +257,7 @@ public class TaskStateMachine {
         OffsetDateTime now = OffsetDateTime.now();
 
         int rows = taskMapper.completeWithToken(taskId, expectedVersion, executionToken,
-                finalStatus.wireValue(), resultJson, errorMsg, lastErrorCode, lastErrorMessage, now);
+                finalStatus.wireValue(), resultJson, errorMsg, lastErrorCode, lastErrorMessage, now, tenantId);
 
         if (rows == 0) {
             throw casFailure("提交结果失败：fencing 不匹配或状态已变更 (id=" + taskId + ")");

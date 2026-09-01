@@ -81,7 +81,7 @@ public class OutboxPublisher {
         boolean sent = outboxMapper.update(null, u) > 0;
         if (sent) {
             try {
-                taskMapper.updateCallbackStatus(event.getAggregateId(), 1);
+                taskMapper.updateCallbackStatus(event.getAggregateId(), 1, null);
             } catch (Exception e) {
                 log.warn("[Outbox] callbackStatus 同步失败: task={}", event.getAggregateId(), e);
             }
@@ -102,7 +102,7 @@ public class OutboxPublisher {
                     .set(AstsOutbox::getAttemptCount, attempts);
             outboxMapper.update(null, u);
             try {
-                taskMapper.updateCallbackStatus(event.getAggregateId(), 2);
+                taskMapper.updateCallbackStatus(event.getAggregateId(), 2, null);
             } catch (Exception ignored) {
                 // 任务行可能已归档; 投递终态以 outbox 为准
             }

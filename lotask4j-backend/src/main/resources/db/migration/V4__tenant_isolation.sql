@@ -79,7 +79,10 @@ CREATE UNIQUE INDEX uq_asts_type_config ON asts_task_type_config (tenant_id, typ
 CREATE INDEX IF NOT EXISTS idx_asts_weconfig_tenant ON asts_web_embed_config (tenant_id, config_key);
 
 -- asts_worker_node: worker_id 是租户内标识 → 唯一性按租户
+-- (防御性 DROP 旧名变体: 生产可能存在 worker_ip 维度的唯一索引, 与租户唯一键并存会误伤)
 DROP INDEX IF EXISTS uq_asts_worker_node;
+DROP INDEX IF EXISTS uq_asts_worker_node_ip_type;
+DROP INDEX IF EXISTS asts_worker_node_worker_ip_task_type_key_key;
 CREATE UNIQUE INDEX uq_asts_worker_node ON asts_worker_node (tenant_id, worker_id, task_type_key)
     WHERE is_deleted = 0;
 

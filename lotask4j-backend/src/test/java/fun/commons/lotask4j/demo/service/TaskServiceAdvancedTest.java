@@ -244,7 +244,7 @@ class TaskServiceAdvancedTest {
     @DisplayName("查询任务 - TaskId 为 0")
     void testGetTaskDetail_ZeroTaskId() {
         // Given
-        when(astTaskMapper.selectByIdWithTypeName(0L)).thenReturn(null);
+        when(astTaskMapper.selectByIdWithTypeName(0L, null)).thenReturn(null);
 
         // When & Then
         assertThrows(ApiException.class, () -> {
@@ -256,7 +256,7 @@ class TaskServiceAdvancedTest {
     @DisplayName("查询任务 - TaskId 不存在")
     void testGetTaskDetail_TaskNotExists() {
         // Given
-        when(astTaskMapper.selectByIdWithTypeName(999999L)).thenReturn(null);
+        when(astTaskMapper.selectByIdWithTypeName(999999L, null)).thenReturn(null);
 
         // When & Then
         ApiException exception = assertThrows(ApiException.class, () -> {
@@ -324,7 +324,7 @@ class TaskServiceAdvancedTest {
         // 模拟乐观锁失败 — stateMachine.requestCancel 抛 ApiException
         doThrow(new ApiException(fun.commons.lotask4j.enums.BusinessCode.TASK_STATE_INVALID.getCode(),
                 "CAS failed"))
-                .when(stateMachine).requestCancel(eq(100004L), anyInt());
+                .when(stateMachine).requestCancel(eq(100004L), anyInt(), isNull());
 
         // When & Then: 上层把 stateMachine 抛的 ApiException 重新抛为 TASK_STATE_INVALID
         ApiException ex = assertThrows(ApiException.class, () -> {
@@ -385,7 +385,7 @@ class TaskServiceAdvancedTest {
         task.setStatus("RUNNING");
         task.setProgress(50);
 
-        when(astTaskMapper.selectByIdWithTypeName(100005L)).thenReturn(task);
+        when(astTaskMapper.selectByIdWithTypeName(100005L, null)).thenReturn(task);
 
         int threadCount = 10;
         CountDownLatch latch = new CountDownLatch(threadCount);
@@ -408,7 +408,7 @@ class TaskServiceAdvancedTest {
         latch.await();
         executor.shutdown();
 
-        verify(astTaskMapper, atLeast(threadCount)).selectByIdWithTypeName(100005L);
+        verify(astTaskMapper, atLeast(threadCount)).selectByIdWithTypeName(100005L, null);
     }
 
     // ==================== 参数化测试 ====================
@@ -430,7 +430,7 @@ class TaskServiceAdvancedTest {
         // Then
         assertTrue(result);
         // 验证 stateMachine.requestCancel 被调用
-        verify(stateMachine).requestCancel(eq(100006L), eq(0));
+        verify(stateMachine).requestCancel(eq(100006L), eq(0), isNull());
     }
 
     @ParameterizedTest
@@ -507,8 +507,8 @@ class TaskServiceAdvancedTest {
     @DisplayName("性能测试 - 统计操作")
     void testCountOperations_Performance() {
         // Given
-        when(astTaskMapper.countPendingTasks()).thenReturn(1000L);
-        when(astTaskMapper.countRunningTasks()).thenReturn(500L);
+        when(astTaskMapper.countPendingTasks(null)).thenReturn(1000L);
+        when(astTaskMapper.countRunningTasks(null)).thenReturn(500L);
 
         long startTime = System.currentTimeMillis();
 

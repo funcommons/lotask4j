@@ -31,12 +31,18 @@
         WHERE status = 'PENDING'
           AND is_deleted = 0
           AND (expired_at IS NULL OR expired_at > CURRENT_TIMESTAMP)
+          <if test="tenantId != null">
+            AND tenant_id = #{tenantId}
+          </if>
     </select>
 
     <!-- 获取运行中的任务数 -->
     <select id="countRunningTasks" resultType="java.lang.Long">
         SELECT COUNT(*) FROM asts_task
         WHERE status = 'RUNNING' AND is_deleted = 0
+          <if test="tenantId != null">
+            AND tenant_id = #{tenantId}
+          </if>
     </select>
 
     <!-- 重置超时的任务为 PENDING（旧协议，按 updated_at） -->
@@ -111,6 +117,9 @@
             ON t.task_type_key = c.type_key AND c.is_deleted = 0
         WHERE t.id = #{id}
           AND t.is_deleted = 0
+        <if test="tenantId != null">
+            AND t.tenant_id = #{tenantId}
+        </if>
         LIMIT 1
     </select>
 
@@ -135,6 +144,9 @@
         WHERE t.task_type_key = #{taskTypeKey}
           AND t.idempotency_key = #{idempotencyKey}
           AND t.is_deleted = 0
+        <if test="tenantId != null">
+            AND t.tenant_id = #{tenantId}
+        </if>
         LIMIT 1
     </select>
 
@@ -157,6 +169,9 @@
         LEFT JOIN asts_task_type_config c
             ON t.task_type_key = c.type_key AND c.is_deleted = 0
         WHERE t.is_deleted = 0
+        <if test="tenantId != null">
+            AND t.tenant_id = #{tenantId}
+        </if>
         <if test="status != null and status != ''">
             AND t.status = #{status}
         </if>
@@ -185,6 +200,9 @@
         LEFT JOIN asts_task_type_config c
             ON t.task_type_key = c.type_key AND c.is_deleted = 0
         WHERE 1=1
+        <if test="tenantId != null">
+            AND t.tenant_id = #{tenantId}
+        </if>
         <choose>
             <when test="isArchived != null and isArchived == true">
                 AND t.is_deleted = 1
@@ -220,6 +238,9 @@
         SELECT COUNT(*)
         FROM asts_task t
         WHERE 1=1
+        <if test="tenantId != null">
+            AND t.tenant_id = #{tenantId}
+        </if>
         <choose>
             <when test="isArchived != null and isArchived == true">
                 AND t.is_deleted = 1
@@ -278,6 +299,9 @@
             WHERE status = 'PENDING'
               AND task_type_key = #{taskType}
               AND is_deleted = 0
+              <if test="tenantId != null">
+                  AND tenant_id = #{tenantId}
+              </if>
               AND (expired_at IS NULL OR expired_at > CURRENT_TIMESTAMP)
               AND (next_run_at IS NULL OR next_run_at &lt;= CURRENT_TIMESTAMP)
             ORDER BY
@@ -313,6 +337,9 @@
         WHERE id = #{id}
           AND status = 'RUNNING'
           AND is_deleted = 0
+          <if test="tenantId != null">
+            AND tenant_id = #{tenantId}
+          </if>
     </update>
 
     <!-- 更新任务最终结果（旧接口，逐步弃用） -->
@@ -332,6 +359,9 @@
         WHERE id = #{id}
           AND (status = 'RUNNING' OR status = 'CANCELLING')
           AND is_deleted = 0
+          <if test="tenantId != null">
+            AND tenant_id = #{tenantId}
+          </if>
     </update>
 
     <!-- 更新任务回调状态 -->
@@ -341,12 +371,15 @@
             updated_at = CURRENT_TIMESTAMP
         WHERE id = #{id}
           AND is_deleted = 0
+          <if test="tenantId != null">
+            AND tenant_id = #{tenantId}
+          </if>
     </update>
 
     <!-- 插入任务 (显式处理 JSONB 字段) -->
     <insert id="insertTask">
         INSERT INTO asts_task (
-            id, task_type_key, status, priority,
+            id, tenant_id, task_type_key, status, priority,
             attempt, max_attempts, next_run_at,
             version,
             execution_id, execution_token, worker_id, worker_ip, lease_expire_at,
@@ -359,6 +392,7 @@
             is_deleted
         ) VALUES (
             #{task.id},
+            #{task.tenantId},
             #{task.taskTypeKey},
             #{task.status},
             #{task.priority},
@@ -412,6 +446,9 @@
           AND version = #{expectedVersion}
           AND status IN ('PENDING', 'CANCELLING')
           AND is_deleted = 0
+          <if test="tenantId != null">
+            AND tenant_id = #{tenantId}
+          </if>
     </update>
 
     <!-- DISPATCHED → RUNNING（实际上 dispatch 已设为 RUNNING；startExecution 仅补 started_at 与 fencing 确认） -->
@@ -426,6 +463,9 @@
           AND execution_token = #{executionToken}
           AND status = 'RUNNING'
           AND is_deleted = 0
+          <if test="tenantId != null">
+            AND tenant_id = #{tenantId}
+          </if>
     </update>
 
     <!-- 续约 (CAS by version + token) -->
@@ -438,6 +478,9 @@
           AND execution_token = #{executionToken}
           AND status = 'RUNNING'
           AND is_deleted = 0
+          <if test="tenantId != null">
+            AND tenant_id = #{tenantId}
+          </if>
     </update>
 
     <!-- 进度上报 (CAS by version + token) -->
@@ -453,6 +496,9 @@
           AND execution_token = #{executionToken}
           AND status IN ('RUNNING', 'CANCELLING')
           AND is_deleted = 0
+          <if test="tenantId != null">
+            AND tenant_id = #{tenantId}
+          </if>
     </update>
 
     <!-- 终态提交 (CAS by version + token) -->
@@ -475,6 +521,9 @@
           AND execution_token = #{executionToken}
           AND status IN ('RUNNING', 'CANCELLING')
           AND is_deleted = 0
+          <if test="tenantId != null">
+            AND tenant_id = #{tenantId}
+          </if>
     </update>
 
     <!-- 用户请求取消 (CAS by version) — 不要求 token -->
@@ -488,6 +537,9 @@
           AND version = #{expectedVersion}
           AND status IN ('PENDING', 'RUNNING')
           AND is_deleted = 0
+          <if test="tenantId != null">
+            AND tenant_id = #{tenantId}
+          </if>
     </update>
 
     <!-- Worker 确认取消 (CAS by version + token) -->
@@ -502,6 +554,9 @@
           AND execution_token = #{executionToken}
           AND status = 'CANCELLING'
           AND is_deleted = 0
+          <if test="tenantId != null">
+            AND tenant_id = #{tenantId}
+          </if>
     </update>
 
     <!-- Reaper：lease 过期任务批量回退 -->

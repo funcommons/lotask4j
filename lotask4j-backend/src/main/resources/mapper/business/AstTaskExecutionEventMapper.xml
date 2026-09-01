@@ -40,11 +40,12 @@
 
     <insert id="insertDefault">
         INSERT INTO asts_task_execution_event (
-            id, task_id, execution_id, attempt, event_type,
+            id, tenant_id, task_id, execution_id, attempt, event_type,
             old_status, new_status, worker_id, trace_id, operator,
             detail, created_at
         ) VALUES (
             #{event.id},
+            #{event.tenantId},
             #{event.taskId},
             #{event.executionId},
             #{event.attempt},

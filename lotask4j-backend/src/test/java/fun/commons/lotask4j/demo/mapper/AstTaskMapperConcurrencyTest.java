@@ -102,7 +102,7 @@ class AstTaskMapperConcurrencyTest {
                 try {
                     startBarrier.await();
                     while (true) {
-                        AstTask t = taskMapper.pollAndLockTask(taskType, "PRIORITY", workerIp);
+                        AstTask t = taskMapper.pollAndLockTask(taskType, "PRIORITY", workerIp, null);
                         if (t == null) break;
                         if (!acquiredIds.add(t.getId())) {
                             duplicateCount.incrementAndGet();
@@ -141,12 +141,12 @@ class AstTaskMapperConcurrencyTest {
         // priority DESC: 2004(100) -> 2002(80) -> 2005(50) -> 2003(30) -> 2001(10)
         long[] expectedOrder = {2004L, 2002L, 2005L, 2003L, 2001L};
         for (long expectedId : expectedOrder) {
-            AstTask t = taskMapper.pollAndLockTask(taskType, "PRIORITY", workerIp);
+            AstTask t = taskMapper.pollAndLockTask(taskType, "PRIORITY", workerIp, null);
             assertNotNull(t);
             assertEquals(expectedId, t.getId(),
                     "PRIORITY 策略下, priority 高的任务应先被抢占");
         }
-        assertNull(taskMapper.pollAndLockTask(taskType, "PRIORITY", workerIp));
+        assertNull(taskMapper.pollAndLockTask(taskType, "PRIORITY", workerIp, null));
     }
 
     @Test
@@ -155,10 +155,10 @@ class AstTaskMapperConcurrencyTest {
         insertPendingTask(3001L, "data_export", 50);
         insertExpiredPendingTask(3002L, "data_export", 50);
 
-        AstTask t = taskMapper.pollAndLockTask("data_export", "PRIORITY", "10.0.0.200");
+        AstTask t = taskMapper.pollAndLockTask("data_export", "PRIORITY", "10.0.0.200", null);
         assertNotNull(t);
         assertEquals(3001L, t.getId(), "过期任务应被跳过");
-        assertNull(taskMapper.pollAndLockTask("data_export", "PRIORITY", "10.0.0.200"),
+        assertNull(taskMapper.pollAndLockTask("data_export", "PRIORITY", "10.0.0.200", null),
                 "过期的任务不应被抢占");
     }
 
@@ -177,7 +177,7 @@ class AstTaskMapperConcurrencyTest {
         insertPendingTask(4001L, "data_export", 50);
         insertPendingTask(4002L, "video_transcode", 50);
 
-        AstTask t = taskMapper.pollAndLockTask("data_export", "PRIORITY", "10.0.0.1");
+        AstTask t = taskMapper.pollAndLockTask("data_export", "PRIORITY", "10.0.0.1", null);
         assertNotNull(t);
         assertEquals(4001L, t.getId(), "data_export Worker 不应抢到 video_transcode 任务");
     }

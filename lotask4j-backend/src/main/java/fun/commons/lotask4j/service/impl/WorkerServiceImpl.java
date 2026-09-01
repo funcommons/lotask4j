@@ -15,6 +15,7 @@ import fun.commons.lotask4j.service.WebhookService;
 import fun.commons.lotask4j.service.WorkerService;
 import fun.commons.framework4j.id.generator.SnowflakeDistributor;
 import fun.commons.framework4j.web.ApiException;
+import fun.commons.framework4j.tenant.context.TenantIdentity;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -70,11 +71,13 @@ public class WorkerServiceImpl implements WorkerService {
                     "该任务类型已被禁用: " + taskType);
         }
 
-        // 心跳容错
-        updateWorkerHeartbeatOnPoll(workerIp, taskType, workerId);
+        Long tenantId = TenantIdentity.currentTenantId(null);
 
-        // 抢占（保留旧的 SKIP LOCKED + UPDATE 一体化 SQL）
-        AstTask task = taskMapper.pollAndLockTask(taskType, strategy, workerIp);
+        // 心跳容错
+        updateWorkerHeartbeatOnPoll(workerIp, taskType, workerId, tenantId);
+
+        // 抢占（保留旧的 SKIP LOCKED + UPDATE 一体化 SQL; 租户级 worker 只消费本租户任务）
+        AstTask task = taskMapper.pollAndLockTask(taskType, strategy, workerIp, tenantId);
         if (task == null) {
             log.debug("无可用任务: type={}", taskType);
             return null;
@@ -91,9 +94,9 @@ public class WorkerServiceImpl implements WorkerService {
         //
         // 简化：直接把 dispatch 逻辑下推到 pollAndLockTask 内联（SQL 已经设 worker_ip），
         // 同时在这里给 task 分配 execution_id + token 并 UPDATE 一遍（用 CAS by version 校验）。
-        Long executionToken = stateMachine.dispatch(task.getId(), task.getVersion(), workerId);
+        Long executionToken = stateMachine.dispatch(task.getId(), task.getVersion(), workerId, tenantId);
         // 重新读一次, 获取最新的 version 与 leaseExpireAt
-        AstTask reloaded = taskMapper.selectByIdWithTypeName(task.getId());
+        AstTask reloaded = taskMapper.selectByIdWithTypeName(task.getId(), tenantId);
 
         PollTaskResponse response = new PollTaskResponse();
         response.setId(reloaded.getId());
@@ -109,7 +112,7 @@ public class WorkerServiceImpl implements WorkerService {
 
     @Override
     public TaskDetailResponse getTaskStatus(Long id) {
-        AstTask task = taskMapper.selectByIdWithTypeName(id);
+        AstTask task = taskMapper.selectByIdWithTypeName(id, TenantIdentity.currentTenantId(null));
         if (task == null) {
             throw new ApiException(BusinessCode.TASK_NOT_FOUND.getCode(),
                     "任务不存在: " + id);
@@ -123,8 +126,9 @@ public class WorkerServiceImpl implements WorkerService {
         log.debug("Worker 上报进度: id={}, step={}, execToken={}, version={}",
                 id, request.getCurrentStepKey(), request.getExecutionToken(), request.getVersion());
 
-        // 校验任务存在
-        AstTask task = taskMapper.selectById(id);
+        // 校验任务存在 (租户过滤: 跨租户 id 视为不存在)
+        Long tenantId = TenantIdentity.currentTenantId(null);
+        AstTask task = taskMapper.selectByIdWithTypeName(id, tenantId);
         if (task == null) {
             throw new ApiException(BusinessCode.TASK_NOT_FOUND.getCode(), "任务不存在: " + id);
         }
@@ -167,10 +171,10 @@ public class WorkerServiceImpl implements WorkerService {
                 request.getCurrentStepKey(),
                 request.getStepProgress());
 
-        // P0: CAS by version + token
+        // P0: CAS by version + token (含租户条件, 防跨租户篡改)
         stateMachine.reportProgress(id, request.getVersion(), request.getExecutionToken(),
                 request.getCurrentStepKey(), request.getStepProgress(),
-                stepsDetail, globalProgress);
+                stepsDetail, globalProgress, tenantId);
 
         log.info("任务进度已更新: id={}, step={}, globalProgress={}%",
                 id, request.getCurrentStepKey(), globalProgress);
@@ -219,7 +223,8 @@ public class WorkerServiceImpl implements WorkerService {
         log.info("Worker 上报结果: id={}, status={}, execToken={}, version={}",
                 id, request.getStatus(), request.getExecutionToken(), request.getVersion());
 
-        AstTask task = taskMapper.selectById(id);
+        Long tenantId = TenantIdentity.currentTenantId(null);
+        AstTask task = taskMapper.selectByIdWithTypeName(id, tenantId);
         if (task == null) {
             throw new ApiException(BusinessCode.TASK_NOT_FOUND.getCode(), "任务不存在: " + id);
         }
@@ -243,7 +248,7 @@ public class WorkerServiceImpl implements WorkerService {
                     "reportResult 仅接受终态: " + request.getStatus());
         }
 
-        // P0: CAS by version + token
+        // P0: CAS by version + token (含租户条件)
         stateMachine.completeAs(id,
                 request.getVersion(),
                 request.getExecutionToken(),
@@ -251,23 +256,25 @@ public class WorkerServiceImpl implements WorkerService {
                 request.getResult(),
                 request.getErrorMsg(),
                 request.getLastErrorCode(),
-                request.getLastErrorMessage());
+                request.getLastErrorMessage(),
+                tenantId);
 
         log.info("任务终态已提交: id={}, status={}", id, finalStatus);
 
         // Webhook 回调（仅 SUCCESS/FAILED/CANCELLED 终态触发）
         if (task.getCallbackUrl() != null && !task.getCallbackUrl().isEmpty()) {
-            AstTask updated = taskMapper.selectByIdWithTypeName(id);
+            AstTask updated = taskMapper.selectByIdWithTypeName(id, tenantId);
             if (updated != null) {
                 webhookService.enqueueFinished(updated);
             }
         }
     }
 
-    private void updateWorkerHeartbeatOnPoll(String workerIp, String taskTypeKey, String workerId) {
+    private void updateWorkerHeartbeatOnPoll(String workerIp, String taskTypeKey, String workerId, Long tenantId) {
         try {
             AstWorkerNode worker = new AstWorkerNode();
             worker.setId(snowflakeDistributor.nextId());
+            worker.setTenantId(tenantId);
             worker.setWorkerId(workerId != null ? workerId
                     : "worker-" + workerIp.replace(".", "-") + "-" + taskTypeKey);
             worker.setTaskTypeKey(taskTypeKey);

@@ -122,8 +122,8 @@ public class AdminServiceImpl implements AdminService {
         StatsOverviewResponse response = new StatsOverviewResponse();
 
         // 当前待处理和运行中的任务数
-        response.setTotalPending(taskMapper.countPendingTasks());
-        response.setTotalRunning(taskMapper.countRunningTasks());
+        response.setTotalPending(taskMapper.countPendingTasks(null));
+        response.setTotalRunning(taskMapper.countRunningTasks(null));
 
         // 今日统计(从今天0点开始)
         OffsetDateTime todayStart = LocalDate.now()
@@ -215,10 +215,10 @@ public class AdminServiceImpl implements AdminService {
         long limit = size;
 
         // 执行 COUNT 查询获取总数（管理端默认只查询当前任务，不包括归档任务）
-        long total = taskMapper.countTasks(id, status, type, false, null, null);
+        long total = taskMapper.countTasks(id, status, type, false, null, null, null);
 
         // 执行分页查询（数据库层面分页）
-        List<AstTask> tasks = taskMapper.selectPageWithTypeName(offset, limit, id, status, type, false, null, null);
+        List<AstTask> tasks = taskMapper.selectPageWithTypeName(offset, limit, id, status, type, false, null, null, null);
 
         // 转换为 DTO
         List<TaskDetailResponse> list = tasks.stream()
@@ -391,14 +391,14 @@ public class AdminServiceImpl implements AdminService {
         SystemConfigResponse.TaskStats stats = new SystemConfigResponse.TaskStats();
 
         // 任务总数（不包括归档）
-        stats.setTotalTasks(taskMapper.countTasks(null, null, null, false,null,null));
+        stats.setTotalTasks(taskMapper.countTasks(null, null, null, false, null, null, null));
         stats.setPendingTasks(taskService.getPendingTaskCount());
         stats.setRunningTasks(taskService.getRunningTaskCount());
 
         // 各状态任务数
-        stats.setSuccessTasks(taskMapper.countTasks(null, "SUCCESS", null, false,null,null));
-        stats.setFailedTasks(taskMapper.countTasks(null, "FAILED", null, false,null,null));
-        stats.setCancelledTasks(taskMapper.countTasks(null, "CANCELLED", null, false,null,null));
+        stats.setSuccessTasks(taskMapper.countTasks(null, "SUCCESS", null, false, null, null, null));
+        stats.setFailedTasks(taskMapper.countTasks(null, "FAILED", null, false, null, null, null));
+        stats.setCancelledTasks(taskMapper.countTasks(null, "CANCELLED", null, false, null, null, null));
 
         // 任务类型数量
         LambdaQueryWrapper<AstTaskTypeConfig> configWrapper = new LambdaQueryWrapper<>();

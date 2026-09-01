@@ -21,7 +21,7 @@ The repo root holds sibling modules (no parent `pom.xml` at root, no npm workspa
 
 - **No parent POM at the repo root.** The backend's `pom.xml` declares `<parent>fun.commons.lotask4j:lotask4j-parent:1.0.0-SNAPSHOT</parent>`, which is resolved from the **company's internal Maven repository** (configured via `~/.m2/settings.xml`). Building locally without that mirror configured will fail at dependency resolution.
 - **The embed widget is bundled into the backend JAR.** `cd frontend && pnpm build:embed && pnpm sync-embed` builds `dist-embed/` (base `/web-embed/`) and copies it into `lotask4j-backend/src/main/resources/static/web-embed/` (该目录 gitignore, 本地重建)。**Build embed before packaging the backend**, or the embed widget will be stale/missing.
-- **ADMIN 域需要 Bearer token。** `POST /api/v1/auth/token` (form-encoded, `grant_type=client_credentials&client_id=ADMIN&client_secret=...`) 签发; `@RequiresToken("ADMIN")` 挂在 `AdminTaskController` + `AdminWebEmbedController`, 无 token → HTTP 401。secret 走环境变量 `ADMIN_CLIENT_SECRET` (空值回落 `lotask4j-admin-dev-secret` + 启动 WARN)。client/worker 域**无**门禁 (demo 与 embed cookie 兼容)。asts_application 表预留 client 凭据。
+- **多租户三域鉴权 (2026-09 起, framework4j-tenant)。** `POST /api/v1/auth/token` 由框架内置 `TenantAuthEndpoint` 接管 (client_credentials; client_id=租户 id/name 或 `PLATFORM`, secret=租户密钥/平台凭据), 统一签发 TENANT 型 JWT (claim `tenant_id`; 平台身份=0)。三域守卫: admin 三 controller 挂 `@PlatformDomain` (tenant_id=0)、ClientTask/WorkerTaskController 挂 `@TenantDomain` (tenant_id>0), 与 `@RequiresToken("TENANT")` 同挂。凭据环境变量: `PLATFORM_CLIENT_SECRET` (平台) / 租户密钥在 asts_tenant (AES-GCM)。client GET 也不再开放 — embed 走短期 token (ASTS_EMBED_TOKEN cookie)。业务表 tenant_id 只从 claim 取 (`TenantIdentity.currentTenantId(null)`), PG RLS POLICY 兜底。
 - **frontend dev 零后端可跑**: dev-mock 走 axios **adapter 层**短路 (`src/mock/dev-interceptor.ts`), 拦截 auth/client/admin/embed-config 只读端点; 命中即合成 response, 不走网络。
 - **frontend 的 SDK 组件是零改动豁免区**: `src/components/sdk/**` 与 `src/views/dev/**` 来自 benefit4j, eslint 已豁免; **12 个 SDK 测试套件上游已红** (element-plus 类名漂移 + jsdom 29, 与 benefit4j 原仓同败), 已从默认 vitest 排除, `pnpm test:sdk` 可观察。���务代码必须用 Fc* 组件 / fc-* class (eslint 强制)。
 - **README references `documents/` and `MAVEN_INIT_GUIDE.md` — neither exists in this repo.** They live elsewhere (likely an internal wiki). Do not waste time hunting for them here.
@@ -61,9 +61,9 @@ The backend is a classic layered Spring Boot app: Controllers → Service interf
 
 Frontend surfaces differentiate "current tasks" (`is_deleted=0`) vs "archived tasks" (`is_deleted=1`, read-only).
 
-## framework4j v1.2.1 behavior contract
+## framework4j v1.5.1 behavior contract
 
-This project pins `com.github.funcommons.framework4j:framework4j-all:v1.2.1` (JitPack mirror of GitHub `funcommons/framework4j`). The SDK's `GlobalExceptionHandler` decides HTTP status + business code for every exception. Knowing this contract avoids trial-and-error when adding endpoints.
+This project pins `com.github.funcommons.framework4j:framework4j-all:v1.5.1` (另显式引入 `framework4j-tenant`/`framework4j-tenant-tck` v1.5.1 — **不在 framework4j-all 聚合中**) (JitPack mirror of GitHub `funcommons/framework4j`). The SDK's `GlobalExceptionHandler` decides HTTP status + business code for every exception. Knowing this contract avoids trial-and-error when adding endpoints.
 
 **v1.2.1 升级带来的影响**（与 v1.1.3 对比）：
 

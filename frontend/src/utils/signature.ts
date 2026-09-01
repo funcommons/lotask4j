@@ -1,7 +1,7 @@
 import CryptoJS from 'crypto-js'
 
 /**
- * benefit4j runtime 域 HMAC-SHA256 签名 (与 framework4j SignatureUtil 对齐).
+ * 写端点 HMAC-SHA256 请求签名 (与 framework4j SignatureUtil 契约对齐).
  *
  * 后端契约 (framework4j-signature):
  *   stringToSign = METHOD\nPATH\nTIMESTAMP\nNONCE\nBODY_MD5_HEX   (5 段 \n 分隔, 结尾无 \n)

@@ -5,7 +5,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 /**
- * 创建租户请求 (租户即接入方; benefit4j UbmaTenant 模式)
+ * 创建租户请求 (租户即接入方)
  *
  * @author lotask4j-team
  * @version 1.0.0

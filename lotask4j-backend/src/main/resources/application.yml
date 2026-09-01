@@ -23,10 +23,10 @@ spring:
       date-format: yyyy-MM-dd HH:mm:ss
       time-zone: GMT+8
 
-  # Flyway 数据库迁移 (benefit4j 模式)
+  # Flyway 数据库迁移 (版本化 DDL, 存量库 baseline)
   # baseline-on-migrate: 已有表的存量库只打 baseline 标记 (baseline-version 起), V2+ 才执行;
   # 全新空库 (新环境/CI) 从 V1__baseline.sql 全量建表。
-  # 独立 datasource 直连 (不走 Druid): Druid Wall 会拦 Flyway 脚本的部分 PG 语法 (benefit4j 已踩坑)。
+  # 独立 datasource 直连 (不走 Druid): Druid Wall 会拦 Flyway 脚本的部分 PG 语法。
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -164,7 +164,7 @@ framework4j:
   audit:
     enabled: false
 
-  # 多租户横切面 (framework4j-tenant, benefit4j 同款)
+  # 多租户横切面 (framework4j-tenant, 中台租户设计契约)
   # 租户表 = {table-prefix}tenant → asts_tenant (由 AstsTenant extends TenantEntity SPI 提供, DDL 走 Flyway)
   # 认证端点 /api/v1/auth/token 由模块内置 TenantAuthEndpoint 接管: 防爆破(5次/15min) +
   #   平台合成租户(tenant_id=0) + 密钥双版本宽限期(24h) + reset 撤全部会话
@@ -188,9 +188,9 @@ framework4j:
     registration-key:
       enabled: false             # 注册码自助注册通道, 暂不开放
     rls:
-      mode: off                  # 策略由 Flyway V4 手建 (benefit4j 同款), 框架不干预
+      mode: off                  # 策略由 Flyway V4 手建, 框架不干预
 
-  # 访问令牌配置 (client_credentials 认证 — 仿 benefit4j)
+  # 访问令牌配置 (client_credentials 认证)
   access-token:
     enabled: true
     secretKey: ${TOKEN_SECRET:default-secret-key-change-in-production}  # 生产环境必须通过环境变量配置 (≥32 字符)
@@ -220,7 +220,7 @@ framework4j:
         autoRenew: true     # 滑动续期
         renewIncrement: 1800
 
-  # 限流 (framework4j-rate-limit, benefit4j 模式)
+  # 限流 (framework4j-rate-limit)
   # 注解驱动: @RateLimit 注解决定规则 (方法级, 类级不生效), path-patterns 只圈定拦截范围;
   # 维度: 带 token 按租户维度 (claim tenant_id), 无 token 自动回退来源 IP (X-Forwarded-For 优先)
   # 算法: Redis Lua 滑动窗口; 环回 IP (127.0.0.1/::1) 默认在 IP 白名单, 本地调试不受限
@@ -245,7 +245,7 @@ framework4j:
     enabled: true
     encryption-key: ${AES_KEY:12345678901234567890123456789012}
 
-  # HMAC-SHA256 请求签名 (framework4j-signature, benefit4j 模式; 只圈 client 域写端点)
+  # HMAC-SHA256 请求签名 (framework4j-signature; 只圈 client 域写端点)
   # 契约与 frontend/src/utils/signature.ts、lotask4j-demo AstsClient 对齐:
   #   X-Access-Key / X-Timestamp(ms) / X-Nonce(UUID) / X-Signature
   #   toSign = [METHOD, path, timestamp, nonce, MD5(body)].join("\n")

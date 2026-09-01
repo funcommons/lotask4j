@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid'
 /**
  * 链路追踪 trace-id 工具。
  * <p>
- * 从 request.ts 抽离的独立模块 —— benefitClient（benefit4j）与 request.ts（主站壳）
+ * 从 request.ts 抽离的独立模块 —— 嵌入组件与主站壳共用
  * 共用同一 session trace-id, 保证一次会话内所有请求 trace-id 一致。
  */
 export const TRACE_ID_STORAGE_KEY = 'aigc:trace-id'

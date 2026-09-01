@@ -199,7 +199,7 @@ function pickMockResponse(config: MockConfig): unknown | undefined {
 
 /**
  * axios adapter 层短路 — 命中 mock 的请求完全不走网络 (无后端也能跑 UI).
- * (benefit4j 原版挂 response 拦截器, 依赖后端真实返回 200 后替换 body;
+ * (适配层短路: 命中即合成 response, 不走网络;
  *  lotask4j dev 环境常无后端, 网络层直接失败 response 拦截器不会触发,
  *  故改为 adapter: 命中即合成 response, 未命中回落原 adapter。)
  * mock 数据不带 code 字段, 业务拦截器按「无 envelope 直通」返回。

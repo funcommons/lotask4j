@@ -3,7 +3,7 @@
  * key 空间: lotask.guides.* 与 lotask.demo.*
  *
  * 含 UserGuide / ClientGuide / WorkerGuide / DemoSimulator 四组文案
- * (从 lotask4j-admin-frontend locales 移植, 精简掉 benefit4j 相关描述)
+ * (自 lotask4j-admin-frontend locales 移植精简)
  */
 export const guides = {
   // —— UserGuide 使用指南 ——

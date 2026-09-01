@@ -1,9 +1,9 @@
--- V3__outbox.sql — webhook 可靠投递 outbox 表 (benefit4j ubma_outbox 模式增强)
+-- V3__outbox.sql — webhook 可靠投递 outbox 表
 --
 -- 任务终态与 outbox 行同事务写入 (不丢); OutboxPublisher 定时扫描投递,
 -- 指数退避重试, 超过 max_attempts 进 FAILED 终态。
--- benefit4j 蓝本仅 "标记式" (无真实投递), 本表增加 attempt_count/next_retry_at
--- 支撑真实 HTTP 投递与退避。
+-- 本表在最小 outbox 结构上增加 attempt_count/next_retry_at,
+-- 支撑真实 HTTP 投递与指数退避。
 
 CREATE TABLE asts_outbox (
     id              BIGINT PRIMARY KEY,

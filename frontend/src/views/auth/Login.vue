@@ -58,7 +58,7 @@
 </template>
 
 <script setup lang="ts">
-// COPY 源: benefit4j/views/benefit/PlatformLogin.vue (client_credentials 登录)
+// client_credentials 登录页
 // 改造: benefitAuth → auth store, 跳转 /dashboard, i18n key 换 lotask.*
 import { ref, reactive, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'

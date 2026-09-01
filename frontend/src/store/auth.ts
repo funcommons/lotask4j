@@ -1,5 +1,5 @@
 /**
- * 认证 store — client_credentials 模式 (仿 benefit4j benefitAuth)
+ * 认证 store — client_credentials 模式
  *
  * 后端 POST /api/v1/auth/token (form-encoded) 签发 JWT access_token;
  * 无 refresh token, 续期由后端 auto-renew 策略滑动完成。

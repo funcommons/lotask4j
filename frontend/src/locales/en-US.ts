@@ -235,7 +235,7 @@ export default {
     'param-language-desc': 'UI language',
     'appearance-example': 'Example',
     'auth-title': 'Authentication',
-    'auth-intro': 'Embedded pages require a valid benefit4j access_token to access protected data. Pick one of the following schemes based on your security requirements.',
+    'auth-intro': 'Embedded pages require a valid embed token to access protected data. Pick one of the following schemes based on your security requirements.',
     'auth-recommended': 'Recommended · postMessage Handshake',
     'auth-recommended-desc': 'The token never appears in the URL nor localStorage; it lives only in memory. After load the iframe sends READY to the parent; the parent verifies the origin and replies with TOKEN. 10 minutes before expiry the iframe sends RENEW. Highest security.',
     'auth-basic': 'Basic · URL Token',

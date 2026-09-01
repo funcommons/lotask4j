@@ -1,4 +1,4 @@
--- V2__task_partition.sql — asts_task 转按月 RANGE 分区 (benefit4j ubma_consume 模式)
+-- V2__task_partition.sql — asts_task 转按月 RANGE 分区
 --
 -- 动机: asts_task 为高增长追加型表 (任务完成后只读, TaskArchiver 每日归档),
 -- 按月分区后历史月分区可独立归档/删除, 查询带 created_at 条件时分区裁剪。

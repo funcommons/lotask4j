@@ -235,7 +235,7 @@ export default {
     'param-language-desc': '界面语言',
     'appearance-example': '示例',
     'auth-title': '认证方案',
-    'auth-intro': '嵌入页需要有效的 benefit4j access_token 才能访问受保护数据。根据安全要求选择以下方案之一。',
+    'auth-intro': '嵌入页需要有效的访问令牌 (embed token) 才能访问受保护数据。根据安全要求选择以下方案之一。',
     'auth-recommended': '推荐级 · postMessage 握手',
     'auth-recommended-desc': 'token 不出现在 URL、不写 localStorage，全程仅存于内存。iframe 加载后向父页发送 READY，父页校验来源后回传 TOKEN；到期前 10 分钟 iframe 发送 RENEW 请求续签。安全性最高。',
     'auth-basic': '基础级 · URL Token',

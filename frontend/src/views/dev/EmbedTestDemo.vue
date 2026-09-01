@@ -1,6 +1,6 @@
 <template>
   <div class="app-page embed-test-page">
-    <FcSectionHeader title="嵌入集成测试" subtitle="iframe 嵌入方案调试工具 — 模拟三方前端嵌入 benefit4j 页面" />
+    <FcSectionHeader title="嵌入集成测试" subtitle="iframe 嵌入方案调试工具 — 模拟三方前端嵌入 lotask4j 嵌入组件页面" />
 
     <!-- 配置面板 -->
     <FcSection>

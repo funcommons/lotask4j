@@ -15,7 +15,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 
 /**
- * Outbox 事件发布器 — webhook 可靠投递 (benefit4j OutboxPublisher 模式增强)
+ * Outbox 事件发布器 — webhook 可靠投递 (CAS 防重 + 指数退避)
  *
  * 定时扫描 PENDING 且到期的事件 → 同步投递:
  * - 成功: CAS 标 SENT + sent_at (CAS 条件 status=PENDING 防多实例重复投递)

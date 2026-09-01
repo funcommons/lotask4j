@@ -1,11 +1,11 @@
--- V4__tenant_isolation.sql — 多租户隔离 (benefit4j 同款, framework4j-tenant 接入)
+-- V4__tenant_isolation.sql — 多租户隔离 (framework4j-tenant 接入)
 --
 -- 1) asts_application → asts_tenant: 演进为 TenantEntity 契约表 (租户即接入方, 凭据无缝保留)
 -- 2) 五张业务表加 tenant_id (本版 nullable; V5 在应用层收口完成后收紧 NOT NULL)
 -- 3) 索引重建: tenant_id 打头 (tenant-tck T2 结构断言)
--- 4) PG RLS POLICY 就位 (ENABLE 不 FORCE, benefit4j 同款; owner 不受限, 应用层过滤是生命线)
+-- 4) PG RLS POLICY 就位 (ENABLE 不 FORCE; owner 不受限, 应用层过滤是生命线)
 --
--- asts_outbox 不加 tenant_id (跨租户事件总线, benefit4j UbmaOutbox 同款)。
+-- asts_outbox 不加 tenant_id (跨租户事件总线)。
 
 -- ==================== 1) 租户表演进 ====================
 ALTER TABLE asts_application RENAME TO asts_tenant;
@@ -88,7 +88,7 @@ CREATE UNIQUE INDEX uq_asts_worker_node ON asts_worker_node (tenant_id, worker_i
 
 -- ==================== 4) RLS POLICY (ENABLE 不 FORCE) ====================
 -- 连接层未 SET app.tenant_id 时 current_setting(...,true) 返回 NULL → policy 不可达;
--- 表 owner 本身不受 RLS 限制 (benefit4j V1.4.1 同款: 结构就位, 应用层过滤是生命线)
+-- 表 owner 本身不受 RLS 限制 (结构就位, 应用层过滤是生命线)
 ALTER TABLE asts_task ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS tenant_isolation ON asts_task;
 CREATE POLICY tenant_isolation ON asts_task

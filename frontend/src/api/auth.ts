@@ -1,6 +1,6 @@
 /**
  * 认证 API — client_credentials 换 access_token
- * 蓝本: benefit4j api/benefitAuth.ts (form-encoded)
+ * client_credentials 换 token (form-encoded)
  * 走统一 request client (dev mock 可拦截; envelope 由拦截器解包)
  */
 import { http } from '@/api/request'

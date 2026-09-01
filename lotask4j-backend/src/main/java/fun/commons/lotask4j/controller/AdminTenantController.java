@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 平台域租户管理 Controller — 租户即接入方 (benefit4j 同款)
+ * 平台域租户管理 Controller — 租户即接入方
  *
  * secret 明文仅创建 / reset-secret 响应出现一次, 列表与详情不含 secret。
  * reset-secret 委托 framework4j-tenant (旧钥宽限期 + 撤全部会话)。

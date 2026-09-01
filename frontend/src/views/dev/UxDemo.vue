@@ -35,7 +35,7 @@
       <p class="sec-desc">点 ID/邮箱自动复制 + toast</p>
       <div class="row">
         <code class="copyable" @click="onCopy('SK-7A2X-9BNE-PLQM')">SK-7A2X-9BNE-PLQM</code>
-        <code class="copyable" @click="onCopy('hello@benefit4j.dev')">hello@benefit4j.dev</code>
+        <code class="copyable" @click="onCopy('hello@lotask4j.dev')">hello@lotask4j.dev</code>
       </div>
     </FcSection>
 

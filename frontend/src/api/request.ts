@@ -34,7 +34,7 @@ export function setAuthStoreGetter(getter: typeof authStoreGetter) {
 
 /**
  * 登录态失效统一处理: 清态 + 广播 + 跳登录页
- * 仿 benefit4j benefitClient.handleAuthFailure (10201 过期 / 10205 被踢 / 10208 注销 / HTTP 401)
+ * 统一 401 处理 (10201 过期 / 10205 被踢 / 10208 注销 / HTTP 401)
  */
 function handleAuthFailure(code: number) {
   authBus.emit({ type: 'auth-expired', code, timestamp: Date.now() })

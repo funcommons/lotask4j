@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
- * 认证异常兜底 — AuthException → HTTP 401 + envelope (仿 benefit4j Benefit4jExceptionHandler)
+ * 认证异常兜底 — AuthException → HTTP 401 + envelope
  *
  * 前端契约 (frontend/src/api/request.ts): HTTP 401 或 envelope code 10200/10201/10205/10208
  * → 清登录态 + authBus 广播 + 跳 /login。

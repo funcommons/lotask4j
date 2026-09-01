@@ -75,7 +75,7 @@ const oemTitle = computed(() => oem.config.title || oem.config.companyName || 'B
 const oemSubtitle = computed(() => oem.config.subtitle || '')
 const oemFooterText = computed(() => oem.config.footerText || t('home.footer-default'))
 
-const githubUrl = 'https://github.com/funcommons/benefit4j'
+const githubUrl = 'https://github.com/funcommons/lotask4j'
 const supportUrl = computed(() => oem.config.supportUrl || '#')
 const year = new Date().getFullYear()
 

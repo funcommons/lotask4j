@@ -80,7 +80,7 @@ class ClientTaskControllerTest {
             .thenReturn(123456789L); // 返回 Long ID，@OpenId 会自动转换为字符串
 
         // When & Then
-        mockMvc.perform(post("/api/v1/client/tasks")
+        mockMvc.perform(post("/api/v1/client/tasks/submit")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(validRequest)))
             .andDo(print())
@@ -98,7 +98,7 @@ class ClientTaskControllerTest {
         invalidRequest.setPayload(new HashMap<>());
 
         // When & Then - framework4j-web 返回 HTTP 200，错误信息在响应体中
-        mockMvc.perform(post("/api/v1/client/tasks")
+        mockMvc.perform(post("/api/v1/client/tasks/submit")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(invalidRequest)))
             .andDo(print())
@@ -177,7 +177,7 @@ class ClientTaskControllerTest {
         validRequest.setPriority(101);
 
         // When & Then - framework4j-web 返回 HTTP 200，错误信息在响应体中
-        mockMvc.perform(post("/api/v1/client/tasks")
+        mockMvc.perform(post("/api/v1/client/tasks/submit")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(validRequest)))
             .andDo(print())
@@ -193,7 +193,7 @@ class ClientTaskControllerTest {
     void testSubmitTask_WrongContentType() throws Exception {
         // framework4j-web 行为：路由层异常（HttpMediaTypeNotSupportedException 等）保留原 HTTP 状态码，
         // 业务码在响应体 code 字段里（10105 MEDIA_TYPE_NOT_SUPPORTED）。
-        mockMvc.perform(post("/api/v1/client/tasks")
+        mockMvc.perform(post("/api/v1/client/tasks/submit")
                 .contentType(MediaType.TEXT_PLAIN)
                 .content("invalid content"))
             .andDo(print())

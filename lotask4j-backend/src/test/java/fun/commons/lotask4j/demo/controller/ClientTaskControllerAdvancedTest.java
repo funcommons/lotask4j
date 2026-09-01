@@ -60,7 +60,7 @@ class ClientTaskControllerAdvancedTest {
         when(taskService.submitTask(any())).thenReturn(123456789L);
 
         // When & Then
-        mockMvc.perform(post("/api/v1/client/tasks")
+        mockMvc.perform(post("/api/v1/client/tasks/submit")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andDo(print())
@@ -80,7 +80,7 @@ class ClientTaskControllerAdvancedTest {
         when(taskService.submitTask(any())).thenReturn(123456789L);
 
         // When & Then
-        mockMvc.perform(post("/api/v1/client/tasks")
+        mockMvc.perform(post("/api/v1/client/tasks/submit")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andDo(print())
@@ -98,7 +98,7 @@ class ClientTaskControllerAdvancedTest {
         request.setPriority(-1);
 
         // When & Then - framework4j-web 返回 HTTP 200，错误信息在响应体中
-        mockMvc.perform(post("/api/v1/client/tasks")
+        mockMvc.perform(post("/api/v1/client/tasks/submit")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andDo(print())
@@ -121,7 +121,7 @@ class ClientTaskControllerAdvancedTest {
         when(taskService.submitTask(any())).thenReturn(123456789L);
 
         // When & Then
-        mockMvc.perform(post("/api/v1/client/tasks")
+        mockMvc.perform(post("/api/v1/client/tasks/submit")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andDo(print())
@@ -148,7 +148,7 @@ class ClientTaskControllerAdvancedTest {
         when(taskService.submitTask(any())).thenReturn(123456789L);
 
         // When & Then
-        mockMvc.perform(post("/api/v1/client/tasks")
+        mockMvc.perform(post("/api/v1/client/tasks/submit")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andDo(print())
@@ -169,7 +169,7 @@ class ClientTaskControllerAdvancedTest {
         when(taskService.submitTask(any())).thenReturn(123456789L);
 
         // When & Then
-        mockMvc.perform(post("/api/v1/client/tasks")
+        mockMvc.perform(post("/api/v1/client/tasks/submit")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andDo(print())
@@ -189,7 +189,7 @@ class ClientTaskControllerAdvancedTest {
         when(taskService.submitTask(any())).thenReturn(123456789L);
 
         // When & Then - 如果有 URL 校验，应该返回 400
-        mockMvc.perform(post("/api/v1/client/tasks")
+        mockMvc.perform(post("/api/v1/client/tasks/submit")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andDo(print());
@@ -207,7 +207,7 @@ class ClientTaskControllerAdvancedTest {
         request.setPayload(new HashMap<>());
 
         // When & Then - framework4j-web 返回 HTTP 200，错误信息在响应体中
-        mockMvc.perform(post("/api/v1/client/tasks")
+        mockMvc.perform(post("/api/v1/client/tasks/submit")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andDo(print())
@@ -227,7 +227,7 @@ class ClientTaskControllerAdvancedTest {
         request.setPayload(null);
 
         // When & Then - framework4j-web 返回 HTTP 200，错误信息在响应体中
-        mockMvc.perform(post("/api/v1/client/tasks")
+        mockMvc.perform(post("/api/v1/client/tasks/submit")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andDo(print())
@@ -242,7 +242,7 @@ class ClientTaskControllerAdvancedTest {
     @DisplayName("POST /api/v1/client/tasks - 请求体为空")
     void testSubmitTask_EmptyBody() throws Exception {
         // When & Then
-        mockMvc.perform(post("/api/v1/client/tasks")
+        mockMvc.perform(post("/api/v1/client/tasks/submit")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(""))
             .andDo(print())
@@ -257,7 +257,7 @@ class ClientTaskControllerAdvancedTest {
     @DisplayName("POST /api/v1/client/tasks - JSON 格式错误")
     void testSubmitTask_MalformedJson() throws Exception {
         // When & Then
-        mockMvc.perform(post("/api/v1/client/tasks")
+        mockMvc.perform(post("/api/v1/client/tasks/submit")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{invalid json}"))
             .andDo(print())
@@ -281,7 +281,7 @@ class ClientTaskControllerAdvancedTest {
             .thenThrow(new RuntimeException("Internal service error"));
 
         // framework4j v1.1.3: 裸 RuntimeException → 500 + code=10001 SYSTEM_BUSY
-        mockMvc.perform(post("/api/v1/client/tasks")
+        mockMvc.perform(post("/api/v1/client/tasks/submit")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andDo(print())
@@ -404,7 +404,7 @@ class ClientTaskControllerAdvancedTest {
     @DisplayName("POST /api/v1/client/tasks - 缺少 Content-Type header")
     void testSubmitTask_MissingContentType() throws Exception {
         // framework4j-web 行为：缺少/错 Content-Type 抛 HttpMediaTypeNotSupportedException，HTTP 415 + 业务码 10105。
-        mockMvc.perform(post("/api/v1/client/tasks")
+        mockMvc.perform(post("/api/v1/client/tasks/submit")
                 .content("{}"))
             .andDo(print())
             .andExpect(status().isUnsupportedMediaType())  // 415
@@ -425,7 +425,7 @@ class ClientTaskControllerAdvancedTest {
         when(taskService.submitTask(any())).thenReturn(123456789L);
 
         // When & Then - 服务器应该返回 JSON (忽略 Accept header 或返回 406)
-        mockMvc.perform(post("/api/v1/client/tasks")
+        mockMvc.perform(post("/api/v1/client/tasks/submit")
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_XML)
                 .content(objectMapper.writeValueAsString(request)))
@@ -448,7 +448,7 @@ class ClientTaskControllerAdvancedTest {
 
         // When & Then - 快速发送3个请求
         for (int i = 0; i < 3; i++) {
-            mockMvc.perform(post("/api/v1/client/tasks")
+            mockMvc.perform(post("/api/v1/client/tasks/submit")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())

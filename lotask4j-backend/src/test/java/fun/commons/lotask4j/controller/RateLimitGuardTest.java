@@ -63,7 +63,7 @@ class RateLimitGuardTest {
     void submitExceeded_Rejected() throws Exception {
         // 前 30 次正常 (带 X-RateLimit 响应头)
         for (int i = 1; i <= 30; i++) {
-            mockMvc.perform(post("/api/v1/client/tasks")
+            mockMvc.perform(post("/api/v1/client/tasks/submit")
                             .header("X-Forwarded-For", CLIENT_IP)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(SUBMIT_BODY))
@@ -72,7 +72,7 @@ class RateLimitGuardTest {
         }
 
         // 第 31 次被限流: 拦截器直写 HTTP 429 + 统一 envelope (业务码 10500) + 限流响应头
-        MvcResult rejected = mockMvc.perform(post("/api/v1/client/tasks")
+        MvcResult rejected = mockMvc.perform(post("/api/v1/client/tasks/submit")
                         .header("X-Forwarded-For", CLIENT_IP)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(SUBMIT_BODY))

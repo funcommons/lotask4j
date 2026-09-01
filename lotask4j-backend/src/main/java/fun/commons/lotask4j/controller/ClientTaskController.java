@@ -43,10 +43,14 @@ public class ClientTaskController {
     /**
      * 提交新的异步任务
      *
+     * 路径为 /submit 子路径 (2026-09 起): GET 列表与 POST 提交共用根路径时,
+     * 路径级的 HMAC 签名/限流圈定无法区分方法, embed 组件的 GET 会被误伤。
+     * 提交迁移到 POST-only 子路径后, 签名 path-patterns 只圈写端点。
+     *
      * @param request 任务提交请求
      * @return 任务 ID (OpenID 混淆字符串)
      */
-    @PostMapping
+    @PostMapping("/submit")
     @RateLimit(key = "submit", limit = 30, window = "1m")
     @Operation(summary = "提交异步任务", description = "客户端提交一个新的异步任务，立即返回任务ID (OpenID格式)")
     public ApiResponse<SubmitTaskResponse> submitTask(
@@ -117,21 +121,21 @@ public class ClientTaskController {
     @Operation(summary = "获取任务列表", description = "查询任务列表，支持按任务ID（精确匹配）、状态、类型、归档状态、创建时间范围筛选及分页（数据库层面分页）")
     public ApiResponse<PageResponse<TaskDetailResponse>> getTaskList(
             @Parameter(description = "任务ID筛选（精确匹配，OpenID格式）", example = "YeirYkxHuQ")
-            @RequestParam(required = false) @OpenId Long id,
+            @RequestParam(name = "id", required = false) Long id,
             @Parameter(description = "任务状态筛选", example = "PENDING")
-            @RequestParam(required = false) String status,
+            @RequestParam(name = "status", required = false) String status,
             @Parameter(description = "任务类型筛选", example = "video_transcode")
-            @RequestParam(required = false) String taskType,
+            @RequestParam(name = "taskType", required = false) String taskType,
             @Parameter(description = "是否查询归档任务（true: 归档, false: 当前, null: 全部）", example = "false")
-            @RequestParam(required = false) Boolean isArchived,
+            @RequestParam(name = "isArchived", required = false) Boolean isArchived,
             @Parameter(description = "创建时间起始（ISO 8601格式）", example = "2024-01-01T00:00:00+08:00")
-            @RequestParam(required = false) OffsetDateTime createdAtStart,
+            @RequestParam(name = "createdAtStart", required = false) OffsetDateTime createdAtStart,
             @Parameter(description = "创建时间结束（ISO 8601格式）", example = "2024-12-31T23:59:59+08:00")
-            @RequestParam(required = false) OffsetDateTime createdAtEnd,
+            @RequestParam(name = "createdAtEnd", required = false) OffsetDateTime createdAtEnd,
             @Parameter(description = "页码", example = "1")
-            @RequestParam(required = false) Integer page,
+            @RequestParam(name = "page", required = false) Integer page,
             @Parameter(description = "每页数量", example = "20")
-            @RequestParam(required = false) Integer pageSize
+            @RequestParam(name = "pageSize", required = false) Integer pageSize
     ) {
         log.info("获取任务列表: id={}, status={}, taskType={}, isArchived={}, createdAtStart={}, createdAtEnd={}, page={}, pageSize={}",
                  id, status, taskType, isArchived, createdAtStart, createdAtEnd, page, pageSize);

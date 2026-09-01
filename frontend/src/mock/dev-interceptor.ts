@@ -158,7 +158,7 @@ function pickMockResponse(config: MockConfig): unknown | undefined {
   }
 
   // 提交 / 取消 (写路径, mock 固定 ID; 列表页提交走 admin 代提交)
-  if (method === 'post' && url.endsWith('/api/v1/client/tasks')) {
+  if (method === 'post' && url.endsWith('/api/v1/client/tasks/submit')) {
     return { id: 'MockNewTask01' }
   }
   if (method === 'post' && url.endsWith('/api/v1/admin/tasks/submit')) {

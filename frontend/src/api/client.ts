@@ -28,7 +28,7 @@ export function getTaskDetail(taskId: string): Promise<TaskDetail> {
 
 /** 提交任务 */
 export function submitTask(data: SubmitTaskPayload): Promise<{ id: string }> {
-  return http.post('/api/v1/client/tasks', data)
+  return http.post('/api/v1/client/tasks/submit', data)
 }
 
 /** 取消任务 (仅 PENDING / RUNNING) */

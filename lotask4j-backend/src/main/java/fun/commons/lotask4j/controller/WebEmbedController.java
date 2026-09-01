@@ -56,8 +56,8 @@ public class WebEmbedController {
     @GetMapping("/{type:[a-z-]+}")
     public RedirectView handleComponent(
             @PathVariable("type") String componentType,
-            @RequestParam(required = false) String accessKey,
-            @RequestParam(required = false) String taskId,
+            @RequestParam(name = "accessKey", required = false) String accessKey,
+            @RequestParam(name = "taskId", required = false) String taskId,
             HttpServletResponse response) {
 
         log.info("[Web Embed] 访问: componentType={}, accessKey={}, taskId={}",

@@ -152,11 +152,11 @@ public class AdminTaskController {
     @GetMapping("/tasks")
     @Operation(summary = "获取任务列表", description = "支持按任务ID（精确匹配）、状态、类型筛选及分页（数据库层面分页）")
     public ApiResponse<PageResponse<TaskDetailResponse>> getTaskList(
-            @RequestParam(required = false) @OpenId Long id,
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false) String type,
-            @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer pageSize
+            @RequestParam(name = "id", required = false) Long id,
+            @RequestParam(name = "status", required = false) String status,
+            @RequestParam(name = "type", required = false) String type,
+            @RequestParam(name = "page", required = false) Integer page,
+            @RequestParam(name = "pageSize", required = false) Integer pageSize
     ) {
         log.debug("获取任务列表: id={}, status={}, type={}, page={}, pageSize={}", id, status, type, page, pageSize);
         PageResponse<TaskDetailResponse> pageResponse = adminService.getTaskList(id, status, type, page, pageSize);

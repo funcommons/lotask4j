@@ -26,6 +26,11 @@ spring:
 
 # framework4j 真 PG 覆盖（覆盖 application.yml 里指向阿里云 RDS 的默认值）
 framework4j:
+  # signature 测试默认关 (签名圈 client 写端点, 会拦截既有测试的裸调);
+  # 签名行为由 SignatureGuardTest 用 @SpringBootTest properties 单独开启验证
+  signature:
+    enabled: false
+
   datasource:
     datasources:
       business:

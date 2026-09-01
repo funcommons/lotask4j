@@ -1,19 +1,32 @@
 package fun.commons.lotask4j.demo.client;
 
 import com.alibaba.fastjson2.JSONObject;
+import fun.commons.framework4j.signature.util.SignatureUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * ASTS 客户端
  *
- * 演示如何调用 ASTS API
+ * 演示如何调用 ASTS API (带 HMAC 签名的完整接入姿势)。
+ *
+ * 签名 (framework4j-signature 契约, 与 backend DbSecretProvider 对齐):
+ *   toSign = [METHOD, path, timestamp(ms), nonce, MD5hex(body)].join("\n")
+ *   X-Signature = Base64(HmacSHA256(secret, toSign))   ← SignatureUtil.sign(secret, toSign)
+ *   Headers: X-Access-Key / X-Timestamp / X-Nonce / X-Signature
+ *
+ * 签名只圈写端点 (POST /submit 与 POST /cancel); GET 查询免签名。
+ * body 需自行序列化为确定字节后签名与发送共用 (保证 MD5 一致)。
  */
 @Slf4j
 @Component
@@ -24,12 +37,19 @@ public class AstsClient {
     @Value("${asts.server.url:http://localhost:8080}")
     private String serverUrl;
 
+    /** 应用凭据 (管理端 AdminApplicationController 创建应用时返回; 亦可配置合成 ADMIN 凭据) */
+    @Value("${asts.client.access-key:ADMIN}")
+    private String accessKey;
+
+    @Value("${asts.client.secret:lotask4j-admin-dev-secret}")
+    private String secret;
+
     public AstsClient(WebClient.Builder webClientBuilder) {
         this.webClient = webClientBuilder.build();
     }
 
     /**
-     * 提交任务
+     * 提交任务 (HMAC 签名)
      */
     public Mono<TaskResponse> submitTask(String type, Map<String, Object> payload, int priority) {
         log.info("提交任务: type={}, priority={}", type, priority);
@@ -38,11 +58,15 @@ public class AstsClient {
         request.put("type", type);
         request.put("payload", payload);
         request.put("priority", priority);
+        // 自行序列化: 签名 MD5 与实际发送 body 必须是同一份字节
+        String body = JSONObject.toJSONString(request);
 
         return webClient
             .post()
-            .uri(serverUrl + "/api/v1/client/tasks")
-            .bodyValue(request)
+            .uri(serverUrl + "/api/v1/client/tasks/submit")
+            .headers(h -> signInto(h, "POST", "/api/v1/client/tasks/submit", body))
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(body)
             .retrieve()
             .bodyToMono(String.class)
             .map(response -> {
@@ -54,7 +78,7 @@ public class AstsClient {
     }
 
     /**
-     * 获取任务详情
+     * 获取任务详情 (GET 免签名)
      */
     public Mono<TaskDetail> getTaskDetail(String taskId) {
         log.info("获取任务详情: taskId={}", taskId);
@@ -81,14 +105,16 @@ public class AstsClient {
     }
 
     /**
-     * 取消任务
+     * 取消任务 (HMAC 签名, path 含任务 ID)
      */
     public Mono<Void> cancelTask(String taskId) {
         log.info("取消任务: taskId={}", taskId);
+        String path = "/api/v1/client/tasks/" + taskId + "/cancel";
 
         return webClient
             .post()
-            .uri(serverUrl + "/api/v1/client/tasks/{taskId}/cancel", taskId)
+            .uri(serverUrl + path)
+            .headers(h -> signInto(h, "POST", path, ""))
             .retrieve()
             .bodyToMono(Void.class)
             .doOnError(error -> log.error("取消任务失败", error));
@@ -122,6 +148,31 @@ public class AstsClient {
                 return Mono.delay(java.time.Duration.ofMillis(pollIntervalMs))
                     .then(pollTaskStatus(taskId, pollIntervalMs, timeoutMs));
             }));
+    }
+
+    /** 构造签名头 (每次请求 nonce 唯一) */
+    private void signInto(org.springframework.http.HttpHeaders headers, String method, String path, String body) {
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String nonce = UUID.randomUUID().toString();
+        String bodyMd5 = md5Hex(body);
+        String toSign = SignatureUtil.buildStringToSign(method, path, timestamp, nonce, bodyMd5);
+        String signature = SignatureUtil.sign(secret, toSign);
+
+        headers.add("X-Access-Key", accessKey);
+        headers.add("X-Timestamp", timestamp);
+        headers.add("X-Nonce", nonce);
+        headers.add("X-Signature", signature);
+    }
+
+    private static String md5Hex(String s) {
+        try {
+            byte[] d = MessageDigest.getInstance("MD5").digest(s.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (byte b : d) sb.append(String.format("%02x", b));
+            return sb.toString();
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     // DTO 类

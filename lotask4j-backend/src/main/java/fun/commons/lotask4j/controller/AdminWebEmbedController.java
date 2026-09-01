@@ -37,10 +37,10 @@ public class AdminWebEmbedController {
     @GetMapping("/configs")
     @Operation(summary = "分页查询配置列表")
     public ApiResponse<Map<String, Object>> listConfigs(
-            @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) Integer isEnabled,
-            @RequestParam(defaultValue = "1") Long page,
-            @RequestParam(defaultValue = "20") Long pageSize) {
+            @RequestParam(name = "keyword", required = false) String keyword,
+            @RequestParam(name = "isEnabled", required = false) Integer isEnabled,
+            @RequestParam(name = "page", defaultValue = "1") Long page,
+            @RequestParam(name = "pageSize", defaultValue = "20") Long pageSize) {
 
         long total = adminWebEmbedService.countConfigs(keyword, isEnabled);
         List<WebEmbedConfigResponse> items = adminWebEmbedService.listConfigs(keyword, isEnabled, page, pageSize);
@@ -83,7 +83,7 @@ public class AdminWebEmbedController {
 
     @PostMapping("/configs/{id}/toggle")
     @Operation(summary = "启用/禁用配置")
-    public ApiResponse<Void> toggleEnabled(@PathVariable("id") Long id, @RequestParam Integer isEnabled) {
+    public ApiResponse<Void> toggleEnabled(@PathVariable("id") Long id, @RequestParam(name = "isEnabled") Integer isEnabled) {
         adminWebEmbedService.toggleEnabled(id, isEnabled);
         return ApiResponse.success();
     }
@@ -92,8 +92,8 @@ public class AdminWebEmbedController {
     @Operation(summary = "生成嵌入预览 URL（相对路径，iframe 同源）")
     public ApiResponse<Map<String, String>> previewUrl(
             @PathVariable("id") Long id,
-            @RequestParam(required = false) String componentType,
-            @RequestParam(required = false) String taskId) {
+            @RequestParam(name = "componentType", required = false) String componentType,
+            @RequestParam(name = "taskId", required = false) String taskId) {
 
         WebEmbedConfigResponse config = adminWebEmbedService.getConfig(id);
         // 预览用配置的 componentType

@@ -228,6 +228,22 @@ framework4j:
     enabled: true
     encryption-key: ${AES_KEY:12345678901234567890123456789012}
 
+  # HMAC-SHA256 请求签名 (framework4j-signature, benefit4j 模式; 只圈 client 域写端点)
+  # 契约与 frontend/src/utils/signature.ts、lotask4j-demo AstsClient 对齐:
+  #   X-Access-Key / X-Timestamp(ms) / X-Nonce(UUID) / X-Signature
+  #   toSign = [METHOD, path, timestamp, nonce, MD5(body)].join("\n")
+  # SecretProvider 由 DbSecretProvider 提供 (ADMIN 合成凭据 / asts_application 解密)
+  signature:
+    enabled: true
+    timestamp-tolerance-ms: 300000   # ±5min
+    nonce-ttl-seconds: 600           # nonce 10min 一次性防重放
+    nonce-key-prefix: lotask4j:sig:nonce
+    redis-name: default
+    path-patterns:
+      - /api/v1/client/tasks/submit   # POST-only 子路径 (GET 列表在根路径, 不受影响)
+      - /api/v1/client/tasks/*/cancel
+    exclude-path-patterns: []
+
 # lotask4j 应用配置
 lotask4j:
   security:

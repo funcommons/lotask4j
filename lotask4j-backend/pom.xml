@@ -73,6 +73,17 @@
             <version>v1.5.1</version>
         </dependency>
 
+        <!-- framework4j-tenant 多租户模块 (benefit4j 同款)。
+             注意: tenant 模块不在 framework4j-all 聚合中, 需显式引入。
+             提供: @PlatformDomain/@TenantDomain 域守卫 + 内置 client_credentials 认证端点
+             (防爆破/平台合成租户 tenant_id=0/密钥双版本宽限期/reset 撤会话) + TenantEntity 契约。
+             数据隔离仍是业务表手动 tenant_id (无 SQL 拦截器), 见 documents/中间件中台租户设计.md §3.2。 -->
+        <dependency>
+            <groupId>com.github.funcommons.framework4j</groupId>
+            <artifactId>framework4j-tenant</artifactId>
+            <version>v1.5.1</version>
+        </dependency>
+
         <!-- MyBatis Plus -->
         <dependency>
             <groupId>com.baomidou</groupId>
@@ -177,6 +188,14 @@
             <groupId>org.mybatis.spring.boot</groupId>
             <artifactId>mybatis-spring-boot-starter-test</artifactId>
             <version>3.0.3</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- tenant-tck: 租户合规结构断言 (租户表契约列 / 业务表 tenant_id 索引打头 / email 唯一) -->
+        <dependency>
+            <groupId>com.github.funcommons.framework4j</groupId>
+            <artifactId>framework4j-tenant-tck</artifactId>
+            <version>v1.5.1</version>
             <scope>test</scope>
         </dependency>
 

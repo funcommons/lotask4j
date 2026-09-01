@@ -13,19 +13,19 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * 接入应用表 (asts_application) — client_credentials 凭据载体。
+ * 租户表 (asts_tenant, 由 asts_application 演进 — Flyway V4) — client_credentials 凭据载体。
  *
- * 蓝本: benefit4j UbmaApplication。应用凭据由管理端签发 (AdminApplicationController),
- * client/worker 域换 token (scope 参数选 policy); 控制台走合成 ADMIN 凭据
- * (lotask4j.security.admin.*)。
+ * 蓝本: benefit4j UbmaTenant。租户即接入方 (合一演进); E1 阶段将由
+ * AstsTenant extends TenantEntity (framework4j-tenant SPI) 全面接管,
+ * 本实体过渡期保留 (ApplicationServiceImpl/DbSecretProvider 引用面)。
  *
- * appSecret: AES-256-GCM 落库加密 (framework4j-sensitive LazyEncryptedFieldTypeHandler,
- * select 时透明解密) + JSON 响应脱敏 (2,4,0 = 首露 2 尾露 4)。
+ * appSecret (列 tenant_secret): AES-256-GCM 落库加密 (framework4j-sensitive
+ * LazyEncryptedFieldTypeHandler, select 时透明解密) + JSON 响应脱敏 (2,4,0 = 首露 2 尾露 4)。
  * autoResultMap = true 必须 — typeHandler 的 select 解密依赖它。
  */
 @Getter
 @Setter
-@TableName(value = "asts_application", autoResultMap = true)
+@TableName(value = "asts_tenant", autoResultMap = true)
 public class AstsApplication {
 
     /** 主键 (雪花 ID, OpenID 混淆暴露; 亦作签名 access-key) */
@@ -35,7 +35,7 @@ public class AstsApplication {
 
     /** OAuth2 client_secret (AES-GCM 密文落库, 读取透明解密; 序列化脱敏 2,4,0) */
     @Sensitive(value = SensitiveRule.CUSTOM, pattern = "2,4,0")
-    @TableField(typeHandler = LazyEncryptedFieldTypeHandler.class)
+    @TableField(value = "tenant_secret", typeHandler = LazyEncryptedFieldTypeHandler.class)
     private String appSecret;
 
     /** 应用名称 */

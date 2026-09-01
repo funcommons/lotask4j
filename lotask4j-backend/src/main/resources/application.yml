@@ -159,6 +159,32 @@ framework4j:
         redisson:
           enabled: false
 
+  # 多租户横切面 (framework4j-tenant, benefit4j 同款)
+  # 租户表 = {table-prefix}tenant → asts_tenant (由 AstsTenant extends TenantEntity SPI 提供, DDL 走 Flyway)
+  # 认证端点 /api/v1/auth/token 由模块内置 TenantAuthEndpoint 接管: 防爆破(5次/15min) +
+  #   平台合成租户(tenant_id=0) + 密钥双版本宽限期(24h) + reset 撤全部会话
+  # 数据隔离 = 业务表手动 tenant_id (模块无 SQL 拦截器), PG RLS POLICY 兜底 (V4 手建, rls.mode OFF)
+  tenant:
+    enabled: true
+    table-prefix: asts_          # 租户表 = asts_tenant
+    ddl-mode: PROVIDED           # DDL 由 Flyway V4 管理 (框架只在启动时输出模板)
+    # default-tenant-id 不配 = 多租户模式 (无 tenant_id claim 的租户域请求 → 403)
+    auth:
+      enabled: false             # 过渡: C 阶段切 true (内置端点接管) 并删旧 AuthController
+      path: /api/v1/auth/token
+      token-type: TENANT         # 新项目直接 TENANT 型 (无存量会话负担, 不用 APP 兼容开关)
+      expire-seconds: 28800      # 8h (M2M 口径, 上限 12h)
+    platform:
+      client-id: ${PLATFORM_CLIENT_ID:PLATFORM}
+      # 平台管理面凭据 (替换原 ADMIN_CLIENT_SECRET); 空值 = 平台凭据不启用
+      client-secret: ${PLATFORM_CLIENT_SECRET:lotask4j-platform-dev-secret}
+    secret:
+      grace-hours: 24            # reset-secret 后旧钥宽限期
+    registration-key:
+      enabled: false             # 注册码自助注册通道, 暂不开放
+    rls:
+      mode: off                  # 策略由 Flyway V4 手建 (benefit4j 同款), 框架不干预
+
   # 访问令牌配置 (client_credentials 认证 — 仿 benefit4j)
   access-token:
     enabled: true
@@ -169,9 +195,9 @@ framework4j:
 
     # 不做 token 校验的路径
     exclude-path-patterns:
-      - /api/v1/auth/token
-      # client/worker 域已收口 (2026-09): 不再整域豁免, 由 @RequiresToken 方法/类级注解驱动 —
-      # client GET (embed 依赖) 无注解自动放行, 写端点需 Bearer; worker 域类级全收
+      - /api/v1/auth/token      # tenant 模块内置端点 (自动配置也会代填, 显式保留)
+      # client/worker 域三域守卫 (2026-09 租户化): @TenantDomain + @RequiresToken("TENANT") —
+      # 平台域 (admin) @PlatformDomain 要求 tenant_id=0; 租户域要求 tenant_id>0
       - /web-embed/**
       - /web-embed
       - /actuator/**
@@ -181,22 +207,24 @@ framework4j:
       - /error
 
     policies:
-      # 控制台管理 Token (AuthController 签发, @RequiresToken("ADMIN") 校验)
-      ADMIN:
-        key: [app_id]  # 互斥键：同一凭据新 Token 踢掉旧 Token
-        expireTime: 7200  # 2 小时
-        autoRenew: true  # 滑动续期
+      # 租户/平台统一 TENANT 型 (内置端点签发, claims: tenant_id; 平台身份=0, 真实租户>0)
+      # 互斥键 tenant_id: 同一租户新 token 踢旧 (单租户单会话); reset-secret 时按此 key 批量撤销
+      TENANT:
+        key: [tenant_id]
+        expireTime: 28800   # 8h, 与 tenant.auth.expire-seconds 对齐
+        autoRenew: true     # 滑动续期
         renewIncrement: 1800
 
-      # API 客户端访问 Token (应用凭据换发, scope=client; 域收口后 @RequiresToken("client") 校验)
-      # key 与 ADMIN 一致取 claims.app_id — 同一应用新 token 踢旧 (单应用单会话)
+      # ↓ 过渡期保留 (C 阶段删): AuthController 签发旧型, tenant 内置端点接管后废弃
+      ADMIN:
+        key: [app_id]
+        expireTime: 7200
+        autoRenew: true
+        renewIncrement: 1800
       client:
         key: [app_id]
-        expireTime: 86400  # 24 小时
+        expireTime: 86400
         autoRenew: false
-
-      # Worker 进程 Token (应用凭据换发, scope=worker; worker 节点维度管理在 asts_worker_node,
-      # token 按"应用"维度互斥 — 同一应用的所有 worker 进程共享 token 生命周期)
       worker:
         key: [app_id]
         expireTime: 7200
@@ -205,7 +233,7 @@ framework4j:
 
   # 限流 (framework4j-rate-limit, benefit4j 模式)
   # 注解驱动: @RateLimit 注解决定规则 (方法级, 类级不生效), path-patterns 只圈定拦截范围;
-  # 维度: 带 token 按 app 维度, 无 token 自动回退来源 IP (X-Forwarded-For 优先)
+  # 维度: 带 token 按租户维度 (claim tenant_id), 无 token 自动回退来源 IP (X-Forwarded-For 优先)
   # 算法: Redis Lua 滑动窗口; 环回 IP (127.0.0.1/::1) 默认在 IP 白名单, 本地调试不受限
   rate-limit:
     enabled: true
@@ -222,7 +250,7 @@ framework4j:
     whitelist-paths:
       - /api/v1/auth/token      # 换 token 端点不限流, 防锁死
 
-  # 字段级加密 (framework4j-sensitive) — asts_application.app_secret AES-256-GCM 落库
+  # 字段级加密 (framework4j-sensitive) — asts_tenant.tenant_secret AES-256-GCM 落库
   # 生产必须通过环境变量 AES_KEY 注入 (32 字节 hex 或 base64)
   sensitive:
     enabled: true
@@ -232,7 +260,7 @@ framework4j:
   # 契约与 frontend/src/utils/signature.ts、lotask4j-demo AstsClient 对齐:
   #   X-Access-Key / X-Timestamp(ms) / X-Nonce(UUID) / X-Signature
   #   toSign = [METHOD, path, timestamp, nonce, MD5(body)].join("\n")
-  # SecretProvider 由 DbSecretProvider 提供 (ADMIN 合成凭据 / asts_application 解密)
+  # SecretProvider 由 DbSecretProvider 提供 (asts_tenant 解密 tenant_secret; X-Access-Key=租户 id)
   signature:
     enabled: true
     timestamp-tolerance-ms: 300000   # ±5min

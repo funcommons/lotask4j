@@ -101,7 +101,7 @@ class AdminApplicationControllerTest {
 
         // 落库为 AES-GCM 密文: JDBC 直读原始列值 (绕过 typeHandler), 不等于明文
         String rawColumn = jdbcTemplate.queryForObject(
-                "SELECT app_secret FROM asts_application WHERE id = " + id, String.class);
+                "SELECT tenant_secret FROM asts_tenant WHERE id = " + id, String.class);
         assertThat(rawColumn)
                 .as("落库应为密文而非明文")
                 .isNotEqualTo(secret)

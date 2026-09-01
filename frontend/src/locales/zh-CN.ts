@@ -165,6 +165,7 @@ export default {
     'task-type-config': '任务类型',
     'system-settings': '系统设置',
     'web-embed-config': '嵌入配置',
+    'applications': '应用管理',
     'user-guide': '使用指南',
     'client-guide': '客户端接入指南',
     'worker-guide': 'Worker 接入指南',

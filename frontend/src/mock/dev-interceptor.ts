@@ -122,6 +122,14 @@ const MOCK_EMBED_CONFIGS = {
   ],
 }
 
+const MOCK_APPLICATIONS = {
+  total: 2, page: 1, pageSize: 20,
+  items: [
+    { id: 9101, name: 'order-service', description: '订单中心接入 (提交/取消任务)', status: 'ACTIVE', createdAt: '2026-08-20 10:00:00', updatedAt: '2026-08-20 10:00:00' },
+    { id: 9102, name: 'media-worker', description: '媒体转码 worker 进程', status: 'INACTIVE', createdAt: '2026-08-25 14:30:00', updatedAt: '2026-08-30 09:00:00' },
+  ],
+}
+
 interface MockConfig {
   url?: string
   method?: string
@@ -176,6 +184,15 @@ function pickMockResponse(config: MockConfig): unknown | undefined {
 
   // embed-config 域 (分页结构例外: items 而非 list)
   if (method === 'get' && url.endsWith('/configs')) return MOCK_EMBED_CONFIGS
+
+  // applications 域 (接入应用管理)
+  if (method === 'get' && url.endsWith('/api/v1/admin/applications')) return MOCK_APPLICATIONS
+  if (method === 'post' && url.endsWith('/api/v1/admin/applications')) {
+    return { id: 9103, name: 'MockNewApp01', appSecret: 'mock-secret-once-' + Date.now() }
+  }
+  if (method === 'post' && /\/api\/v1\/admin\/applications\/\d+\/reset-secret$/.test(url)) {
+    return { id: 9101, name: 'order-service', appSecret: 'mock-reset-secret-' + Date.now() }
+  }
 
   return undefined
 }

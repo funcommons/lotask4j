@@ -8,7 +8,7 @@ import type { Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   Odometer, Lightning, List, Monitor, Grid,
-  Setting, Files, Reading, MagicStick, Tools,
+  Setting, Files, Reading, MagicStick, Tools, Key,
 } from '@element-plus/icons-vue'
 import type { NavItem } from '@/components/sdk'
 
@@ -45,6 +45,7 @@ export function useSidebarNavItems(): ComputedRef<NavItem[]> {
       children: [
         { index: '/settings', label: t('router.system-settings'), icon: Setting as unknown as Component },
         { index: '/embed-config', label: t('router.web-embed-config'), icon: Files as unknown as Component },
+        { index: '/applications', label: t('router.applications'), icon: Key as unknown as Component },
       ],
     },
     {

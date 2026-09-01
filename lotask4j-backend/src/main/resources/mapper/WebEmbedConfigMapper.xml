@@ -4,6 +4,7 @@
 
     <resultMap id="BaseResultMap" type="fun.commons.lotask4j.entity.WebEmbedConfig">
         <id column="id" property="id"/>
+        <result column="tenant_id" property="tenantId"/>
         <result column="config_key" property="configKey"/>
         <result column="config_name" property="configName"/>
         <result column="user_id" property="userId"/>
@@ -19,7 +20,7 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        id, config_key, config_name, user_id, is_open, callback_url, config, component_type, allowed_domains,
+        id, tenant_id, config_key, config_name, user_id, is_open, callback_url, config, component_type, allowed_domains,
         is_enabled, created_at, updated_at, is_deleted
     </sql>
 

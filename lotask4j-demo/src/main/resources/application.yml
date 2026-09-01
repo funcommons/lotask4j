@@ -10,7 +10,12 @@ spring:
 # ASTS 服务器配置
 asts:
   server:
-    url: http://localhost:8080
+    url: http://localhost:9080
+  client:
+    # 租户凭据 (管理端创建租户时一次性下发; 默认租户 secret 为 V4 迁移占位值,
+    # 生产请经管理端 reset-secret 重置后配置)
+    access-key: ${ASTS_CLIENT_ACCESS_KEY:default}
+    secret: ${ASTS_CLIENT_SECRET:test-default-tenant-secret}
 
 # 日志配置
 logging:

@@ -34,7 +34,7 @@ public class AstsClient {
 
     private final WebClient webClient;
 
-    @Value("${asts.server.url:http://localhost:8080}")
+    @Value("${asts.server.url:http://localhost:9080}")
     private String serverUrl;
 
     /** 租户凭据 (管理端创建租户时一次性返回; 默认租户 secret 见 V4 迁移说明, 用前请 reset) */

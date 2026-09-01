@@ -53,11 +53,13 @@ The backend is a classic layered Spring Boot app: Controllers → Service interf
 - `TaskReaper` — reaps stuck/timed-out tasks back to a recoverable state.
 
 **Data model — PostgreSQL with heavy JSONB use.** `task.payload`, `task.result`, `task.steps_detail` and `task.steps_history` are JSONB; do not add new columns without first checking whether they belong inside one of those blobs. Tables:
-- `asts_task` — primary task table (status: `PENDING/RUNNING/SUCCESS/FAILED/CANCELLING/CANCELLED`; progress 0–100)
-- `asts_task_type_config` — type definitions (handler routing, timeouts, etc.)
-- `asts_worker_node` — registered worker registry
-- `asts_task_history` — archive cold-storage (read-only to frontend)
-- `web_embed_config` — embed widget per-tenant config
+- `asts_task` — primary task table (按月 RANGE 分区; status: `PENDING/RUNNING/SUCCESS/FAILED/CANCELLING/CANCELLED`; progress 0–100; 归档 = `is_deleted=1` 逻辑删, **无独立 history 表**)
+- `asts_task_type_config` — type definitions (`(tenant_id, type_key)` 租户内唯一)
+- `asts_task_execution_event` — append-only 执行事件 audit
+- `asts_worker_node` — worker registry (租户级)
+- `asts_web_embed_config` — embed widget per-tenant config (accessKey → 租户归属)
+- `asts_tenant` — 租户表 (framework4j-tenant 契约; 密钥 AES-256-GCM; 由 asts_application 演进)
+- `asts_outbox` — webhook 可靠投递 outbox (跨租户事件总线, 无 tenant_id)
 
 Frontend surfaces differentiate "current tasks" (`is_deleted=0`) vs "archived tasks" (`is_deleted=1`, read-only).
 

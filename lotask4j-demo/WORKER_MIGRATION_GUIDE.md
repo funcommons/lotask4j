@@ -15,6 +15,22 @@ ASTS v2.0 已重构 Worker 心跳机制，**独立的 `/heartbeat` 接口已废�
 
 ---
 
+## 🔐 认证要求 (2026-09 租户化)
+
+Worker 域已收口：**所有请求必须携带 TENANT 型 Bearer token**（租户级 worker 与 client 同凭据）。
+
+```java
+// 启动先换 token (client_credentials), 401 时重取
+POST {authBaseUrl}/auth/token
+grant_type=client_credentials&client_id=<租户标识>&client_secret=<租户密钥>
+```
+
+- 凭据来源：管理端"租户管理"页创建租户时一次性下发（密钥明文仅显示一次）
+- 租户级 worker：poll 只消费**本租户**的 PENDING 任务
+- 完整示例见 `SimpleWorkerExample`（自动换 token + 401 重取）
+
+---
+
 ## 🚀 快速迁移步骤
 
 ### 1. 删除心跳相关代码

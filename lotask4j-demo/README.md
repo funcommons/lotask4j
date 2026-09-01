@@ -220,11 +220,14 @@ curl -X GET http://localhost:8081/demo/menu
 
 ```yaml
 server:
-  port: 8081                      # 演示服务端口
+  port: 9081                      # 演示服务端口
 
 asts:
   server:
-    url: http://localhost:8080    # ASTS 服务地址
+    url: http://localhost:9080    # ASTS 服务地址 (后端默认 :9080)
+  client:
+    access-key: default           # 租户标识 (client_id)
+    secret: test-default-tenant-secret  # 租户密钥 (管理端创建租户时一次性下发)
 
 logging:
   level:
@@ -240,8 +243,15 @@ logging:
 ```yaml
 asts:
   server:
-    url: http://your-asts-server:8080
+    url: http://your-asts-server:9080
+  client:
+    access-key: <租户标识>
+    secret: <租户密钥>
 ```
+
+> **认证说明**：ASTS 为多租户架构 — client/worker 均以租户凭据换 TENANT 型
+> Bearer token (`POST /api/v1/auth/token`, client_credentials)，demo 启动时自动
+> 获取并在 401 时重取。租户在管理端"租户管理"页创建，密钥明文仅创建/reset 时显示一次。
 
 #### 修改服务端口
 

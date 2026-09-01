@@ -61,12 +61,12 @@ public class SimpleWorkerExample {
     /**
      * 构造 Worker 实例
      *
-     * @param baseUrl Worker API 基础 URL (例如: http://localhost:8080/api/v1/worker)
+     * @param baseUrl Worker API 基础 URL (例如: http://localhost:9080/api/v1/worker)
      * @param taskType 处理的任务类型 (例如: video_transcode)
      * @param pollIntervalSeconds 轮询间隔（秒）
      */
     public SimpleWorkerExample(String baseUrl, String taskType, int pollIntervalSeconds) {
-        this(baseUrl, taskType, pollIntervalSeconds, "ADMIN", "lotask4j-admin-dev-secret");
+        this(baseUrl, taskType, pollIntervalSeconds, "default", "test-default-tenant-secret");
     }
 
     /**
@@ -75,8 +75,8 @@ public class SimpleWorkerExample {
      * @param baseUrl Worker API 基础 URL (例如: http://localhost:8080/api/v1/worker)
      * @param taskType 处理的任务类型 (例如: video_transcode)
      * @param pollIntervalSeconds 轮询间隔（秒）
-     * @param clientId 应用凭据 (管理端创建应用返回; 本地开发可用合成 ADMIN)
-     * @param clientSecret 应用 secret
+     * @param clientId 租户标识 (管理端创建租户时的 name; 租户级 worker 与 client 同凭据)
+     * @param clientSecret 租户密钥 (创建/reset-secret 时一次性下发)
      */
     public SimpleWorkerExample(String baseUrl, String taskType, int pollIntervalSeconds,
                                String clientId, String clientSecret) {
@@ -332,7 +332,7 @@ public class SimpleWorkerExample {
      */
     public static void main(String[] args) {
         // 配置参数
-        String baseUrl = "http://localhost:8080/api/v1/worker";
+        String baseUrl = "http://localhost:9080/api/v1/worker";
         String taskType = "video_transcode"; // 修改为实际的任务类型
         int pollIntervalSeconds = 5; // 轮询间隔
 

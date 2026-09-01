@@ -153,7 +153,32 @@ class AdminTenantControllerTest {
                 .andExpect(jsonPath("$.code").value(0));
     }
 
-    @Test
+@Test
+    @DisplayName("reset-secret 宽限期过期 (prev_at 拨到 25h 前) → 旧 secret 拒绝")
+    void resetSecret_graceExpired() throws Exception {
+        String name = unique("tn-grace");
+        String body = createTenant(name).getResponse().getContentAsString();
+        String oldSecret = extractJsonString(body, "tenantSecret");
+        long id = Long.parseLong(extractJsonString(body, "id"));
+
+        mockMvc.perform(post("/api/v1/admin/tenants/" + id + "/reset-secret")
+                        .header("Authorization", "Bearer " + platformToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+
+        // prev_at 拨到 25h 前 (grace-hours=24 已过)
+        jdbcTemplate.update(
+                "UPDATE asts_tenant SET tenant_secret_prev_at = NOW() - INTERVAL '25 hours' WHERE id = " + id);
+
+        // 宽限期已过 → 旧 secret 拒绝 (内置端点凭据失败 → 200 envelope + code=401)
+        mockMvc.perform(post("/api/v1/auth/token")
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .content("grant_type=client_credentials&client_id=" + name + "&client_secret=" + oldSecret))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(401));
+    }
+
+        @Test
     @DisplayName("停用后不可换 token; 列表不含 secret")
     void inactivate_blocksToken_and_listHasNoSecret() throws Exception {
         String name = unique("tn-disable");

@@ -71,8 +71,8 @@ export const system = {
       taskStats: 'Task Statistics',
     },
     fields: {
-      appName: 'App Name',
-      appVersion: 'App Version',
+      tenantName: 'App Name',
+      tenantVersion: 'App Version',
       springBootVersion: 'Spring Boot',
       javaVersion: 'Java Version',
       osName: 'OS',
@@ -119,10 +119,10 @@ export const system = {
       workers: 'online workers',
     },
   },
-  // Applications (接入应用管理)
-  apps: {
-    title: 'Applications',
-    subtitle: 'client_credentials issuer — create apps here for client/worker integrations to exchange tokens',
+  // Tenants (接入应用管理)
+  tenants: {
+    title: 'Tenants',
+    subtitle: 'client_credentials issuer — create tenants here for client/worker integrations to exchange tokens',
     searchPlaceholder: 'Search name / ID / description',
     create: 'New App',
     active: 'Active',
@@ -134,8 +134,8 @@ export const system = {
     resetSuccess: 'Secret reset',
     statusUpdated: 'Status updated',
     deleteConfirm: 'Credentials become invalid immediately (soft delete). Continue?',
-    deleteSuccess: 'Application deleted',
-    createSuccess: 'Application created',
+    deleteSuccess: 'Tenant deleted',
+    createSuccess: 'Tenant created',
     copied: 'Copied to clipboard',
     copy: 'Copy',
     nameRequired: 'Name is required',

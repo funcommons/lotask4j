@@ -1,18 +1,18 @@
 <template>
-  <div class="lotask-page lotask-applications">
-    <FcSectionHeader :title="t('lotask.system.apps.title')" :subtitle="t('lotask.system.apps.subtitle')" :back="true" @back="router.back()">
+  <div class="lotask-page lotask-tenants">
+    <FcSectionHeader :title="t('lotask.system.tenants.title')" :subtitle="t('lotask.system.tenants.subtitle')" :back="true" @back="router.back()">
       <template #actions>
         <div class="search-wrapper">
           <i class="ri-search-line search-icon" />
           <input
             v-model="searchQuery"
             type="text"
-            :placeholder="t('lotask.system.apps.searchPlaceholder')"
+            :placeholder="t('lotask.system.tenants.searchPlaceholder')"
             class="search-input"
           />
         </div>
         <FcButton variant="primary" :icon="Plus" @click="openCreate">
-          {{ t('lotask.system.apps.create') }}
+          {{ t('lotask.system.tenants.create') }}
         </FcButton>
       </template>
     </FcSectionHeader>
@@ -22,24 +22,24 @@
         {{ t('common.filter-all') }}
       </FcFilterButton>
       <FcFilterButton :active="filterStatus === 'ACTIVE'" @click="filterStatus = 'ACTIVE'">
-        {{ t('lotask.system.apps.active') }}
+        {{ t('lotask.system.tenants.active') }}
       </FcFilterButton>
-      <FcFilterButton :active="filterStatus === 'INACTIVE'" @click="filterStatus = 'INACTIVE'">
-        {{ t('lotask.system.apps.inactive') }}
+      <FcFilterButton :active="filterStatus === 'SUSPEND'" @click="filterStatus = 'SUSPEND'">
+        {{ t('lotask.system.tenants.inactive') }}
       </FcFilterButton>
     </FcFilterBar>
 
     <FcSection padding="md" shadow="sm">
       <el-table
         v-loading="loading"
-        :data="filteredApps"
+        :data="filteredTenants"
         stripe
         border
         row-key="id"
         class="fc-table"
         :max-height="600"
       >
-        <el-table-column :label="t('lotask.system.apps.column.name')" min-width="200">
+        <el-table-column :label="t('lotask.system.tenants.column.name')" min-width="200">
           <template #default="{ row }">
             <div class="app-name">
               <strong>{{ row.name }}</strong>
@@ -48,21 +48,21 @@
           </template>
         </el-table-column>
 
-        <el-table-column :label="t('lotask.system.apps.column.description')" min-width="200">
+        <el-table-column :label="t('lotask.system.tenants.column.description')" min-width="200">
           <template #default="{ row }">
             <span class="app-desc">{{ row.description || '—' }}</span>
           </template>
         </el-table-column>
 
-        <el-table-column :label="t('lotask.system.apps.column.status')" width="100">
+        <el-table-column :label="t('lotask.system.tenants.column.status')" width="100">
           <template #default="{ row }">
             <FcTag :color="row.status === 'ACTIVE' ? 'success' : 'gray'" size="sm">
-              {{ row.status === 'ACTIVE' ? t('lotask.system.apps.active') : t('lotask.system.apps.inactive') }}
+              {{ row.status === 'ACTIVE' ? t('lotask.system.tenants.active') : t('lotask.system.tenants.inactive') }}
             </FcTag>
           </template>
         </el-table-column>
 
-        <el-table-column :label="t('lotask.system.apps.column.createdAt')" width="160">
+        <el-table-column :label="t('lotask.system.tenants.column.createdAt')" width="160">
           <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
         </el-table-column>
 
@@ -70,13 +70,13 @@
           <template #default="{ row }">
             <div class="actions-cell">
               <FcTooltip :content="row.status === 'ACTIVE'
-                ? t('lotask.system.apps.deactivate')
-                : t('lotask.system.apps.activate')">
+                ? t('lotask.system.tenants.deactivate')
+                : t('lotask.system.tenants.activate')">
                 <button class="action-icon-btn" @click="toggleStatus(row)">
                   <i :class="row.status === 'ACTIVE' ? 'ri-forbid-line' : 'ri-check-line'" />
                 </button>
               </FcTooltip>
-              <FcTooltip :content="t('lotask.system.apps.resetSecret')">
+              <FcTooltip :content="t('lotask.system.tenants.resetSecret')">
                 <button class="action-icon-btn" @click="onResetSecret(row)">
                   <i class="ri-refresh-key-line" />
                 </button>
@@ -97,21 +97,21 @@
     <!-- 创建应用 -->
     <FcDialog
       v-model:open="createVisible"
-      :title="t('lotask.system.apps.create')"
+      :title="t('lotask.system.tenants.create')"
       width="480px"
       append-to-body
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
-        <el-form-item class="fc-form-item" :label="t('lotask.system.apps.column.name')" prop="name">
-          <el-input class="fc-input" v-model="form.name" :placeholder="t('lotask.system.apps.namePlaceholder')" />
+        <el-form-item class="fc-form-item" :label="t('lotask.system.tenants.column.name')" prop="name">
+          <el-input class="fc-input" v-model="form.name" :placeholder="t('lotask.system.tenants.namePlaceholder')" />
         </el-form-item>
-        <el-form-item class="fc-form-item" :label="t('lotask.system.apps.column.description')">
+        <el-form-item class="fc-form-item" :label="t('lotask.system.tenants.column.description')">
           <el-input
             class="fc-input"
             v-model="form.description"
             type="textarea"
             :rows="2"
-            :placeholder="t('lotask.system.apps.descPlaceholder')"
+            :placeholder="t('lotask.system.tenants.descPlaceholder')"
           />
         </el-form-item>
       </el-form>
@@ -128,7 +128,7 @@
     <!-- 创建/重置后一次性展示 secret -->
     <FcDialog
       v-model:open="secretVisible"
-      :title="t('lotask.system.apps.secretOnceTitle')"
+      :title="t('lotask.system.tenants.secretOnceTitle')"
       width="520px"
       append-to-body
       :close-on-click-modal="false"
@@ -137,11 +137,11 @@
     >
       <div class="new-secret-warning">
         <i class="ri-alert-line" />
-        <span>{{ t('lotask.system.apps.secretOnceHint') }}</span>
+        <span>{{ t('lotask.system.tenants.secretOnceHint') }}</span>
       </div>
       <div class="new-secret-box">
         <code>{{ newSecret }}</code>
-        <FcButton :icon="DocumentCopy" @click="onCopySecret">{{ t('lotask.system.apps.copy') }}</FcButton>
+        <FcButton :icon="DocumentCopy" @click="onCopySecret">{{ t('lotask.system.tenants.copy') }}</FcButton>
       </div>
       <template #footer>
         <FcButton variant="primary" @click="secretVisible = false">{{ t('common.close') }}</FcButton>
@@ -157,31 +157,31 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { DocumentCopy, Plus } from '@element-plus/icons-vue'
 import {
-  createApplication,
-  deleteApplication,
-  listApplications,
-  resetApplicationSecret,
-  setApplicationStatus,
-  type ApplicationItem,
-} from '@/api/applications'
+  createTenant,
+  deleteTenant,
+  listTenants,
+  resetTenantSecret,
+  setTenantStatus,
+  type TenantItem,
+} from '@/api/tenants'
 import {
   FcButton, FcDialog, FcSection, FcSectionHeader,
   FcFilterBar, FcFilterButton, FcTag, FcTooltip, FcEmpty,
 } from '@/components/sdk'
 import { copySilent } from '@/composables'
 
-defineOptions({ name: 'LotaskApplications' })
+defineOptions({ name: 'LotaskTenants' })
 
 const { t } = useI18n()
 const router = useRouter()
 
 const loading = ref(false)
-const apps = ref<ApplicationItem[]>([])
+const tenants = ref<TenantItem[]>([])
 const searchQuery = ref('')
-const filterStatus = ref<'ACTIVE' | 'INACTIVE' | undefined>()
+const filterStatus = ref<'ACTIVE' | 'SUSPEND' | undefined>()
 
-const filteredApps = computed(() => {
-  let list = apps.value
+const filteredTenants = computed(() => {
+  let list = tenants.value
   if (filterStatus.value) list = list.filter(a => a.status === filterStatus.value)
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase()
@@ -197,10 +197,10 @@ const filteredApps = computed(() => {
 const fetchApps = async () => {
   loading.value = true
   try {
-    const res = await listApplications({ page: 1, pageSize: 100 })
-    apps.value = res.items || []
+    const res = await listTenants({ page: 1, pageSize: 100 })
+    tenants.value = res.items || []
   } catch (err: any) {
-    ElMessage.error(err.message || t('lotask.system.apps.actionFailed'))
+    ElMessage.error(err.message || t('lotask.system.tenants.actionFailed'))
   } finally {
     loading.value = false
   }
@@ -213,7 +213,7 @@ const formRef = ref<FormInstance>()
 const form = ref({ name: '', description: '' })
 
 const rules: FormRules = {
-  name: [{ required: true, message: t('lotask.system.apps.nameRequired'), trigger: 'blur' }],
+  name: [{ required: true, message: t('lotask.system.tenants.nameRequired'), trigger: 'blur' }],
 }
 
 const openCreate = () => {
@@ -230,15 +230,15 @@ const submitCreate = async () => {
   }
   submitting.value = true
   try {
-    const secret = await createApplication(form.value)
+    const secret = await createTenant(form.value)
     createVisible.value = false
     // secret 明文仅此一次
-    newSecret.value = secret.appSecret
+    newSecret.value = secret.tenantSecret
     secretVisible.value = true
-    ElMessage.success(t('lotask.system.apps.createSuccess'))
+    ElMessage.success(t('lotask.system.tenants.createSuccess'))
     fetchApps()
   } catch (err: any) {
-    ElMessage.error(err.message || t('lotask.system.apps.actionFailed'))
+    ElMessage.error(err.message || t('lotask.system.tenants.actionFailed'))
   } finally {
     submitting.value = false
   }
@@ -250,29 +250,29 @@ const newSecret = ref('')
 
 const onCopySecret = async () => {
   const ok = await copySilent(newSecret.value)
-  if (ok) ElMessage.success(t('lotask.system.apps.copied'))
-  else ElMessage.error(t('lotask.system.apps.actionFailed'))
+  if (ok) ElMessage.success(t('lotask.system.tenants.copied'))
+  else ElMessage.error(t('lotask.system.tenants.actionFailed'))
 }
 
 // —— 状态切换 / 重置 / 删除 ——
-const toggleStatus = async (row: ApplicationItem) => {
-  const next = row.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'
+const toggleStatus = async (row: TenantItem) => {
+  const next = row.status === 'ACTIVE' ? 'SUSPEND' : 'ACTIVE'
   try {
-    await setApplicationStatus(row.id, next)
-    ElMessage.success(t('lotask.system.apps.statusUpdated'))
+    await setTenantStatus(row.id, next)
+    ElMessage.success(t('lotask.system.tenants.statusUpdated'))
     fetchApps()
   } catch (err: any) {
-    ElMessage.error(err.message || t('lotask.system.apps.actionFailed'))
+    ElMessage.error(err.message || t('lotask.system.tenants.actionFailed'))
   }
 }
 
-const onResetSecret = async (row: ApplicationItem) => {
+const onResetSecret = async (row: TenantItem) => {
   try {
     await ElMessageBox.confirm(
-      t('lotask.system.apps.resetConfirm'),
+      t('lotask.system.tenants.resetConfirm'),
       `${row.name} (${row.id})`,
       {
-        confirmButtonText: t('lotask.system.apps.resetSecret'),
+        confirmButtonText: t('lotask.system.tenants.resetSecret'),
         cancelButtonText: t('common.cancel'),
         type: 'warning',
       },
@@ -281,19 +281,19 @@ const onResetSecret = async (row: ApplicationItem) => {
     return
   }
   try {
-    const secret = await resetApplicationSecret(row.id)
-    newSecret.value = secret.appSecret
+    const secret = await resetTenantSecret(row.id)
+    newSecret.value = secret.tenantSecret
     secretVisible.value = true
-    ElMessage.success(t('lotask.system.apps.resetSuccess'))
+    ElMessage.success(t('lotask.system.tenants.resetSuccess'))
   } catch (err: any) {
-    ElMessage.error(err.message || t('lotask.system.apps.actionFailed'))
+    ElMessage.error(err.message || t('lotask.system.tenants.actionFailed'))
   }
 }
 
-const onDelete = async (row: ApplicationItem) => {
+const onDelete = async (row: TenantItem) => {
   try {
     await ElMessageBox.confirm(
-      t('lotask.system.apps.deleteConfirm'),
+      t('lotask.system.tenants.deleteConfirm'),
       `${row.name} (${row.id})`,
       {
         confirmButtonText: t('common.delete'),
@@ -305,11 +305,11 @@ const onDelete = async (row: ApplicationItem) => {
     return
   }
   try {
-    await deleteApplication(row.id)
-    ElMessage.success(t('lotask.system.apps.deleteSuccess'))
+    await deleteTenant(row.id)
+    ElMessage.success(t('lotask.system.tenants.deleteSuccess'))
     fetchApps()
   } catch (err: any) {
-    ElMessage.error(err.message || t('lotask.system.apps.actionFailed'))
+    ElMessage.error(err.message || t('lotask.system.tenants.actionFailed'))
   }
 }
 
@@ -329,7 +329,7 @@ onMounted(() => {
 <style scoped lang="scss">
 @use '@/styles/benefit-shared' as *;
 
-.lotask-applications {
+.lotask-tenants {
   display: flex;
   flex-direction: column;
   gap: var(--app-block-mb, 16px);

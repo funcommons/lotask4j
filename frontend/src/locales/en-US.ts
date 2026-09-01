@@ -165,7 +165,7 @@ export default {
     'task-type-config': 'Task Types',
     'system-settings': 'System Settings',
     'web-embed-config': 'Embed Config',
-    'applications': 'Applications',
+    'tenants': 'Tenants',
     'user-guide': 'User Guide',
     'client-guide': 'Client Guide',
     'worker-guide': 'Worker Guide',

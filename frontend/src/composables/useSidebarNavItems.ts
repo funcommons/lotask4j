@@ -45,7 +45,7 @@ export function useSidebarNavItems(): ComputedRef<NavItem[]> {
       children: [
         { index: '/settings', label: t('router.system-settings'), icon: Setting as unknown as Component },
         { index: '/embed-config', label: t('router.web-embed-config'), icon: Files as unknown as Component },
-        { index: '/applications', label: t('router.applications'), icon: Key as unknown as Component },
+        { index: '/tenants', label: t('router.tenants'), icon: Key as unknown as Component },
       ],
     },
     {

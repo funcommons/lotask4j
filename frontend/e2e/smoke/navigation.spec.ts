@@ -19,7 +19,7 @@ test.describe('lotask pages smoke', () => {
     ['/workers', 'Worker 节点'],
     ['/types', '任务类型'],
     ['/settings', '系统设置'],
-    ['/applications', '应用管理'],
+    ['/tenants', '租户管理'],
     ['/embed-config', '嵌入配置'],
     ['/guide', '使用指南'],
     ['/demo', '模拟测试'],
@@ -46,8 +46,8 @@ test.describe('lotask pages smoke', () => {
     await expect(page.getByText('转码').first()).toBeVisible()
   })
 
-  test('应用管理 mock 数据渲染', async ({ page }) => {
-    await page.goto('/applications')
+  test('租户管理 mock 数据渲染', async ({ page }) => {
+    await page.goto('/tenants')
     await expect(page.getByText('order-service').first()).toBeVisible({ timeout: 10_000 })
     await expect(page.getByText('media-worker').first()).toBeVisible()
   })

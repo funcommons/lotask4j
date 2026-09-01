@@ -110,10 +110,10 @@ const appRoutes: RouteRecordRaw[] = [
         meta: { title: 'router.web-embed-config' }
       },
       {
-        path: 'applications',
-        name: 'Applications',
-        component: () => import('@/views/lotask/Applications.vue'),
-        meta: { title: 'router.applications' }
+        path: 'tenants',
+        name: 'Tenants',
+        component: () => import('@/views/lotask/Tenants.vue'),
+        meta: { title: 'router.tenants' }
       },
       {
         path: 'guide',

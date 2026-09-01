@@ -5,6 +5,7 @@ import fun.commons.lotask4j.dto.WebEmbedConfigResponse;
 import fun.commons.lotask4j.service.AdminWebEmbedService;
 import fun.commons.framework4j.accesstoken.annotation.RequiresToken;
 import fun.commons.framework4j.web.ApiResponse;
+import fun.commons.framework4j.tenant.annotation.PlatformDomain;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -28,7 +29,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/admin/embed-config")
 @RequiredArgsConstructor
-@RequiresToken(value = "ADMIN")
+@RequiresToken("TENANT")
+@PlatformDomain            // 平台域: 仅平台身份 (tenant_id=0) 可达
 @Tag(name = "Admin Web Embed", description = "Web Embed 配置管理")
 public class AdminWebEmbedController {
 

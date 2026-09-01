@@ -159,6 +159,11 @@ framework4j:
         redisson:
           enabled: false
 
+  # 审计日志 (framework4j-audit; framework4j-tenant 依赖链带活, 默认开启)
+  # lotask4j 当前未规划审计表, 显式关闭 (后续启用时建 audit 表 + enabled: true)
+  audit:
+    enabled: false
+
   # 多租户横切面 (framework4j-tenant, benefit4j 同款)
   # 租户表 = {table-prefix}tenant → asts_tenant (由 AstsTenant extends TenantEntity SPI 提供, DDL 走 Flyway)
   # 认证端点 /api/v1/auth/token 由模块内置 TenantAuthEndpoint 接管: 防爆破(5次/15min) +
@@ -170,7 +175,7 @@ framework4j:
     ddl-mode: PROVIDED           # DDL 由 Flyway V4 管理 (框架只在启动时输出模板)
     # default-tenant-id 不配 = 多租户模式 (无 tenant_id claim 的租户域请求 → 403)
     auth:
-      enabled: false             # 过渡: C 阶段切 true (内置端点接管) 并删旧 AuthController
+      enabled: true              # 内置 TenantAuthEndpoint 接管 /api/v1/auth/token (旧 AuthController 已删)
       path: /api/v1/auth/token
       token-type: TENANT         # 新项目直接 TENANT 型 (无存量会话负担, 不用 APP 兼容开关)
       expire-seconds: 28800      # 8h (M2M 口径, 上限 12h)
@@ -213,22 +218,6 @@ framework4j:
         key: [tenant_id]
         expireTime: 28800   # 8h, 与 tenant.auth.expire-seconds 对齐
         autoRenew: true     # 滑动续期
-        renewIncrement: 1800
-
-      # ↓ 过渡期保留 (C 阶段删): AuthController 签发旧型, tenant 内置端点接管后废弃
-      ADMIN:
-        key: [app_id]
-        expireTime: 7200
-        autoRenew: true
-        renewIncrement: 1800
-      client:
-        key: [app_id]
-        expireTime: 86400
-        autoRenew: false
-      worker:
-        key: [app_id]
-        expireTime: 7200
-        autoRenew: true
         renewIncrement: 1800
 
   # 限流 (framework4j-rate-limit, benefit4j 模式)
@@ -276,8 +265,7 @@ framework4j:
 lotask4j:
   security:
     admin:
-      # 控制台合成 ADMIN 凭据 (client_credentials; app_id=0 不入库)
-      # 生产环境必须通过环境变量 ADMIN_CLIENT_SECRET 覆盖; 空值时用开发默认值并启动 WARN
+      # 已废弃 (C 阶段): 控制台改用 framework4j.tenant.platform.* 凭据 (PLATFORM_CLIENT_SECRET)
       client-id: ${ADMIN_CLIENT_ID:ADMIN}
       client-secret: ${ADMIN_CLIENT_SECRET:}
 

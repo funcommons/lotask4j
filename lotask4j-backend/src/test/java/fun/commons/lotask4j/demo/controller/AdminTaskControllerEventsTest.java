@@ -15,6 +15,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +42,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@TestPropertySource(properties = {
+        // 恢复主配置 exclude (仅 auth 端点): @PlatformDomain 需要 TokenInterceptor 填充 claim
+        // (test profile 的 /api/v1/** 全放行会让 TokenContext 恒空 → 平台域一律 403)
+        "framework4j.access-token.exclude-path-patterns[0]=/api/v1/auth/token",
+})
 @Transactional
 @DisplayName("AdminTaskController 集成 (P1-D)")
 class AdminTaskControllerEventsTest {
@@ -56,8 +62,18 @@ class AdminTaskControllerEventsTest {
 
     private AstTaskExecutionEvent sampleEvent;
 
+    private String platformToken;
+
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
+        // 平台凭据换 token (@PlatformDomain: admin 域仅 tenant_id=0 可达)
+        platformToken = mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/api/v1/auth/token")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED)
+                        .content("grant_type=client_credentials&client_id=PLATFORM&client_secret=lotask4j-platform-dev-secret"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString()
+                .replaceAll(".*\"access_token\":\"([^\"]+)\".*", "$1");
         sampleEvent = new AstTaskExecutionEvent();
         sampleEvent.setId(1L);
         sampleEvent.setTaskId(123456789L); // 与 WorkerTaskControllerTest 同样的"pX6s9o7dLoTL"对应
@@ -82,7 +98,7 @@ class AdminTaskControllerEventsTest {
         when(taskEventRecorder.historyOf(eq(123456789L), eq(100)))
                 .thenReturn(List.of(sampleEvent));
 
-        mockMvc.perform(get("/api/v1/admin/tasks/pX6s9o7dLoTL/events"))
+        mockMvc.perform(get("/api/v1/admin/tasks/pX6s9o7dLoTL/events").header("Authorization", "Bearer " + platformToken))
                 .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
@@ -98,7 +114,8 @@ class AdminTaskControllerEventsTest {
     void testGetTaskEvents_Limit() throws Exception {
         when(taskEventRecorder.historyOf(anyLong(), eq(50))).thenReturn(List.of());
 
-        mockMvc.perform(get("/api/v1/admin/tasks/pX6s9o7dLoTL/events").param("limit", "50"))
+        mockMvc.perform(get("/api/v1/admin/tasks/pX6s9o7dLoTL/events").param("limit", "50")
+                        .header("Authorization", "Bearer " + platformToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
 
@@ -113,7 +130,7 @@ class AdminTaskControllerEventsTest {
                 "任务不存在"))
                 .when(taskEventRecorder).historyOf(anyLong(), anyInt());
 
-        mockMvc.perform(get("/api/v1/admin/tasks/pX6s9o7dLoTL/events"))
+        mockMvc.perform(get("/api/v1/admin/tasks/pX6s9o7dLoTL/events").header("Authorization", "Bearer " + platformToken))
                 .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(20100));
@@ -131,7 +148,7 @@ class AdminTaskControllerEventsTest {
         node.setStatus("ONLINE");
         when(adminService.getOnlineWorkers()).thenReturn(List.of(node));
 
-        mockMvc.perform(get("/api/v1/admin/workers"))
+        mockMvc.perform(get("/api/v1/admin/workers").header("Authorization", "Bearer " + platformToken))
                 .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
@@ -157,7 +174,7 @@ class AdminTaskControllerEventsTest {
         stats.setWorkerCount(wc);
         when(adminService.getStatsOverview()).thenReturn(stats);
 
-        mockMvc.perform(get("/api/v1/admin/stats/overview"))
+        mockMvc.perform(get("/api/v1/admin/stats/overview").header("Authorization", "Bearer " + platformToken))
                 .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))

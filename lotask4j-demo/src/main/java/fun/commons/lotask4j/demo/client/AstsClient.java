@@ -37,20 +37,20 @@ public class AstsClient {
     @Value("${asts.server.url:http://localhost:8080}")
     private String serverUrl;
 
-    /** 应用凭据 (管理端 AdminApplicationController 创建应用时返回; 亦可配置合成 ADMIN 凭据) */
-    @Value("${asts.client.access-key:ADMIN}")
+    /** 租户凭据 (管理端创建租户时一次性返回; 默认租户 secret 见 V4 迁移说明, 用前请 reset) */
+    @Value("${asts.client.access-key:default}")
     private String accessKey;
 
-    @Value("${asts.client.secret:lotask4j-admin-dev-secret}")
+    @Value("${asts.client.secret:test-default-tenant-secret}")
     private String secret;
 
-    /** client 域写端点已收口 (@RequiresToken("client")): 应用凭据换 Bearer */
+    /** client 域已收口 (@TenantDomain): 租户凭据换 TENANT 型 Bearer */
     private volatile String accessToken;
 
     private synchronized Mono<String> bearerToken() {
         if (accessToken != null) return Mono.just(accessToken);
         String form = "grant_type=client_credentials&client_id=" + accessKey
-                + "&client_secret=" + secret;   // scope 默认 client
+                + "&client_secret=" + secret;
         return webClient.post().uri(serverUrl + "/api/v1/auth/token")
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .bodyValue(form)

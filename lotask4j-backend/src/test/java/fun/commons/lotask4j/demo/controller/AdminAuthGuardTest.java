@@ -22,10 +22,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * ADMIN 域 token 守卫集成测试
+ * 平台域 (admin) token 守卫集成测试 (租户化后)
  *
  * 通过 @TestPropertySource 恢复主配置的 exclude 列表 (仅放行 auth 端点),
- * 验证 @RequiresToken("ADMIN") 的 401 行为与带 token 的放行。
+ * 验证 @RequiresToken("TENANT") + @PlatformDomain (tenant_id=0) 的 401 行为
+ * 与平台凭据 (PLATFORM) 换 token 的放行。
  * 前置: 本地 Redis :6379 (token 签发 + 校验)。
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -35,7 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         // 列表属性整组覆盖 application-test.yml 的 /api/v1/** 全放行
         "framework4j.access-token.exclude-path-patterns[0]=/api/v1/auth/token",
 })
-@DisplayName("ADMIN 域 token 守卫测试")
+@DisplayName("平台域 (admin) token 守卫测试")
 class AdminAuthGuardTest {
 
     @Autowired
@@ -44,7 +45,7 @@ class AdminAuthGuardTest {
     @MockBean
     private AdminService adminService;
 
-    private static final String DEV_SECRET = "lotask4j-admin-dev-secret";
+    private static final String PLATFORM_SECRET = "lotask4j-platform-dev-secret";
 
     @BeforeEach
     void setUp() {
@@ -56,8 +57,8 @@ class AdminAuthGuardTest {
         MvcResult result = mockMvc.perform(post("/api/v1/auth/token")
                         .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                         .param("grant_type", "client_credentials")
-                        .param("client_id", "ADMIN")
-                        .param("client_secret", DEV_SECRET))
+                        .param("client_id", "PLATFORM")
+                        .param("client_secret", PLATFORM_SECRET))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andReturn();
@@ -87,7 +88,7 @@ class AdminAuthGuardTest {
     }
 
     @Test
-    @DisplayName("合法 ADMIN token → 200 放行")
+    @DisplayName("合法平台 token (tenant_id=0) → 200 放行")
     void adminEndpoint_validToken_200() throws Exception {
         String token = mintToken();
         mockMvc.perform(get("/api/v1/admin/stats/overview")
@@ -102,8 +103,8 @@ class AdminAuthGuardTest {
         mockMvc.perform(post("/api/v1/auth/token")
                         .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                         .param("grant_type", "client_credentials")
-                        .param("client_id", "ADMIN")
-                        .param("client_secret", DEV_SECRET))
+                        .param("client_id", "PLATFORM")
+                        .param("client_secret", PLATFORM_SECRET))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
     }

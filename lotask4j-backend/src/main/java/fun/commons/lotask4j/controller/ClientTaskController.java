@@ -9,6 +9,7 @@ import fun.commons.framework4j.web.ApiResponse;
 import fun.commons.framework4j.openid.annotation.OpenId;
 import fun.commons.framework4j.ratelimit.annotation.RateLimit;
 import fun.commons.framework4j.accesstoken.annotation.RequiresToken;
+import fun.commons.framework4j.tenant.annotation.TenantDomain;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -36,6 +37,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/client/tasks")
 @RequiredArgsConstructor
+@RequiresToken("TENANT")
+@TenantDomain             // 租户域: 仅真实租户身份 (tenant_id>0) 可达; embed 走短期 token (F 阶段)
 @Tag(name = "客户端任务管理", description = "提交、查询、取消异步任务")
 public class ClientTaskController {
 
@@ -52,7 +55,6 @@ public class ClientTaskController {
      * @return 任务 ID (OpenID 混淆字符串)
      */
     @PostMapping("/submit")
-    @RequiresToken("client")   // 方法级: GET 列表/详情 (embed 依赖) 不挂, 保持开放
     @RateLimit(key = "submit", limit = 30, window = "1m")
     @Operation(summary = "提交异步任务", description = "客户端提交一个新的异步任务，立即返回任务ID (OpenID格式)")
     public ApiResponse<SubmitTaskResponse> submitTask(
@@ -92,7 +94,6 @@ public class ClientTaskController {
      * @return 取消结果
      */
     @PostMapping("/{id}/cancel")
-    @RequiresToken("client")
     @RateLimit(key = "cancel", limit = 60, window = "1m")
     @Operation(summary = "取消任务", description = "向服务端发送取消信号，Worker 会在循环中检测并停止执行")
     public ApiResponse<Void> cancelTask(

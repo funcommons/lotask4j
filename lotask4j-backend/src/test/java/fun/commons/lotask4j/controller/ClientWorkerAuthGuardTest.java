@@ -27,15 +27,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * client/worker 域鉴权收口守卫测试
+ * client/worker 域三域守卫测试 (租户化后)
  *
- * 收口设计: exclude 不再整域豁免 client/worker; TokenInterceptor 注解驱动 —
- * - client 域写端点 (POST /submit, POST /cancel) 方法级 @RequiresToken("client")
- * - client 域 GET (embed 依赖) 无注解 → 放行
- * - worker 域类级 @RequiresToken("worker") 全收
+ * 收口设计: framework4j-tenant 内置端点签发 TENANT 型 token (claim tenant_id) —
+ * - client/worker 域类级 @RequiresToken("TENANT") + @TenantDomain (tenant_id>0)
+ * - admin 域 @RequiresToken("TENANT") + @PlatformDomain (tenant_id=0, 平台合成身份)
+ * - client GET 不再开放 (embed 改短期 token, F 阶段)
  *
- * token: 应用凭据换发 (scope=client / scope=worker 选 policy)。
- * 测试 context 恢复主配置 exclude (仅 auth 端点)。
+ * token: 租户凭据换发 (租户即接入���, client/worker 同型)。
  * 前置: 本地 PG + Redis :6379。
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -75,27 +74,26 @@ class ClientWorkerAuthGuardTest {
         when(taskService.submitTask(any())).thenReturn(555L);
         when(workerService.pollTask(any(), any())).thenReturn(null);
 
-        // admin token → 建应用 → 应用凭据换 client / worker token
-        String adminToken = mintToken("ADMIN", "lotask4j-admin-dev-secret", null);
+        // 平台 token (合成租户 tenant_id=0) → 建租户 → 租户凭据换 TENANT token
+        String platformToken = mintToken("PLATFORM", "lotask4j-platform-dev-secret");
 
         String appName = "guard-app-" + SEQ.incrementAndGet();
         MvcResult created = mockMvc.perform(post("/api/v1/admin/applications")
-                        .header("Authorization", "Bearer " + adminToken)
+                        .header("Authorization", "Bearer " + platformToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"" + appName + "\"}"))
                 .andExpect(status().isOk())
                 .andReturn();
         String secret = extract(created.getResponse().getContentAsString(), "appSecret");
 
-        clientToken = mintToken(appName, secret, "client");
-        workerToken = mintToken(appName, secret, "worker");
+        clientToken = mintToken(appName, secret);
+        workerToken = clientToken;   // 租户级 worker: 与 client 同型同凭据
         assertThat(clientToken).isNotBlank();
-        assertThat(workerToken).isNotBlank();
     }
 
-    private String mintToken(String clientId, String secret, String scope) throws Exception {
+    private String mintToken(String clientId, String secret) throws Exception {
         String form = "grant_type=client_credentials&client_id=" + clientId
-                + "&client_secret=" + secret + (scope != null ? "&scope=" + scope : "");
+                + "&client_secret=" + secret;
         MvcResult r = mockMvc.perform(post("/api/v1/auth/token")
                         .contentType(MediaType.APPLICATION_FORM_URLENCODED).content(form))
                 .andExpect(status().isOk())
@@ -129,12 +127,14 @@ class ClientWorkerAuthGuardTest {
     }
 
     @Test
-    @DisplayName("client GET 端点: 无 token 放行 (embed 兼容)")
-    void clientGetOpenForEmbed() throws Exception {
+    @DisplayName("client GET 端点: 无 token 401; 租户 token 放行 (embed 改短期 token)")
+    void clientGetGuarded() throws Exception {
         mockMvc.perform(get("/api/v1/client/tasks"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(0));
+                .andExpect(status().isUnauthorized());
         mockMvc.perform(get("/api/v1/client/tasks/stats"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/client/tasks")
+                        .header("Authorization", "Bearer " + clientToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
     }
@@ -160,14 +160,15 @@ class ClientWorkerAuthGuardTest {
     }
 
     @Test
-    @DisplayName("token type 不匹配: client token 不能过 worker 域")
-    void tokenTypeMismatch() {
+    @DisplayName("域互斥: 平台 token (tenant_id=0) 打租户域 worker → 403")
+    void platformTokenRejectedByTenantDomain() throws Exception {
+        String platformToken = mintToken("PLATFORM", "lotask4j-platform-dev-secret");
         String url = "http://localhost:" + port + "/api/v1/worker/tasks/poll";
         org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.add("Authorization", "Bearer " + clientToken);
+        headers.add("Authorization", "Bearer " + platformToken);
         org.springframework.http.ResponseEntity<String> resp = rest.postForEntity(url,
                 new org.springframework.http.HttpEntity<>("{\"workerId\":\"w1\",\"taskType\":\"data_export\"}", headers), String.class);
-        assertThat(resp.getStatusCode().value()).isEqualTo(401);
+        assertThat(resp.getStatusCode().value()).isEqualTo(403);
     }
 }

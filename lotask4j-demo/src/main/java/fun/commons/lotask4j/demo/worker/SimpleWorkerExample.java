@@ -34,19 +34,19 @@ public class SimpleWorkerExample {
     private final String clientSecret;
     private volatile String accessToken;
 
-    /** 应用凭据换 worker token (scope=worker); 401 时调用方重取 */
+    /** 租户凭据换 TENANT token (租户级 worker: 与 client 同型凭据); 401 时调用方重取 */
     private synchronized void refreshToken() {
         String url = authBaseUrl + "/auth/token";
         HttpHeaders h = new HttpHeaders();
         h.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
         String form = "grant_type=client_credentials&client_id=" + clientId
-                + "&client_secret=" + clientSecret + "&scope=worker";
+                + "&client_secret=" + clientSecret;
         try {
             ResponseEntity<String> resp = restTemplate.postForEntity(url,
                     new HttpEntity<>(form, h), String.class);
             com.alibaba.fastjson2.JSONObject json = JSON.parseObject(resp.getBody());
             this.accessToken = json.getJSONObject("data").getString("access_token");
-            log.info("Worker token acquired (scope=worker)");
+            log.info("Worker token acquired (TENANT, 租户级 worker)");
         } catch (Exception e) {
             log.error("Failed to acquire worker token", e);
             throw new IllegalStateException("worker token 获取失败", e);

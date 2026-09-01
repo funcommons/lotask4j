@@ -31,6 +31,13 @@ framework4j:
   signature:
     enabled: false
 
+  tenant:
+    # 测试库默认租户 id=1 (schema-postgres.sql INSERT)。
+    # DomainGuard "单租户模式": 无 token 的租户域请求按默认租户放行 —
+    # 兼容 exclude /api/v1/** 下既有 controller 测试的裸调;
+    # 带 token 的守卫语义 (平台↔租户互斥 403) 走 claim 分支不受影响 (Guard 测试覆盖)。
+    default-tenant-id: 1
+
   datasource:
     datasources:
       business:

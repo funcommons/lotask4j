@@ -139,4 +139,56 @@ class TaskEventRecorderTest {
             verify(eventMapper).selectByTaskIdLimit(100L, 100);
         }
     }
+
+    // ==================== currentTraceId (Tracer 三态) ====================
+
+    @Nested
+    @DisplayName("currentTraceId - Tracing 三态")
+    class TraceId {
+
+        @Test
+        @DisplayName("Tracer 在且当前 Span 存在 → 记录 traceId")
+        void withActiveSpan() {
+            io.micrometer.tracing.Tracer tracer = org.mockito.Mockito.mock(io.micrometer.tracing.Tracer.class);
+            io.micrometer.tracing.Span span = org.mockito.Mockito.mock(io.micrometer.tracing.Span.class);
+            io.micrometer.tracing.TraceContext ctx = org.mockito.Mockito.mock(io.micrometer.tracing.TraceContext.class);
+            org.mockito.Mockito.when(tracer.currentSpan()).thenReturn(span);
+            org.mockito.Mockito.when(span.context()).thenReturn(ctx);
+            org.mockito.Mockito.when(ctx.traceId()).thenReturn("tr-123");
+            org.springframework.test.util.ReflectionTestUtils.setField(recorder, "tracer", tracer);
+
+            recorder.record(1L, TaskEventType.TASK_CREATED, 1, "PENDING", "PENDING", "op", null);
+
+            org.mockito.ArgumentCaptor<AstTaskExecutionEvent> captor =
+                    org.mockito.ArgumentCaptor.forClass(AstTaskExecutionEvent.class);
+            org.mockito.Mockito.verify(eventMapper).insertDefault(captor.capture(), org.mockito.ArgumentMatchers.isNull());
+            org.assertj.core.api.Assertions.assertThat(captor.getValue().getTraceId()).isEqualTo("tr-123");
+        }
+
+        @Test
+        @DisplayName("Tracer 在但无当前 Span → traceId null")
+        void withNoCurrentSpan() {
+            io.micrometer.tracing.Tracer tracer = org.mockito.Mockito.mock(io.micrometer.tracing.Tracer.class);
+            org.mockito.Mockito.when(tracer.currentSpan()).thenReturn(null);
+            org.springframework.test.util.ReflectionTestUtils.setField(recorder, "tracer", tracer);
+
+            recorder.record(2L, TaskEventType.TASK_CREATED, null, null, "PENDING", null, null);
+
+            org.mockito.ArgumentCaptor<AstTaskExecutionEvent> captor =
+                    org.mockito.ArgumentCaptor.forClass(AstTaskExecutionEvent.class);
+            org.mockito.Mockito.verify(eventMapper).insertDefault(captor.capture(), org.mockito.ArgumentMatchers.isNull());
+            org.assertj.core.api.Assertions.assertThat(captor.getValue().getTraceId()).isNull();
+        }
+
+        @Test
+        @DisplayName("Tracer 抛异常 → traceId null, 不外抛")
+        void tracerThrows() {
+            io.micrometer.tracing.Tracer tracer = org.mockito.Mockito.mock(io.micrometer.tracing.Tracer.class);
+            org.mockito.Mockito.when(tracer.currentSpan()).thenThrow(new RuntimeException("no tracing"));
+            org.springframework.test.util.ReflectionTestUtils.setField(recorder, "tracer", tracer);
+
+            assertDoesNotThrow(() -> recorder.record(3L, TaskEventType.TASK_CREATED,
+                    null, null, "PENDING", null, null));
+        }
+    }
 }

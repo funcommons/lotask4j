@@ -20,9 +20,9 @@ import java.util.Map;
 public class AstTaskTypeConfig {
 
     /**
-     * 代理主键 ID (自增)
+     * 代理主键 ID (雪花算法, 应用层生成 — PG 无 IDENTITY 列, AUTO 会插入 NULL 主键)
      */
-    @TableId(type = IdType.AUTO)
+    @TableId(type = IdType.ASSIGN_ID)
     private Long id;
 
     /**

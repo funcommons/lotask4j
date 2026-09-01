@@ -207,4 +207,42 @@ class AdminTenantControllerTest {
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.items[?(@.name=='app-disable')].appSecret").doesNotExist());
     }
+
+    @Test
+    @DisplayName("租户详情: 存在返回 (不含 secret); 不存在 → APPLICATION_NOT_FOUND envelope")
+    void getTenant_andNotFound() throws Exception {
+        String name = unique("tn-get");
+        String body = createTenant(name).getResponse().getContentAsString();
+        long id = Long.parseLong(extractJsonString(body, "id"));
+
+        mockMvc.perform(get("/api/v1/admin/tenants/" + id)
+                        .header("Authorization", "Bearer " + platformToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.name").value(name))
+                .andExpect(jsonPath("$.data.tenantSecret").doesNotExist());
+
+        mockMvc.perform(get("/api/v1/admin/tenants/999999999")
+                        .header("Authorization", "Bearer " + platformToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(20106));
+    }
+
+    @Test
+    @DisplayName("删除租户 (逻辑删) → 详情不可见 (20106)")
+    void deleteTenant_thenNotFound() throws Exception {
+        String name = unique("tn-del");
+        String body = createTenant(name).getResponse().getContentAsString();
+        long id = Long.parseLong(extractJsonString(body, "id"));
+
+        mockMvc.perform(delete("/api/v1/admin/tenants/" + id)
+                        .header("Authorization", "Bearer " + platformToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+
+        mockMvc.perform(get("/api/v1/admin/tenants/" + id)
+                        .header("Authorization", "Bearer " + platformToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(20106));
+    }
 }

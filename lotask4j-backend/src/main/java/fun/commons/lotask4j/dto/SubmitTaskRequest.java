@@ -42,12 +42,13 @@ public class SubmitTaskRequest {
 
     /**
      * 任务优先级 (0-100)
-     * 默认值: 0
+     * null = 未指定: client 提交由 service 兜底 0; admin 提交由 controller 兜底 100 (高优先级)
+     * 注意: 不要写字段初始化器 (=0), 否则 admin 默认优先级分支永远不可达
      */
     @Min(value = 0, message = "优先级最小值为 0")
     @Max(value = 100, message = "优先级最大值为 100")
     @Schema(description = "任务优先级 (0-100)", example = "10")
-    private Integer priority = 0;
+    private Integer priority;
 
     /**
      * 幂等键（P0-5）。同 (type, idempotencyKey) 重复提交返首次任务 ID。

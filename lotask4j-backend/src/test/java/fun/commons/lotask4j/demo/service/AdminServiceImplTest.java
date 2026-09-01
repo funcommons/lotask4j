@@ -23,6 +23,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.core.env.Environment;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.OffsetDateTime;
 import java.util.Arrays;
@@ -125,6 +126,21 @@ class AdminServiceImplTest {
             verify(taskTypeConfigMapper, never()).insert(any(AstTaskTypeConfig.class));
             assertEquals("视频转码", existing.getName());
             assertEquals(1, existing.getIsEnabled());
+        }
+
+        @Test
+        @DisplayName("已存在配置更新时 isEnabled=false → 0")
+        void existingConfig_UpdateDisabled() {
+            TaskTypeConfigRequest req = buildRequest("video_transcode", false);
+
+            AstTaskTypeConfig existing = new AstTaskTypeConfig();
+            existing.setTypeKey("video_transcode");
+            when(taskTypeConfigMapper.selectByTypeKey("video_transcode")).thenReturn(existing);
+
+            adminService.saveTaskTypeConfig(req);
+
+            verify(taskTypeConfigMapper).updateById(existing);
+            assertEquals(0, existing.getIsEnabled());
         }
 
         @Test
@@ -316,20 +332,18 @@ class AdminServiceImplTest {
         }
 
         @Test
-        @DisplayName("deleteTaskTypeConfig 存在时执行逻辑删除")
+        @DisplayName("deleteTaskTypeConfig 存在时执行逻辑删除 (走 deleteById — @TableLogic 字段 updateById 不可更新)")
         void deleteExisting_SoftDeletes() {
             AstTaskTypeConfig cfg = new AstTaskTypeConfig();
             cfg.setTypeKey("t");
+            cfg.setId(88L);
 
             when(taskTypeConfigMapper.selectByTypeKey("t")).thenReturn(cfg);
 
             adminService.deleteTaskTypeConfig("t");
 
-            verify(taskTypeConfigMapper).updateById((AstTaskTypeConfig) argThat(c ->
-                    c instanceof AstTaskTypeConfig
-                            && ((AstTaskTypeConfig) c).getIsDeleted() == 1
-                            && ((AstTaskTypeConfig) c).getUpdatedAt() != null
-            ));
+            verify(taskTypeConfigMapper).deleteById(88L);
+            verify(taskTypeConfigMapper, never()).updateById(any(AstTaskTypeConfig.class));
         }
     }
 
@@ -488,5 +502,26 @@ class AdminServiceImplTest {
         when(environment.getProperty(eq("spring.data.redis.database"), anyString())).thenReturn("0");
 
         assertDoesNotThrow(() -> adminService.getSystemConfig());
+    }
+
+    // ==================== formatDuration 直接测试 ====================
+
+    @Test
+    @DisplayName("formatDuration: 天/小时/分钟 三分支格式")
+    void formatDuration_Branches() {
+        // 1 天 2 小时 3 分
+        long dayBranch = ((1 * 24 + 2) * 60 + 3) * 60_000L;
+        assertEquals("1天2小时3分",
+                ReflectionTestUtils.invokeMethod(adminService, "formatDuration", dayBranch));
+
+        // 5 小时 30 分 (无天)
+        long hourBranch = (5 * 60 + 30) * 60_000L;
+        assertEquals("5小时30分",
+                ReflectionTestUtils.invokeMethod(adminService, "formatDuration", hourBranch));
+
+        // 42 分钟 (无天无小时)
+        long minuteBranch = 42 * 60_000L;
+        assertEquals("42分钟",
+                ReflectionTestUtils.invokeMethod(adminService, "formatDuration", minuteBranch));
     }
 }

@@ -237,10 +237,16 @@
                 <artifactId>maven-surefire-plugin</artifactId>
             </plugin>
 
-            <!-- JaCoCo Maven Plugin (测试覆盖率) — 门禁: 核心 service 包 ≥75% 行覆盖,其他包放宽 -->
+            <!-- JaCoCo Maven Plugin (测试覆盖率) — 门禁: bundle 级 100% 行覆盖
+                 排除: AstsApplication (Spring 引导入口 main(), 行业惯例不纳入统计) -->
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>fun/commons/lotask4j/AstsApplication*</exclude>
+                    </excludes>
+                </configuration>
                 <executions>
                     <execution>
                         <id>prepare-agent</id>
@@ -262,7 +268,7 @@
                         </goals>
                         <configuration>
                             <rules>
-                                <!-- 核心 service 包强门禁 -->
+                                <!-- 核心包强门禁: 100% 行覆盖 -->
                                 <rule>
                                     <element>PACKAGE</element>
                                     <includes>
@@ -275,18 +281,18 @@
                                         <limit>
                                             <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.75</minimum>
+                                            <minimum>1.00</minimum>
                                         </limit>
                                     </limits>
                                 </rule>
-                                <!-- 全局兜底: bundle 级 ≥60% (避免个别 controller 文件拖到 0%) -->
+                                <!-- 全局兜底: bundle 级 100% 行覆盖 -->
                                 <rule>
                                     <element>BUNDLE</element>
                                     <limits>
                                         <limit>
                                             <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.60</minimum>
+                                            <minimum>1.00</minimum>
                                         </limit>
                                     </limits>
                                 </rule>

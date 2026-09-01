@@ -41,8 +41,8 @@
         <where>
             is_deleted = 0
             <if test="keyword != null and keyword != ''">
-                AND (config_key ILIKE CONCAT('%', #{keyword}, '%')
-                  OR config_name ILIKE CONCAT('%', #{keyword}, '%'))
+                AND (config_key ILIKE CONCAT('%', #{keyword}::text, '%')
+                  OR config_name ILIKE CONCAT('%', #{keyword}::text, '%'))
             </if>
             <if test="isEnabled != null">
                 AND is_enabled = #{isEnabled}
@@ -58,8 +58,8 @@
         <where>
             is_deleted = 0
             <if test="keyword != null and keyword != ''">
-                AND (config_key ILIKE CONCAT('%', #{keyword}, '%')
-                  OR config_name ILIKE CONCAT('%', #{keyword}, '%'))
+                AND (config_key ILIKE CONCAT('%', #{keyword}::text, '%')
+                  OR config_name ILIKE CONCAT('%', #{keyword}::text, '%'))
             </if>
             <if test="isEnabled != null">
                 AND is_enabled = #{isEnabled}
@@ -79,9 +79,9 @@
 
     <insert id="insertConfig" useGeneratedKeys="true" keyProperty="config.id">
         INSERT INTO asts_web_embed_config
-            (id, config_key, config_name, user_id, is_open, callback_url, config, component_type, allowed_domains, is_enabled, is_deleted)
+            (id, tenant_id, config_key, config_name, user_id, is_open, callback_url, config, component_type, allowed_domains, is_enabled, is_deleted)
         VALUES
-            (#{config.id}, #{config.configKey}, #{config.configName}, #{config.userId},
+            (#{config.id}, #{config.tenantId}, #{config.configKey}, #{config.configName}, #{config.userId},
              #{config.isOpen}, #{config.callbackUrl},
              COALESCE(#{configJson}::jsonb, '{}'::jsonb),
              #{config.componentType},
@@ -94,7 +94,7 @@
             config_key = #{config.configKey},
             config_name = #{config.configName},
             user_id = #{config.userId},
-            is_open = #{config.isOpen},
+            is_open = COALESCE(#{config.isOpen}, is_open),
             callback_url = #{config.callbackUrl},
             config = COALESCE(#{configJson}::jsonb, '{}'::jsonb),
             component_type = #{config.componentType},

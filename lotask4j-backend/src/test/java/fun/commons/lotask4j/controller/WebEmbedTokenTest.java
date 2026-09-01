@@ -95,6 +95,46 @@ class WebEmbedTokenTest {
                 .andExpect(jsonPath("$.code").value(10106));
     }
 
+    @Test
+    @DisplayName("非法 componentType → 直接拦截 (不查库不签发)")
+    void invalidComponentTypeRejected() throws Exception {
+        String key = insertConfig("task-list", true);
+        mockMvc.perform(get("/web-embed/not-a-component").param("accessKey", key))
+                .andExpect(status().isOk());
+        // 未到组件匹配/token 签发环节 → 无 embed token cookie
+        java.util.List<String> cookies = mockMvc.perform(
+                        get("/web-embed/not-a-component").param("accessKey", key))
+                .andReturn().getResponse().getHeaders("Set-Cookie");
+        assertThat(cookies.stream().noneMatch(c -> c.startsWith("ASTS_EMBED_TOKEN=")))
+                .as("非法组件类型不应签发 token").isTrue();
+    }
+
+    @Test
+    @DisplayName("带 taskId → 重定向 URL 透传 taskId")
+    void redirectCarriesTaskId() throws Exception {
+        String key = insertConfig("task-list", true);
+        mockMvc.perform(get("/web-embed/task-list")
+                        .param("accessKey", key)
+                        .param("taskId", "888777"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location",
+                        org.hamcrest.Matchers.containsString("taskId=888777")));
+    }
+
+    @Test
+    @DisplayName("无 accessKey (开放模式) → 重定向 + userId cookie 默认 guest, 无 token")
+    void openMode_withoutAccessKey() throws Exception {
+        var result = mockMvc.perform(get("/web-embed/task-list"))
+                .andExpect(status().is3xxRedirection())
+                .andReturn();
+
+        java.util.List<String> cookies = result.getResponse().getHeaders("Set-Cookie");
+        assertThat(cookies.stream().filter(c -> c.startsWith("ASTS_USER_ID=")).findFirst().orElse(""))
+                .contains("ASTS_USER_ID=guest");
+        assertThat(cookies.stream().noneMatch(c -> c.startsWith("ASTS_EMBED_TOKEN=")))
+                .as("开放模式无租户归属, 不签发 embed token").isTrue();
+    }
+
     private static String extractCookieValue(String setCookie, String name) {
         for (String part : setCookie.split(";")) {
             String seg = part.trim();

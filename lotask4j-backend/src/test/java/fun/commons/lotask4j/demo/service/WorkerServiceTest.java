@@ -17,6 +17,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -559,6 +560,138 @@ class WorkerServiceTest {
             verify(stateMachine).completeAs(eq(100001L), eq(0), eq(1L),
                     eq(fun.commons.lotask4j.enums.TaskStatus.SUCCESS),
                     eq(null), any(), any(), any(), isNull());
+        }
+
+        @Test
+        @DisplayName("无效终态字符串 (valueOf 失败) → TASK_STATE_INVALID")
+        void reportResult_UnparseableStatusString() {
+            sampleTask.setStatus("RUNNING");
+            when(taskMapper.selectByIdWithTypeName(eq(100001L), isNull())).thenReturn(sampleTask);
+
+            req.setStatus("NOT_A_STATUS");
+            ApiException ex = assertThrows(ApiException.class,
+                    () -> workerService.reportResult(100001L, req));
+            assertEquals(BusinessCode.TASK_STATE_INVALID.getCode(), ex.getCode());
+        }
+
+        @Test
+        @DisplayName("非终态 (PENDING) → TASK_STATE_INVALID")
+        void reportResult_NonTerminalRejected() {
+            sampleTask.setStatus("RUNNING");
+            when(taskMapper.selectByIdWithTypeName(eq(100001L), isNull())).thenReturn(sampleTask);
+
+            req.setStatus("PENDING");
+            ApiException ex = assertThrows(ApiException.class,
+                    () -> workerService.reportResult(100001L, req));
+            assertEquals(BusinessCode.TASK_STATE_INVALID.getCode(), ex.getCode());
+        }
+    }
+
+    // ==================== 心跳 / 新 step 追加 / 权重边界 ====================
+
+    @Nested
+    @DisplayName("pollTask 心跳与边界")
+    class HeartbeatAndEdgeCases {
+
+        @Test
+        @DisplayName("workerId 为 null → 心跳用 ip/type 生成 workerId; upsert 返回 0 只告警")
+        void pollTask_NullWorkerId_GeneratesFallback() {
+            pollRequest.setWorkerId(null);
+            when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(enabledTypeConfig);
+            when(workerNodeMapper.upsertWorkerHeartbeat(any())).thenReturn(1);
+            when(taskMapper.pollAndLockTask(anyString(), anyString(), anyString(), isNull())).thenReturn(null);
+
+            assertNull(workerService.pollTask(pollRequest, "10.0.0.1"));
+
+            ArgumentCaptor<AstWorkerNode> captor = ArgumentCaptor.forClass(AstWorkerNode.class);
+            verify(workerNodeMapper).upsertWorkerHeartbeat(captor.capture());
+            assertEquals("worker-10-0-0-1-data_export", captor.getValue().getWorkerId());
+        }
+
+        @Test
+        @DisplayName("心跳 upsert 抛异常被吞, poll 继续")
+        void pollTask_HeartbeatThrows_Swallows() {
+            when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(enabledTypeConfig);
+            when(workerNodeMapper.upsertWorkerHeartbeat(any())).thenThrow(new RuntimeException("redis down"));
+            when(taskMapper.pollAndLockTask(anyString(), anyString(), anyString(), isNull())).thenReturn(null);
+
+            assertNull(workerService.pollTask(pollRequest, "10.0.0.1"));
+        }
+    }
+
+    @Nested
+    @DisplayName("reportProgress 步骤边界")
+    class ProgressStepEdges {
+
+        private final ReportProgressRequest req = new ReportProgressRequest();
+
+        @BeforeEach
+        void initReq() {
+            req.setCurrentStepKey("uploading");
+            req.setStepProgress(50);
+            req.setExecutionToken(1L);
+            req.setVersion(0);
+        }
+
+        @Test
+        @DisplayName("currentStepKey 不在 stepsDetail → 追加新 step")
+        void reportProgress_AppendsNewStep() {
+            Map<String, Object> existing = new HashMap<>();
+            existing.put("key", "downloading");
+            existing.put("status", "done");
+            sampleTask.setStatus("RUNNING");
+            sampleTask.setStepsDetail(new ArrayList<>(List.of(existing)));
+            when(taskMapper.selectByIdWithTypeName(eq(100001L), isNull())).thenReturn(sampleTask);
+            when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(null);
+
+            workerService.reportProgress(100001L, req);
+
+            verify(stateMachine).reportProgress(eq(100001L), eq(0), eq(1L),
+                    eq("uploading"), eq(50),
+                    argThat(steps -> steps.size() == 2
+                            && "processing".equals(steps.get(1).get("status"))
+                            && "uploading".equals(steps.get(1).get("key"))),
+                    eq(50), isNull());
+        }
+
+        @Test
+        @DisplayName("stepsConfig 为空列表 → 全局进度 = 步骤进度")
+        void calculateGlobal_EmptyStepsConfig() {
+            AstTaskTypeConfig cfg = new AstTaskTypeConfig();
+            cfg.setTypeKey("data_export");
+            cfg.setStepsConfig(new ArrayList<>());
+            sampleTask.setStatus("RUNNING");
+            sampleTask.setStepsDetail(null);
+            when(taskMapper.selectByIdWithTypeName(eq(100001L), isNull())).thenReturn(sampleTask);
+            when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(cfg);
+
+            workerService.reportProgress(100001L, req);
+
+            verify(stateMachine).reportProgress(eq(100001L), eq(0), eq(1L),
+                    eq("uploading"), eq(50), any(), eq(50), isNull());
+        }
+
+        @Test
+        @DisplayName("权重全 0/null → totalWeight=0 回落步骤进度")
+        void calculateGlobal_TotalWeightZero() {
+            AstTaskTypeConfig cfg = new AstTaskTypeConfig();
+            cfg.setTypeKey("data_export");
+            List<Map<String, Object>> stepsDef = new ArrayList<>();
+            Map<String, Object> s1 = new HashMap<>();
+            s1.put("key", "uploading"); // weight 缺失 → null → 0
+            Map<String, Object> s2 = new HashMap<>();
+            s2.put("key", "other"); s2.put("weight", 0);
+            stepsDef.add(s1); stepsDef.add(s2);
+            cfg.setStepsConfig(stepsDef);
+            sampleTask.setStatus("RUNNING");
+            sampleTask.setStepsDetail(null);
+            when(taskMapper.selectByIdWithTypeName(eq(100001L), isNull())).thenReturn(sampleTask);
+            when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(cfg);
+
+            workerService.reportProgress(100001L, req);
+
+            verify(stateMachine).reportProgress(eq(100001L), eq(0), eq(1L),
+                    eq("uploading"), eq(50), any(), eq(50), isNull());
         }
     }
 }

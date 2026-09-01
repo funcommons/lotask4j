@@ -106,7 +106,7 @@ public class AdminTaskController {
             @Parameter(description = "返回条数 (1-1000, 超出按 100 截断)")
             @RequestParam(name = "limit", required = false, defaultValue = "100") Integer limit) {
 
-        return ApiResponse.success(taskEventRecorder.historyOf(id, limit == null ? 100 : limit));
+        return ApiResponse.success(taskEventRecorder.historyOf(id, limit));
     }
 
     /**
@@ -127,7 +127,7 @@ public class AdminTaskController {
      */
     @GetMapping("/types/{typeKey}")
     @Operation(summary = "获取任务类型配置详情", description = "根据类型标识获取配置详情")
-    public ApiResponse<TaskTypeConfigResponse> getTaskTypeConfig(@PathVariable String typeKey) {
+    public ApiResponse<TaskTypeConfigResponse> getTaskTypeConfig(@PathVariable("typeKey") String typeKey) {
         log.debug("Fetching task type config: {}", typeKey);
 
         TaskTypeConfigResponse config = adminService.getTaskTypeConfig(typeKey);
@@ -140,7 +140,7 @@ public class AdminTaskController {
      */
     @DeleteMapping("/types/{typeKey}")
     @Operation(summary = "删除任务类型配置", description = "逻辑删除指定的任务类型配置")
-    public ApiResponse<Void> deleteTaskTypeConfig(@PathVariable String typeKey) {
+    public ApiResponse<Void> deleteTaskTypeConfig(@PathVariable("typeKey") String typeKey) {
         log.info("Deleting task type config: {}", typeKey);
 
         adminService.deleteTaskTypeConfig(typeKey);

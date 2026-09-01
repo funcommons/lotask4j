@@ -52,6 +52,35 @@ class TaskMetricsTest {
         }
 
         @Test
+        @DisplayName("succeeded / canceled / timeout / retry 计数器注册且可累加")
+        void succeeded_canceled_timeout_retry() {
+            metrics.succeeded("data_export").increment();
+            metrics.canceled("data_export").increment(3);
+            metrics.timeout("data_export").increment();
+            metrics.retry("data_export").increment();
+
+            assertEquals(1.0, registry.find("lotask4j.tasks.succeeded.total")
+                    .tag("type", "data_export").counter().count());
+            assertEquals(3.0, registry.find("lotask4j.tasks.canceled.total")
+                    .tag("type", "data_export").counter().count());
+            assertEquals(1.0, registry.find("lotask4j.tasks.timeout.total")
+                    .tag("type", "data_export").counter().count());
+            assertEquals(1.0, registry.find("lotask4j.tasks.retry.total")
+                    .tag("type", "data_export").counter().count());
+        }
+
+        @Test
+        @DisplayName("null/空 taskType 回落 unknown 标签")
+        void nullType_fallsBackToUnknown() {
+            metrics.submitted(null).increment();
+            metrics.failed("", "E").increment();
+
+            assertNotNull(registry.find("lotask4j.tasks.submitted.total").tag("type", "unknown").counter());
+            assertNotNull(registry.find("lotask4j.tasks.failed.total")
+                    .tag("type", "unknown").tag("error_code", "E").counter());
+        }
+
+        @Test
         @DisplayName("failed 带 error_code 标签")
         void failed_WithErrorCode() {
             metrics.failed("data_export", "PO_DB_TIMEOUT").increment();

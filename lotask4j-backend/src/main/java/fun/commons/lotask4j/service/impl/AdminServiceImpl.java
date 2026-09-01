@@ -194,10 +194,9 @@ public class AdminServiceImpl implements AdminService {
             throw new ApiException(BusinessCode.TASK_NOT_FOUND.getCode(), "任务类型配置不存在: " + typeKey);
         }
 
-        // 逻辑删除
-        existing.setIsDeleted(1);
-        existing.setUpdatedAt(OffsetDateTime.now());
-        taskTypeConfigMapper.updateById(existing);
+        // 逻辑删除 — isDeleted 是 @TableLogic 字段, 必须走 deleteById
+        // (updateById 不会更新逻辑删标记, setIsDeleted(1) 是静默空操作)
+        taskTypeConfigMapper.deleteById(existing.getId());
 
         log.info("Task type config deleted: {}", typeKey);
     }

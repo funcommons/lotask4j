@@ -264,12 +264,11 @@ public class TaskStateMachine {
         }
 
         // P1-3 事件 — 把终态映射到对应事件类型
-        TaskEventType eventType = switch (finalStatus) {
-            case SUCCESS -> TaskEventType.TASK_SUCCEEDED;
-            case FAILED -> TaskEventType.TASK_FAILED;
-            case CANCELLED -> TaskEventType.TASK_CANCELLED;
-            default -> TaskEventType.TASK_FAILED;
-        };
+        // (guard 已保证 finalStatus ∈ {SUCCESS, FAILED, CANCELLED}, 无需 default 死分支)
+        TaskEventType eventType = java.util.Map.of(
+                TaskStatus.SUCCESS, TaskEventType.TASK_SUCCEEDED,
+                TaskStatus.FAILED, TaskEventType.TASK_FAILED,
+                TaskStatus.CANCELLED, TaskEventType.TASK_CANCELLED).get(finalStatus);
         String workerId = before == null ? null : before.getWorkerId();
         Integer attempt = before == null ? null : before.getAttempt();
         String oldStatus = before == null ? null : before.getStatus();

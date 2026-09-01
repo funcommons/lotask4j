@@ -440,5 +440,210 @@ class TaskStateMachineTest {
             assertFalse(TaskStatus.CANCELLING.isCancellable());
             assertFalse(TaskStatus.CANCELLED.isCancellable());
         }
+
+        @Test
+        @DisplayName("isTerminal 各状态语义")
+        void isTerminal_Values() {
+            assertTrue(TaskStatus.SUCCESS.isTerminal());
+            assertTrue(TaskStatus.FAILED.isTerminal());
+            assertTrue(TaskStatus.CANCELLED.isTerminal());
+            assertFalse(TaskStatus.PENDING.isTerminal());
+            assertFalse(TaskStatus.RUNNING.isTerminal());
+            assertFalse(TaskStatus.CANCELLING.isTerminal());
+        }
+
+        @Test
+        @DisplayName("wireValue 与 name 一致; canTransition 全迁移矩阵")
+        void wireValue_RoundTrip() {
+            for (TaskStatus s : TaskStatus.values()) {
+                assertEquals(s.name(), s.wireValue());
+            }
+            // 合法迁移矩阵 (覆盖 switch 每个分支的每个目标)
+            assertTrue(TaskStatus.canTransition("PENDING", "RUNNING"));
+            assertTrue(TaskStatus.canTransition("PENDING", "CANCELLING"));
+            assertTrue(TaskStatus.canTransition("PENDING", "FAILED"));
+            assertTrue(TaskStatus.canTransition("RUNNING", "SUCCESS"));
+            assertTrue(TaskStatus.canTransition("RUNNING", "FAILED"));
+            assertTrue(TaskStatus.canTransition("RUNNING", "CANCELLING"));
+            assertTrue(TaskStatus.canTransition("RUNNING", "PENDING"));
+            assertTrue(TaskStatus.canTransition("CANCELLING", "CANCELLED"));
+            assertTrue(TaskStatus.canTransition("CANCELLING", "FAILED"));
+            // 非法迁移
+            assertFalse(TaskStatus.canTransition("SUCCESS", "RUNNING"));
+            assertFalse(TaskStatus.canTransition("CANCELLED", "FAILED"));
+            assertFalse(TaskStatus.canTransition("PENDING", "SUCCESS"));
+            assertFalse(TaskStatus.canTransition("RUNNING", "CANCELLED"));
+            assertFalse(TaskStatus.canTransition("CANCELLING", "RUNNING"));
+            // String 重载对未知值抛 IAE (valueOf 语义, 由 GlobalExceptionHandler 分流)
+            assertThrows(IllegalArgumentException.class,
+                    () -> TaskStatus.canTransition("NO_SUCH", "RUNNING"));
+            assertThrows(IllegalArgumentException.class,
+                    () -> TaskStatus.canTransition("PENDING", "NO_SUCH"));
+        }
+
+        @Test
+        @DisplayName("canTransition 枚举重载: null 参数 → false")
+        void typedCanTransition_Nulls() {
+            assertFalse(TaskStatus.canTransition((TaskStatus) null, TaskStatus.RUNNING));
+            assertFalse(TaskStatus.canTransition(TaskStatus.PENDING, null));
+            assertFalse(TaskStatus.canTransition((TaskStatus) null, null));
+        }
+    }
+
+    // ==================== createNewTask / dispatchAndStart / null-probe 分支 ====================
+
+    @Nested
+    @DisplayName("createNewTask - 初始化默认值")
+    class CreateNewTask {
+
+        @Test
+        @DisplayName("全默认: maxAttempts 缺省补 1, isDeleted 补 0")
+        void createNewTask_Defaults() {
+            AstTask task = new AstTask();
+            task.setTaskTypeKey("data_export");
+            task.setIsDeleted(null); // 字段初始化器为 0, 显式置 null 走补默认分支
+
+            Long id = stateMachine.createNewTask(task);
+
+            assertEquals(99999L, id);
+            assertEquals(99999L, task.getId());
+            assertEquals("PENDING", task.getStatus());
+            assertEquals(1, task.getAttempt());
+            assertEquals(1, task.getMaxAttempts());
+            assertEquals(0, task.getVersion());
+            assertEquals(0, task.getIsDeleted());
+            assertNotNull(task.getCreatedAt());
+            assertEquals(task.getCreatedAt(), task.getUpdatedAt());
+            verify(metrics).submitted("data_export");
+        }
+
+        @Test
+        @DisplayName("maxAttempts < 1 (0/null) 钳到 1; 合法值保留; isDeleted 已设置保留")
+        void createNewTask_MaxAttemptsClamp() {
+            AstTask zero = new AstTask();
+            zero.setTaskTypeKey("t");
+            zero.setMaxAttempts(0);
+            stateMachine.createNewTask(zero);
+            assertEquals(1, zero.getMaxAttempts());
+
+            AstTask neg = new AstTask();
+            neg.setTaskTypeKey("t");
+            neg.setMaxAttempts(-3);
+            stateMachine.createNewTask(neg);
+            assertEquals(1, neg.getMaxAttempts());
+
+            AstTask ok = new AstTask();
+            ok.setTaskTypeKey("t");
+            ok.setMaxAttempts(5);
+            ok.setIsDeleted(0);
+            stateMachine.createNewTask(ok);
+            assertEquals(5, ok.getMaxAttempts());
+            assertEquals(0, ok.getIsDeleted());
+        }
+    }
+
+    @Nested
+    @DisplayName("读前探针为 null 的防御分支")
+    class NullProbeBranches {
+
+        @Test
+        @DisplayName("dispatch: before 为 null 也能派发 (无 queueDelay)")
+        void dispatch_BeforeNull() {
+            when(taskMapper.selectById(anyLong())).thenReturn(null);
+            when(taskMapper.dispatchTask(anyLong(), anyInt(), anyString(), anyLong(), anyLong(), anyInt(), any(), isNull()))
+                    .thenReturn(1);
+
+            assertNotNull(stateMachine.dispatch(1L, 0, "wkr-1", null));
+            verify(metrics, never()).recordQueueDelay(anyString(), any());
+        }
+
+        @Test
+        @DisplayName("dispatchAndStart 委托 dispatch")
+        void dispatchAndStart_Delegates() {
+            when(taskMapper.dispatchTask(anyLong(), anyInt(), anyString(), anyLong(), anyLong(), anyInt(), any(), isNull()))
+                    .thenReturn(1);
+            assertNotNull(stateMachine.dispatchAndStart(1L, 0, "wkr-1", null));
+        }
+
+        @Test
+        @DisplayName("requestCancel: before 为 null 不 NPE")
+        void requestCancel_BeforeNull() {
+            when(taskMapper.selectById(anyLong())).thenReturn(null);
+            when(taskMapper.markCancelRequested(anyLong(), anyInt(), any(), any(), isNull())).thenReturn(1);
+
+            assertDoesNotThrow(() -> stateMachine.requestCancel(1L, 0, null));
+        }
+
+        @Test
+        @DisplayName("confirmCancellation: before 为 null 不 NPE")
+        void confirmCancellation_BeforeNull() {
+            when(taskMapper.selectById(anyLong())).thenReturn(null);
+            when(taskMapper.confirmCancel(anyLong(), anyInt(), any(), any(), isNull())).thenReturn(1);
+
+            assertDoesNotThrow(() -> stateMachine.confirmCancellation(1L, 0, 777L, null));
+        }
+
+        @Test
+        @DisplayName("completeAs: before 为 null 跳过指标埋点")
+        void completeAs_BeforeNull() {
+            when(taskMapper.selectById(anyLong())).thenReturn(null);
+            when(taskMapper.completeWithToken(anyLong(), anyInt(), any(), any(), any(), any(), any(), any(), any(), isNull()))
+                    .thenReturn(1);
+
+            assertDoesNotThrow(() -> stateMachine.completeAs(
+                    1L, 0, 777L, TaskStatus.SUCCESS, Map.of("k", "v"), null, null, null, null));
+            verify(metrics, never()).succeeded(anyString());
+        }
+
+        @Test
+        @DisplayName("completeAs: startedAt/createdAt 为 null 跳过计时指标")
+        void completeAs_NullTimestamps() {
+            AstTask probe = new AstTask();
+            probe.setId(1L);
+            probe.setTaskTypeKey("data_export");
+            when(taskMapper.selectById(anyLong())).thenReturn(probe);
+            when(taskMapper.completeWithToken(anyLong(), anyInt(), any(), any(), any(), any(), any(), any(), any(), isNull()))
+                    .thenReturn(1);
+
+            stateMachine.completeAs(1L, 0, 777L, TaskStatus.FAILED, null, "boom", "E1", "err msg", null);
+            verify(metrics).failed(eq("data_export"), eq("E1"));
+            verify(metrics, never()).recordExec(anyString(), any());
+            verify(metrics, never()).recordE2E(anyString(), any());
+        }
+
+        @Test
+        @DisplayName("completeAs: startedAt/createdAt 存在 → 记录执行与端到端耗时; FAILED 无错误码 → UNKNOWN")
+        void completeAs_WithTimestamps() {
+            AstTask probe = new AstTask();
+            probe.setId(1L);
+            probe.setTaskTypeKey("data_export");
+            probe.setStartedAt(OffsetDateTime.now().minusSeconds(30));
+            probe.setCreatedAt(OffsetDateTime.now().minusSeconds(60));
+            when(taskMapper.selectById(anyLong())).thenReturn(probe);
+            when(taskMapper.completeWithToken(anyLong(), anyInt(), any(), any(), any(), any(), any(), any(), any(), isNull()))
+                    .thenReturn(1);
+
+            stateMachine.completeAs(1L, 0, 777L, TaskStatus.FAILED, null, "boom", null, null, null);
+            verify(metrics).failed(eq("data_export"), eq("UNKNOWN"));
+            verify(metrics).recordExec(eq("data_export"), any(java.time.Duration.class));
+            verify(metrics).recordE2E(eq("data_export"), any(java.time.Duration.class));
+        }
+
+        @Test
+        @DisplayName("completeAs: SUCCESS 与 CANCELLED 计数分支")
+        void completeAs_SuccessAndCancelledCounters() {
+            AstTask probe = new AstTask();
+            probe.setId(1L);
+            probe.setTaskTypeKey("data_export");
+            when(taskMapper.selectById(anyLong())).thenReturn(probe);
+            when(taskMapper.completeWithToken(anyLong(), anyInt(), any(), any(), any(), any(), any(), any(), any(), isNull()))
+                    .thenReturn(1);
+
+            stateMachine.completeAs(1L, 0, 777L, TaskStatus.SUCCESS, Map.of(), null, null, null, null);
+            verify(metrics).succeeded("data_export");
+
+            stateMachine.completeAs(1L, 0, 777L, TaskStatus.CANCELLED, null, null, null, null, null);
+            verify(metrics).canceled("data_export");
+        }
     }
 }

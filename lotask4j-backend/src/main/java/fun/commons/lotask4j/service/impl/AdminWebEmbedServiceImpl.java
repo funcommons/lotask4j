@@ -58,7 +58,8 @@ public class AdminWebEmbedServiceImpl implements AdminWebEmbedService {
             throw new IllegalArgumentException("id 不能为空");
         }
         WebEmbedConfig config = configMapper.selectById(id);
-        if (config == null) {
+        // 逻辑删除的配置视为不存在 (selectById 不过滤 is_deleted, 与列表/嵌入流行为对齐)
+        if (config == null || Integer.valueOf(1).equals(config.getIsDeleted())) {
             throw new IllegalArgumentException("配置不存在");
         }
         return toResponse(config);
@@ -83,8 +84,8 @@ public class AdminWebEmbedServiceImpl implements AdminWebEmbedService {
             config.setComponentType("all");
         }
 
-        // 4. 插入（雪花算法自动生成 id）
-        String configJson = config.getConfig() != null ? JSON.toJSONString(config.getConfig()) : "{}";
+        // 4. 插入（雪花算法自动生成 id; config 已在默认值步骤保证非 null）
+        String configJson = JSON.toJSONString(config.getConfig());
         configMapper.insertConfig(config, configJson);
         log.info("[Admin] 创建 Web Embed 配置: id={}, key={}", config.getId(), config.getConfigKey());
         return config.getId();

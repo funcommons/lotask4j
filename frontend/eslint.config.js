@@ -126,7 +126,7 @@ export default [
       'dist-embed/**',
       'node_modules/**',
       'src/components/sdk/**',
-      // /dev 参考页: benefit4j 原样保留的 demo 库, 零改动豁免 (同 benefit4j 开发原则)
+      // /dev 参考页: 上游参考仓原样保留的 demo 库, 零改动豁免
       'src/views/dev/**',
       '**/*.d.ts',
     ],

@@ -52,10 +52,10 @@ export async function authPage(page: Page): Promise<void> {
   await page.waitForLoadState('domcontentloaded')
   await page.evaluate(
     ({ token, expiresAt, appId, appSecret }) => {
-      localStorage.setItem('benefit4j:access_token', token)
-      localStorage.setItem('benefit4j:expires_at', String(expiresAt))
-      localStorage.setItem('benefit4j:app_id', appId)
-      localStorage.setItem('benefit4j:app_secret', appSecret)
+      localStorage.setItem('lotask4j:access_token', token)
+      localStorage.setItem('lotask4j:expires_at', String(expiresAt))
+      localStorage.setItem('lotask4j:app_id', appId)
+      localStorage.setItem('lotask4j:app_secret', appSecret)
     },
     { token: SHARED_TOKEN, expiresAt: SHARED_EXPIRES_AT, appId: TENANT_ID, appSecret: TENANT_SECRET },
   )

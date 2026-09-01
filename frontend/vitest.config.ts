@@ -25,9 +25,9 @@ export default defineConfig({
       },
     },
     globals: true,
-    // —— 上游已红的 SDK 套件 (benefit4j 原仓同环境同败, 已核对 2026-08-27) ——
+    // —— 上游已红的 SDK 套件 (上游参考仓同环境同败, 已核对 2026-08-27) ——
     // 根因: element-plus ^2.13.3 范围内类名/渲染行为漂移 + jsdom 29 差异。
-    // SDK 是零改动豁免区 (同 benefit4j 开发原则), 不在本仓修复;
+    // SDK 是零改动豁免区, 不在本仓修复;
     // 可用 `pnpm test:sdk` 单独运行观察上游状态。
     exclude: [
       '**/node_modules/**',

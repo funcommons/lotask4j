@@ -73,7 +73,7 @@
             <version>v1.5.1</version>
         </dependency>
 
-        <!-- framework4j-tenant 多租户模块 (benefit4j 同款)。
+        <!-- framework4j-tenant 多租户模块。
              注意: tenant 模块不在 framework4j-all 聚合中, 需显式引入。
              提供: @PlatformDomain/@TenantDomain 域守卫 + 内置 client_credentials 认证端点
              (防爆破/平台合成租户 tenant_id=0/密钥双版本宽限期/reset 撤会话) + TenantEntity 契约。
@@ -103,7 +103,7 @@
             <version>${postgresql.jdbc.version}</version>
         </dependency>
 
-        <!-- Flyway 数据库迁移 (benefit4j 模式: baseline=存量 schema, 以后 DDL 演进版本化)。
+        <!-- Flyway 数据库迁移 (baseline=存量 schema, 以后 DDL 演进版本化)。
              Flyway 10 起 PG 支持拆到独立 artifact, 版本随 Spring Boot BOM。 -->
         <dependency>
             <groupId>org.flywaydb</groupId>

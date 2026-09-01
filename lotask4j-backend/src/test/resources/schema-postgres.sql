@@ -1,6 +1,8 @@
 -- PostgreSQL 集成测试 schema (真实 PostgreSQL 类型)
 -- 用于 Testcontainers + pollAndLockTask 并发抢占测试
 -- P0 增强：乐观锁 (version)、execution_token、lease、attempt、idempotency_key
+-- 分区: 与 Flyway V2 后生产结构对齐 (PARTITION BY RANGE created_at + default 兜底;
+--       月分区由 TaskArchiver 运维逻辑建, 测试只保证 default 兜底即可写入)
 
 DROP TABLE IF EXISTS asts_task_execution_event CASCADE;
 DROP TABLE IF EXISTS asts_task CASCADE;
@@ -8,7 +10,7 @@ DROP TABLE IF EXISTS asts_task_type_config CASCADE;
 DROP TABLE IF EXISTS asts_application CASCADE;
 
 CREATE TABLE asts_task (
-    id                      BIGINT PRIMARY KEY,
+    id                      BIGINT NOT NULL,
     task_type_key           VARCHAR(64) NOT NULL,
     status                  VARCHAR(20) NOT NULL DEFAULT 'PENDING',
     priority                INT NOT NULL DEFAULT 0,
@@ -46,14 +48,18 @@ CREATE TABLE asts_task (
     finished_at             TIMESTAMP WITH TIME ZONE,
     expired_at              TIMESTAMP WITH TIME ZONE,
     is_deleted              SMALLINT NOT NULL DEFAULT 0,
-    is_archived             SMALLINT NOT NULL DEFAULT 0
-);
+    is_archived             SMALLINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (id, created_at)
+) PARTITION BY RANGE (created_at);
+
+CREATE TABLE asts_task_default PARTITION OF asts_task DEFAULT;
 
 CREATE INDEX idx_asts_task_poll ON asts_task (status, priority DESC, created_at ASC);
 CREATE INDEX idx_asts_task_expired_at ON asts_task (expired_at);
 CREATE INDEX idx_asts_task_lease_expire_at ON asts_task (lease_expire_at);
--- 幂等键唯一约束 (按 type_key 隔离, 避免跨任务类型 key 冲突)
-CREATE UNIQUE INDEX uq_asts_task_idem ON asts_task (task_type_key, idempotency_key)
+-- 幂等键唯一约束 (按 type_key 隔离; 分区表唯一索引必须含分区键 → 分区内唯一,
+-- 跨月重复提交由应用层 findByIdempotencyKey 兜底)
+CREATE UNIQUE INDEX uq_asts_task_idem ON asts_task (task_type_key, idempotency_key, created_at)
     WHERE idempotency_key IS NOT NULL;
 
 CREATE TABLE asts_task_type_config (

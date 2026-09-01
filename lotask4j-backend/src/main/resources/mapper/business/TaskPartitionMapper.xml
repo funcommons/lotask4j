@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="fun.commons.lotask4j.mapper.TaskPartitionMapper">
+
+    <!-- asts_task 月分区运维 DDL (调用方内部生成标识符, ${} 动态拼接) -->
+
+    <select id="partitionExists" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1 FROM pg_class
+            WHERE relname = #{tableName}
+              AND relkind = 'r'
+        )
+    </select>
+
+    <select id="countDefaultRowsInRange" resultType="int">
+        SELECT COUNT(*)
+        FROM asts_task_default
+        WHERE created_at &gt;= #{start}::timestamptz
+          AND created_at &lt;  #{end}::timestamptz
+    </select>
+
+    <!-- DDL (utility 语句) 不支持 PreparedStatement 参数占位 (PG 报 "there is no parameter $1"),
+         日期由调用方内部生成 (yyyy-MM-01), ${} 拼接无注入面 -->
+    <update id="createPartition">
+        CREATE TABLE IF NOT EXISTS ${tableName} PARTITION OF asts_task
+            FOR VALUES FROM ('${start}') TO ('${end}')
+    </update>
+
+    <update id="createStandaloneLike">
+        CREATE TABLE IF NOT EXISTS ${tableName} (LIKE asts_task INCLUDING DEFAULTS)
+    </update>
+
+    <update id="copyDefaultRowsTo">
+        INSERT INTO ${tableName}
+        SELECT id, task_type_key, status, priority, attempt, max_attempts, next_run_at, version,
+               execution_id, execution_token, worker_id, worker_ip, lease_expire_at,
+               requested_cancel_at, last_error_code, last_error_message, idempotency_key,
+               callback_url, callback_status, progress, current_step_key, current_step_progress,
+               steps_detail, payload, result, error_msg, created_at, updated_at,
+               started_at, finished_at, expired_at, is_deleted, is_archived
+        FROM asts_task_default
+        WHERE created_at &gt;= #{start}::timestamptz
+          AND created_at &lt;  #{end}::timestamptz
+    </update>
+
+    <update id="deleteDefaultRowsInRange">
+        DELETE FROM asts_task_default
+        WHERE created_at &gt;= #{start}::timestamptz
+          AND created_at &lt;  #{end}::timestamptz
+    </update>
+
+    <update id="attachPartition">
+        ALTER TABLE asts_task
+            ATTACH PARTITION ${tableName}
+            FOR VALUES FROM ('${start}') TO ('${end}')
+    </update>
+
+</mapper>

@@ -27,6 +27,9 @@ class TaskArchiverTest {
     @Mock
     private AstTaskMapper taskMapper;
 
+    @Mock
+    private fun.commons.lotask4j.schedule.TaskPartitionMaintainer partitionMaintainer;
+
     @InjectMocks
     private TaskArchiver archiver;
 

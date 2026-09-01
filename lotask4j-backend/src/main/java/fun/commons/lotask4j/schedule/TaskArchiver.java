@@ -3,6 +3,7 @@ package fun.commons.lotask4j.schedule;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import fun.commons.lotask4j.entity.AstTask;
 import fun.commons.lotask4j.mapper.AstTaskMapper;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -15,6 +16,7 @@ import java.time.OffsetDateTime;
  * 功能：
  * 1. 归档 7 天前已完成的任务 (SUCCESS/FAILED/CANCELLED)
  * 2. 保留 PENDING/RUNNING 状态的任务不归档
+ * 3. 滚动预建 asts_task 月分区 (委托 {@link TaskPartitionMaintainer})
  *
  * @author lotask4j-team
  * @version 1.0.0
@@ -25,6 +27,7 @@ import java.time.OffsetDateTime;
 public class TaskArchiver {
 
     private final AstTaskMapper taskMapper;
+    private final TaskPartitionMaintainer partitionMaintainer;
 
     /**
      * 归档天数配置
@@ -32,11 +35,20 @@ public class TaskArchiver {
     private static final int ARCHIVE_DAYS = 7;
 
     /**
-     * 每天凌晨 2:00 执行任务归档
+     * 启动时立即确保当月/下月分区存在 (冷启动兜底: V2 迁移预建的分区可能已滞后)
+     */
+    @PostConstruct
+    public void ensurePartitionsOnStartup() {
+        partitionMaintainer.ensureMonthlyPartitions();
+    }
+
+    /**
+     * 每天凌晨 2:00 执行任务归档 + 滚动预建月分区
      * cron 表达式: 秒 分 时 日 月 周
      */
     @Scheduled(cron = "0 0 2 * * ?")
     public void archiveOldTasks() {
+        partitionMaintainer.ensureMonthlyPartitions();
         log.info("开始执行任务归档任务...");
 
         try {

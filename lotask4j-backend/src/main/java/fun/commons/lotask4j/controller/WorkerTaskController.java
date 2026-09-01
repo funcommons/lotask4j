@@ -5,6 +5,7 @@ import fun.commons.lotask4j.dto.*;
 import fun.commons.lotask4j.service.WorkerService;
 import fun.commons.framework4j.web.ApiResponse;
 import fun.commons.framework4j.openid.annotation.OpenId;
+import fun.commons.framework4j.ratelimit.annotation.RateLimit;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,6 +32,7 @@ public class WorkerTaskController {
      * Worker 抢占任务
      */
     @PostMapping("/tasks/poll")
+    @RateLimit(key = "poll", limit = 600, window = "1m")      // Worker 拉取高频
     @Operation(summary = "抢占任务", description = "Worker 从队列中抢占一个待处理任务")
     public ApiResponse<PollTaskResponse> pollTask(
             @Valid @RequestBody PollTaskRequest request,
@@ -48,6 +50,7 @@ public class WorkerTaskController {
      * Worker 查询任务状态 (用于检测取消信号)
      */
     @GetMapping("/tasks/{id}/status")
+    @RateLimit(key = "status", limit = 600, window = "1m")
     @Operation(summary = "查询任务状态", description = "Worker 查询任务状态以检测取消信号")
     public ApiResponse<TaskDetailResponse> getTaskStatus(
             @OpenId
@@ -64,6 +67,7 @@ public class WorkerTaskController {
      * Worker 上报任务进度
      */
     @PostMapping("/tasks/{id}/progress")
+    @RateLimit(key = "progress", limit = 1200, window = "1m")  // 进度上报最高频
     @Operation(summary = "上报任务进度", description = "Worker 实时上报任务执行进度")
     public ApiResponse<Void> reportProgress(
             @OpenId
@@ -82,6 +86,7 @@ public class WorkerTaskController {
      * Worker 上报任务最终结果
      */
     @PostMapping("/tasks/{id}/result")
+    @RateLimit(key = "result", limit = 600, window = "1m")
     @Operation(summary = "上报任务结果", description = "Worker 上报任务执行的最终结果")
     public ApiResponse<Void> reportResult(
             @OpenId

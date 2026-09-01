@@ -7,6 +7,7 @@ import fun.commons.lotask4j.dto.TaskDetailResponse;
 import fun.commons.lotask4j.service.TaskService;
 import fun.commons.framework4j.web.ApiResponse;
 import fun.commons.framework4j.openid.annotation.OpenId;
+import fun.commons.framework4j.ratelimit.annotation.RateLimit;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -46,6 +47,7 @@ public class ClientTaskController {
      * @return 任务 ID (OpenID 混淆字符串)
      */
     @PostMapping
+    @RateLimit(key = "submit", limit = 30, window = "1m")
     @Operation(summary = "提交异步任务", description = "客户端提交一个新的异步任务，立即返回任务ID (OpenID格式)")
     public ApiResponse<SubmitTaskResponse> submitTask(
             @Valid @RequestBody SubmitTaskRequest request
@@ -84,6 +86,7 @@ public class ClientTaskController {
      * @return 取消结果
      */
     @PostMapping("/{id}/cancel")
+    @RateLimit(key = "cancel", limit = 60, window = "1m")
     @Operation(summary = "取消任务", description = "向服务端发送取消信号，Worker 会在循环中检测并停止执行")
     public ApiResponse<Void> cancelTask(
             @OpenId

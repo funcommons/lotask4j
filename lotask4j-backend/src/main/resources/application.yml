@@ -201,6 +201,25 @@ framework4j:
         autoRenew: true
         renewIncrement: 1800
 
+  # 限流 (framework4j-rate-limit, benefit4j 模式)
+  # 注解驱动: @RateLimit 注解决定规则 (方法级, 类级不生效), path-patterns 只圈定拦截范围;
+  # 维度: 带 token 按 app 维度, 无 token 自动回退来源 IP (X-Forwarded-For 优先)
+  # 算法: Redis Lua 滑动窗口; 环回 IP (127.0.0.1/::1) 默认在 IP 白名单, 本地调试不受限
+  rate-limit:
+    enabled: true
+    redis-name: default
+    key-prefix: lotask4j:rl
+    default-scope: APP
+    default-limit: 100          # @RateLimit 未写 limit 时的兜底
+    default-window: 1m
+    default-algorithm: SLIDING_WINDOW
+    path-patterns:
+      - /api/v1/client/**
+      - /api/v1/worker/**
+      - /api/v1/admin/**
+    whitelist-paths:
+      - /api/v1/auth/token      # 换 token 端点不限流, 防锁死
+
 # lotask4j 应用配置
 lotask4j:
   security:

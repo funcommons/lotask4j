@@ -61,12 +61,16 @@
 
         <!-- ==================== framework4j SDK (API、ID、DataSource、Redis、AccessToken 等) ==================== -->
         <!-- 来源：JitPack，详见 https://jitpack.io  -->
-        <!-- 升级：v1.2.1 → v1.4.2。v1.4.2 修复 issue #18 (TransportAutoConfiguration 多 RestTemplate 注入歧义)，
-             通过 ObjectProvider + 可选 rest-template-bean-name 配置实现；无破坏性变更。 -->
+        <!-- 升级：v1.2.1 → v1.4.2 → v1.5.1。
+             v1.4.2 修复 issue #18 (TransportAutoConfiguration 多 RestTemplate 注入歧义)，
+             通过 ObjectProvider + 可选 rest-template-bean-name 配置实现；无破坏性变更。
+             v1.5.1 实质变化仅新增 framework4j-tenant 模块 (tenant.enabled 默认 false, 不配置不生效)；
+             lotask4j 在用的模块 (web/accesstoken/signature/rate-limit/idempotency/transport)
+             v1.4.2 → v1.5.1 字节码零差异 (本地 m2 jar diff 验证), 升级即改版本号。 -->
         <dependency>
             <groupId>com.github.funcommons.framework4j</groupId>
             <artifactId>framework4j-all</artifactId>
-            <version>v1.4.2</version>
+            <version>v1.5.1</version>
         </dependency>
 
         <!-- MyBatis Plus -->

@@ -92,6 +92,17 @@
             <version>${postgresql.jdbc.version}</version>
         </dependency>
 
+        <!-- Flyway 数据库迁移 (benefit4j 模式: baseline=存量 schema, 以后 DDL 演进版本化)。
+             Flyway 10 起 PG 支持拆到独立 artifact, 版本随 Spring Boot BOM。 -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+
         <!-- FastJSON2 -->
         <dependency>
             <groupId>com.alibaba.fastjson2</groupId>

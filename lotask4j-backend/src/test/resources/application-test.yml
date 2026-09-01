@@ -19,6 +19,11 @@ spring:
       schema-locations: classpath:schema-postgres.sql
       continue-on-error: false
 
+  # 测试库由 sql.init + schema-postgres.sql 每次重建, 关闭 Flyway 避免两套建表机制打架
+  # (Flyway 面向 dev/生产库: baseline 存量库 + V2+ 演进; 全新库从 V1 全量建表)
+  flyway:
+    enabled: false
+
 # framework4j 真 PG 覆盖（覆盖 application.yml 里指向阿里云 RDS 的默认值）
 framework4j:
   datasource:

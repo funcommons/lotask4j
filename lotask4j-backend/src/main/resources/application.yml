@@ -23,6 +23,20 @@ spring:
       date-format: yyyy-MM-dd HH:mm:ss
       time-zone: GMT+8
 
+  # Flyway 数据库迁移 (benefit4j 模式)
+  # baseline-on-migrate: 已有表的存量库只打 baseline 标记 (baseline-version 起), V2+ 才执行;
+  # 全新空库 (新环境/CI) 从 V1__baseline.sql 全量建表。
+  # 独立 datasource 直连 (不走 Druid): Druid Wall 会拦 Flyway 脚本的部分 PG 语法 (benefit4j 已踩坑)。
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: '1'
+    validate-on-migrate: true
+    url: ${LDX_DEV_DB_URL:jdbc:postgresql://localhost:5432/lotask4j}
+    user: ${LDX_DEV_DB_USERNAME:admin}
+    password: ${LDX_DEV_DB_PASSWORD:}
+
 # framework4j SDK 配置
 framework4j:
   # framework4j-transport (v1.4.2+) — 修复 issue #18：使用 ObjectProvider<RestTemplate> +

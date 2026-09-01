@@ -56,7 +56,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public Object postToken(String grantType, String clientId, String clientSecret) {
+    public Object postToken(String grantType, String clientId, String clientSecret, String scope) {
         if (grantType == null || grantType.isBlank()
                 || clientId == null || clientId.isBlank()
                 || clientSecret == null || clientSecret.isBlank()) {
@@ -66,6 +66,15 @@ public class AuthServiceImpl implements AuthService {
         if (!"client_credentials".equals(grantType)) {
             throw new ApiException(BusinessCode.AUTH_GRANT_TYPE_UNSUPPORTED.getCode(),
                     BusinessCode.AUTH_GRANT_TYPE_UNSUPPORTED.getMessage());
+        }
+        // scope: 应用凭据选 policy (client/worker); 合成 ADMIN 凭据忽略 scope 恒为 ADMIN
+        String tokenType = TOKEN_TYPE;
+        if (!adminClientId.equals(clientId)) {
+            if (scope != null && !scope.isBlank() && !"client".equals(scope) && !"worker".equals(scope)) {
+                throw new ApiException(BusinessCode.AUTH_PARAM_MISSING.getCode(),
+                        "scope 仅支持 client / worker");
+            }
+            tokenType = "worker".equals(scope) ? "worker" : "client";
         }
 
         AstsApplication app = resolveApp(clientId, clientSecret);
@@ -83,8 +92,8 @@ public class AuthServiceImpl implements AuthService {
         Map<String, Object> claims = new LinkedHashMap<>();
         claims.put("app_id", app.getId());
 
-        String token = generator.generateToken(TOKEN_TYPE, claims);
-        long expires = resolveExpireSeconds();
+        String token = generator.generateToken(tokenType, claims);
+        long expires = resolveExpireSeconds(tokenType);
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("access_token", token);
@@ -158,9 +167,9 @@ public class AuthServiceImpl implements AuthService {
         return applicationMapper.selectOne(q);
     }
 
-    private long resolveExpireSeconds() {
+    private long resolveExpireSeconds(String tokenType) {
         AccessTokenProperties.Policy policy = tokenProperties.getPolicies() == null
-                ? null : tokenProperties.getPolicies().get(TOKEN_TYPE);
+                ? null : tokenProperties.getPolicies().get(tokenType);
         if (policy != null && policy.getExpireTime() != null) {
             return policy.getExpireTime();
         }

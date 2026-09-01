@@ -188,15 +188,17 @@ framework4j:
         autoRenew: true  # 滑动续期
         renewIncrement: 1800
 
-      # API 客户端访问 Token (预留 — client 域当前未挂 @RequiresToken, demo/embed 兼容)
+      # API 客户端访问 Token (应用凭据换发, scope=client; 域收口后 @RequiresToken("client") 校验)
+      # key 与 ADMIN 一致取 claims.app_id — 同一应用新 token 踢旧 (单应用单会话)
       client:
-        key: [appId]
+        key: [app_id]
         expireTime: 86400  # 24 小时
         autoRenew: false
 
-      # Worker 心跳 Token (预留 — worker 域当前未挂 @RequiresToken, demo 兼容)
+      # Worker 进程 Token (应用凭据换发, scope=worker; worker 节点维度管理在 asts_worker_node,
+      # token 按"应用"维度互斥 — 同一应用的所有 worker 进程共享 token 生命周期)
       worker:
-        key: [workerId]
+        key: [app_id]
         expireTime: 7200
         autoRenew: true
         renewIncrement: 1800
@@ -219,6 +221,12 @@ framework4j:
       - /api/v1/admin/**
     whitelist-paths:
       - /api/v1/auth/token      # 换 token 端点不限流, 防锁死
+
+  # 字段级加密 (framework4j-sensitive) — asts_application.app_secret AES-256-GCM 落库
+  # 生产必须通过环境变量 AES_KEY 注入 (32 字节 hex 或 base64)
+  sensitive:
+    enabled: true
+    encryption-key: ${AES_KEY:12345678901234567890123456789012}
 
 # lotask4j 应用配置
 lotask4j:

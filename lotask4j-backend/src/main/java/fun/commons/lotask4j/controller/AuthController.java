@@ -37,13 +37,15 @@ public class AuthController {
         String grantType = params.get("grant_type");
         String clientId = params.get("client_id");
         String clientSecret = params.get("client_secret");
+        String scope = params.get("scope");
 
         // query string 兜底
         if (grantType == null) grantType = request.getParameter("grant_type");
         if (clientId == null) clientId = request.getParameter("client_id");
         if (clientSecret == null) clientSecret = request.getParameter("client_secret");
+        if (scope == null) scope = request.getParameter("scope");
 
-        return authService.postToken(grantType, clientId, clientSecret);
+        return authService.postToken(grantType, clientId, clientSecret, scope);
     }
 
     private Map<String, String> parseFormParams(HttpServletRequest request) {

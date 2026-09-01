@@ -57,6 +57,9 @@ class AuthServiceImplTest {
         ReflectionTestUtils.setField(authService, "adminClientSecret", "");
         org.mockito.Mockito.lenient().when(tokenGeneratorProvider.getIfAvailable()).thenReturn(tokenGenerator);
         org.mockito.Mockito.lenient().when(tokenGenerator.generateToken(eq("ADMIN"), any())).thenReturn("jwt-token");
+        // 应用凭据走 client / worker policy (scope 参数决定)
+        org.mockito.Mockito.lenient().when(tokenGenerator.generateToken(eq("client"), any())).thenReturn("client-token");
+        org.mockito.Mockito.lenient().when(tokenGenerator.generateToken(eq("worker"), any())).thenReturn("worker-token");
     }
 
     @SuppressWarnings("unchecked")
@@ -68,7 +71,7 @@ class AuthServiceImplTest {
     @Test
     @DisplayName("合成 ADMIN 凭据签发 — app_id=0, 不查库")
     void postToken_syntheticAdmin() {
-        Object result = authService.postToken("client_credentials", "ADMIN", "lotask4j-admin-dev-secret");
+        Object result = authService.postToken("client_credentials", "ADMIN", "lotask4j-admin-dev-secret", null);
         Map<String, Object> data = successData(result);
         assertThat(data.get("access_token")).isEqualTo("jwt-token");
         assertThat(data.get("token_type")).isEqualTo("Bearer");
@@ -78,7 +81,7 @@ class AuthServiceImplTest {
     @Test
     @DisplayName("错误凭据 → ApiException 20105")
     void postToken_invalidCredentials() {
-        assertThatThrownBy(() -> authService.postToken("client_credentials", "ADMIN", "bad"))
+        assertThatThrownBy(() -> authService.postToken("client_credentials", "ADMIN", "bad", null))
                 .isInstanceOf(ApiException.class)
                 .satisfies(ex -> assertThat(((ApiException) ex).getCode())
                         .isEqualTo(BusinessCode.AUTH_INVALID_CREDENTIALS.getCode()));
@@ -87,12 +90,12 @@ class AuthServiceImplTest {
     @Test
     @DisplayName("非 client_credentials → ApiException 20104")
     void postToken_unsupportedGrant() {
-        assertThatThrownBy(() -> authService.postToken("authorization_code", "ADMIN", "x"))
+        assertThatThrownBy(() -> authService.postToken("authorization_code", "ADMIN", "x", null))
                 .isInstanceOf(ApiException.class);
     }
 
     @Test
-    @DisplayName("DB 应用行凭据 — secret 匹配签发")
+    @DisplayName("DB 应用行凭据 — secret 匹配签发 (默认 scope → client policy)")
     void postToken_dbApplication() {
         AstsApplication app = new AstsApplication();
         app.setId(42L);
@@ -100,8 +103,28 @@ class AuthServiceImplTest {
         app.setStatus("ACTIVE");
         when(applicationMapper.selectOne(any())).thenReturn(app);
 
-        Object result = authService.postToken("client_credentials", "42", "app-secret");
-        assertThat(successData(result).get("access_token")).isEqualTo("jwt-token");
+        Object result = authService.postToken("client_credentials", "42", "app-secret", null);
+        assertThat(successData(result).get("access_token")).isEqualTo("client-token");
+    }
+
+    @Test
+    @DisplayName("scope=worker → worker policy 签发")
+    void postToken_workerScope() {
+        AstsApplication app = new AstsApplication();
+        app.setId(42L);
+        app.setAppSecret("app-secret");
+        app.setStatus("ACTIVE");
+        when(applicationMapper.selectOne(any())).thenReturn(app);
+
+        Object result = authService.postToken("client_credentials", "42", "app-secret", "worker");
+        assertThat(successData(result).get("access_token")).isEqualTo("worker-token");
+    }
+
+    @Test
+    @DisplayName("scope 非法 → 20103")
+    void postToken_invalidScope() {
+        assertThatThrownBy(() -> authService.postToken("client_credentials", "42", "app-secret", "admin"))
+                .isInstanceOf(ApiException.class);
     }
 
     @Test
@@ -113,7 +136,7 @@ class AuthServiceImplTest {
         app.setStatus("ACTIVE");
         when(applicationMapper.selectOne(any())).thenReturn(app);
 
-        assertThatThrownBy(() -> authService.postToken("client_credentials", "42", "wrong"))
+        assertThatThrownBy(() -> authService.postToken("client_credentials", "42", "wrong", null))
                 .isInstanceOf(ApiException.class);
     }
 
@@ -121,7 +144,7 @@ class AuthServiceImplTest {
     @DisplayName("generator 缺失 (accesstoken 未启用) → 503 envelope")
     void postToken_generatorAbsent() {
         when(tokenGeneratorProvider.getIfAvailable()).thenReturn(null);
-        Object result = authService.postToken("client_credentials", "ADMIN", "lotask4j-admin-dev-secret");
+        Object result = authService.postToken("client_credentials", "ADMIN", "lotask4j-admin-dev-secret", null);
         ApiResponse<Void> resp = (ApiResponse<Void>) result;
         assertThat(resp.getCode()).isEqualTo(503);
     }
@@ -131,7 +154,7 @@ class AuthServiceImplTest {
     void resolveExpire_fallbackToGlobal() {
         tokenProperties.setPolicies(null);
         tokenProperties.setExpireTime(3600L);
-        Object result = authService.postToken("client_credentials", "ADMIN", "lotask4j-admin-dev-secret");
+        Object result = authService.postToken("client_credentials", "ADMIN", "lotask4j-admin-dev-secret", null);
         assertThat(successData(result).get("expires_in")).isEqualTo(3600L);
     }
 }

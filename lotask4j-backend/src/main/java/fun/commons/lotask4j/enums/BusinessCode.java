@@ -59,7 +59,17 @@ public enum BusinessCode {
     /**
      * client_id 或 client_secret 无效
      */
-    AUTH_INVALID_CREDENTIALS(20105, "client_id 或 client_secret 无效");
+    AUTH_INVALID_CREDENTIALS(20105, "client_id 或 client_secret 无效"),
+
+    /**
+     * 接入应用不存在 (或已删除)
+     */
+    APPLICATION_NOT_FOUND(20106, "应用不存在"),
+
+    /**
+     * 应用状态非法 (仅 ACTIVE / INACTIVE)
+     */
+    APPLICATION_STATUS_INVALID(20107, "应用状态非法, 仅支持 ACTIVE / INACTIVE");
 
     private final int code;
     private final String message;

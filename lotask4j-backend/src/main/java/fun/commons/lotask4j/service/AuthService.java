@@ -13,7 +13,8 @@ public interface AuthService {
      * @param grantType    授权类型 (仅 client_credentials)
      * @param clientId     client_id (ADMIN 合成凭据 / asts_application OpenID|原始ID|name)
      * @param clientSecret client_secret
+     * @param scope        应用凭据选 policy (client / worker, 可选默认 client); ADMIN 合成凭据忽略
      * @return ApiResponse: { access_token, token_type: "Bearer", expires_in }
      */
-    Object postToken(String grantType, String clientId, String clientSecret);
+    Object postToken(String grantType, String clientId, String clientSecret, String scope);
 }

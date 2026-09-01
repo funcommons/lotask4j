@@ -38,11 +38,11 @@ public class WebEmbedServiceImpl implements WebEmbedService {
     private String openDefaultUserId;
 
     @Override
-    public String handleAccess(String accessKey) {
-        // 开放模式：无 accessKey，使用默认 userId
+    public WebEmbedConfig handleAccess(String accessKey) {
+        // 开放模式：无 accessKey (无租户归属 — 多租户模式下不签发 embed token)
         if (accessKey == null || accessKey.isEmpty()) {
-            log.debug("[Web Embed] 开放模式访问, 使用默认 userId={}", openDefaultUserId);
-            return openDefaultUserId;
+            log.debug("[Web Embed] 开放模式访问 (无 accessKey)");
+            return null;
         }
 
         // 鉴权模式：查询配置
@@ -54,7 +54,7 @@ public class WebEmbedServiceImpl implements WebEmbedService {
         // 开放标记的 accessKey：直接通过
         if (config.isOpenMode()) {
             log.debug("[Web Embed] 开放 accessKey 验证通过: accessKey={}", accessKey);
-            return config.getUserId();
+            return config;
         }
 
         // 鉴权模式：回调验证
@@ -63,7 +63,7 @@ public class WebEmbedServiceImpl implements WebEmbedService {
         }
 
         log.info("[Web Embed] 鉴权模式验证通过: accessKey={}", accessKey);
-        return config.getUserId();
+        return config;
     }
 
     /**

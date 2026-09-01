@@ -1,5 +1,7 @@
 package fun.commons.lotask4j.controller;
 
+import fun.commons.framework4j.accesstoken.core.AccessTokenGenerator;
+import fun.commons.lotask4j.entity.WebEmbedConfig;
 import fun.commons.lotask4j.service.WebEmbedService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,9 +33,14 @@ import java.time.Duration;
 public class WebEmbedController {
 
     private static final String COOKIE_NAME = "ASTS_USER_ID";
+    /** embed 会话 token cookie (前端 axios 读取后以 Bearer 调 client GET; 非 httpOnly — iframe 场景) */
+    private static final String TOKEN_COOKIE_NAME = "ASTS_EMBED_TOKEN";
 
     @Autowired
     private WebEmbedService webEmbedService;
+
+    @Autowired
+    private AccessTokenGenerator accessTokenGenerator;
 
     @Value("${app.web-embed.front-base-url:/web-embed/index.html}")
     private String frontBaseUrl;
@@ -72,17 +79,41 @@ public class WebEmbedController {
         // 2. 校验 accessKey 与组件的匹配
         webEmbedService.checkComponentAccess(accessKey, componentType);
 
-        // 3. 鉴权 / 开放模式处理，获取 userId
-        String userId = webEmbedService.handleAccess(accessKey);
+        // 3. 鉴权 / 开放模式处理 (返回配置; null = 无 accessKey 开放模式)
+        WebEmbedConfig config = webEmbedService.handleAccess(accessKey);
+        String userId = config != null ? config.getUserId() : openDefaultUserId;
 
-        // 4. 写入 Cookie
+        // 4. 写入 Cookie — 租户短期 token (F 阶段): accessKey 验证通过后按配置归属租户
+        //    签发 TENANT 型 token, embed 前端 axios 读 cookie 加 Bearer 调 client GET;
+        //    userId cookie 保留 (审计/展示)
         writeUserIdCookie(response, userId);
+        if (config != null && config.getTenantId() != null) {
+            writeEmbedTokenCookie(response, config.getTenantId());
+        }
 
         // 5. 重定向到前端 Vue 应用（Vite + Vue3 history 模式）
         String redirectUrl = buildRedirectUrl(componentType, taskId);
         log.debug("[Web Embed] 重定向: {}", redirectUrl);
 
         return new RedirectView(redirectUrl);
+    }
+
+    /** 开放模式默认 userId (与 WebEmbedService open-default-user-id 同源) */
+    @Value("${app.web-embed.open-default-user-id:guest}")
+    private String openDefaultUserId;
+
+    private void writeEmbedTokenCookie(HttpServletResponse response, Long tenantId) {
+        String token = accessTokenGenerator.generateToken("TENANT",
+                java.util.Map.of("tenant_id", tenantId));
+        ResponseCookie cookie = ResponseCookie.from(TOKEN_COOKIE_NAME, token)
+                .httpOnly(false)          // embed 前端 axios 需读取
+                .secure(true)
+                .path("/")
+                .maxAge(Duration.ofSeconds(cookieExpireSeconds))
+                .sameSite("Strict")
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+        log.debug("[Web Embed] 已签发租户短期 token: tenantId={}", tenantId);
     }
 
     /**

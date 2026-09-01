@@ -84,6 +84,14 @@ request.interceptors.request.use(
       if (store.token) {
         config.headers.set('Authorization', `Bearer ${store.token}`)
       }
+    } else if (IS_EMBED_BUILD && !isAuthPublic) {
+      // embed 短期 token (2026-09 租户化): /web-embed/{type} 入口按 accessKey 归属租户
+      // 签发 TENANT 型 token 种入 cookie, 此处读取后以 Bearer 调 client GET
+      // (cookie 非 httpOnly — iframe 嵌入场景; token 会话级, 随 cookie 过期)
+      const m = document.cookie.match(/(?:^|;\s*)ASTS_EMBED_TOKEN=([^;]*)/)
+      if (m && m[1]) {
+        config.headers.set('Authorization', `Bearer ${decodeURIComponent(m[1])}`)
+      }
     }
 
     // 链路追踪: 同一会话保持 trace_id, 方便前后端日志串联

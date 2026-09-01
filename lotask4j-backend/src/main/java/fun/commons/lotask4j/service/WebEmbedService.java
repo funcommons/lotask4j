@@ -20,7 +20,7 @@ public interface WebEmbedService {
      * @return 用户 ID
      * @throws RuntimeException 验证失败时抛出
      */
-    String handleAccess(String accessKey);
+    fun.commons.lotask4j.entity.WebEmbedConfig handleAccess(String accessKey);
 
     /**
      * 验证组件类型是否合法

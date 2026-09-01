@@ -8,7 +8,7 @@ spring:
   # 真 PostgreSQL（docker pg-17 :5432 库 lotask4j）— 建表用 schema-postgres.sql
   datasource:
     driver-class-name: org.postgresql.Driver
-    url: jdbc:postgresql://localhost:5432/lotask4j
+    url: jdbc:postgresql://localhost:5432/lotask4j?stringtype=unspecified
     username: admin
     password: test@2026
 
@@ -41,7 +41,7 @@ framework4j:
   datasource:
     datasources:
       business:
-        url: jdbc:postgresql://localhost:5432/lotask4j
+        url: jdbc:postgresql://localhost:5432/lotask4j?stringtype=unspecified
         username: admin
         password: test@2026
         driver-class-name: org.postgresql.Driver

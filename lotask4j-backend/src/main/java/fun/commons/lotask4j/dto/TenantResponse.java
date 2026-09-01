@@ -5,15 +5,13 @@ import lombok.Data;
 import java.time.OffsetDateTime;
 
 /**
- * 接入应用响应 (列表/详情)
- *
- * 不含 appSecret — secret 仅在创建 / reset-secret 时明文返回一次。
+ * 租户响应 (列表/详情) — 不含 tenantSecret (仅创建 / reset-secret 明文返回一次)
  *
  * @author lotask4j-team
  * @version 1.0.0
  */
 @Data
-public class ApplicationResponse {
+public class TenantResponse {
 
     private Long id;
 
@@ -21,7 +19,12 @@ public class ApplicationResponse {
 
     private String description;
 
-    /** ACTIVE / INACTIVE */
+    private String email;
+
+    /** 来源通道: OPS 运营创建 / SELF 自助注册 */
+    private String channel;
+
+    /** 生命周期: ACTIVE / SUSPEND (停用后不可换 token) */
     private String status;
 
     private OffsetDateTime createdAt;

@@ -33,7 +33,7 @@ spring:
     baseline-on-migrate: true
     baseline-version: '1'
     validate-on-migrate: true
-    url: ${LDX_DEV_DB_URL:jdbc:postgresql://localhost:5432/lotask4j}
+    url: ${LDX_DEV_DB_URL:jdbc:postgresql://localhost:5432/lotask4j}?stringtype=unspecified
     user: ${LDX_DEV_DB_USERNAME:admin}
     password: ${LDX_DEV_DB_PASSWORD:}
 
@@ -69,7 +69,7 @@ framework4j:
       business:
         aliases: [default, primary]
         type: com.alibaba.druid.pool.DruidDataSource
-        url: ${LDX_DEV_DB_URL:jdbc:postgresql://localhost:5432/lotask4j}
+        url: ${LDX_DEV_DB_URL:jdbc:postgresql://localhost:5432/lotask4j}?stringtype=unspecified
         username: ${LDX_DEV_DB_USERNAME:admin}
         password: ${LDX_DEV_DB_PASSWORD:}
         driver-class-name: org.postgresql.Driver

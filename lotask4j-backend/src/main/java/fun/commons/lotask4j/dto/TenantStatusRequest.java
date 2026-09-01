@@ -10,7 +10,7 @@ import lombok.Data;
  * @version 1.0.0
  */
 @Data
-public class ApplicationStatusRequest {
+public class TenantStatusRequest {
 
     /** 目标状态 (ACTIVE / INACTIVE) */
     @NotBlank(message = "status 不能为空")

@@ -18,13 +18,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * 接入应用管理集成测试
+ * 租户管理集成测试 (平台域 /api/v1/admin/tenants)
  *
  * 覆盖:
- * 1. ADMIN token 门禁 (无 token 401)
+ * 1. 平台 token 门禁 (无 token 401)
  * 2. 创建 → 一次性明文 secret → 落库为 AES-GCM 密文 → select 透明解密可换 token
- * 3. reset-secret 旧凭据失效
- * 4. 停用后不可换 token
+ * 3. reset-secret 旧凭据宽限期内仍可换 (委托 TenantSecretService 双版本)
+ * 4. 停用 (SUSPEND) 后不可换 token
  * 5. 列表不含 secret
  *
  * 前置: 本地 PG (schema-postgres.sql 重建) + Redis :6379。
@@ -33,11 +33,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @TestPropertySource(properties = {
-        // 与 AdminAuthGuardTest 相同: 恢复主配置 exclude (仅放行 auth 端点), 让 ADMIN 守卫生效
+        // 与 AdminAuthGuardTest 相同: 恢复主配置 exclude (仅放行 auth 端点), 让平台域守卫生效
         "framework4j.access-token.exclude-path-patterns[0]=/api/v1/auth/token",
 })
-@DisplayName("接入应用管理测试")
-class AdminApplicationControllerTest {
+@DisplayName("租户管理测试")
+class AdminTenantControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -45,7 +45,7 @@ class AdminApplicationControllerTest {
     @Autowired
     private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
-    private String adminToken;
+    private String platformToken;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -56,8 +56,8 @@ class AdminApplicationControllerTest {
                 .andReturn();
         // form 端点返回 envelope; 提取 token
         String body = r.getResponse().getContentAsString();
-        adminToken = extractJsonString(body, "access_token");
-        assertThat(adminToken).isNotBlank();
+        platformToken = extractJsonString(body, "access_token");
+        assertThat(platformToken).isNotBlank();
     }
 
     private static String extractJsonString(String json, String key) {
@@ -82,9 +82,9 @@ class AdminApplicationControllerTest {
         return prefix + "-" + SEQ.incrementAndGet();
     }
 
-    private MvcResult createApp(String name) throws Exception {
-        return mockMvc.perform(post("/api/v1/admin/applications")
-                        .header("Authorization", "Bearer " + adminToken)
+    private MvcResult createTenant(String name) throws Exception {
+        return mockMvc.perform(post("/api/v1/admin/tenants")
+                        .header("Authorization", "Bearer " + platformToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"" + name + "\",\"description\":\"test\"}"))
                 .andExpect(status().isOk())
@@ -96,14 +96,14 @@ class AdminApplicationControllerTest {
     @DisplayName("无 token 401; 创建返回一次性明文 secret, 落库为密文")
     void create_secretEncryptedAtRest() throws Exception {
         // 门禁
-        mockMvc.perform(post("/api/v1/admin/applications")
+        mockMvc.perform(post("/api/v1/admin/tenants")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"x\"}"))
                 .andExpect(status().isUnauthorized());
 
-        String appName = unique("app-enc");
-        String body = createApp(appName).getResponse().getContentAsString();
-        String secret = extractJsonString(body, "appSecret");
+        String appName = unique("tn-enc");
+        String body = createTenant(appName).getResponse().getContentAsString();
+        String secret = extractJsonString(body, "tenantSecret");
         assertThat(secret).isNotBlank().hasSize(40);
         long id = Long.parseLong(extractJsonString(body, "id"));
 
@@ -124,28 +124,27 @@ class AdminApplicationControllerTest {
     }
 
     @Test
-    @DisplayName("reset-secret 后旧 secret 失效, 新 secret 可用")
+    @DisplayName("reset-secret: 新 secret 可用; 旧 secret 宽限期内仍可换")
     void resetSecret_oldInvalid() throws Exception {
-        String name = unique("app-reset");
-        String body = createApp(name).getResponse().getContentAsString();
-        String oldSecret = extractJsonString(body, "appSecret");
+        String name = unique("tn-reset");
+        String body = createTenant(name).getResponse().getContentAsString();
+        String oldSecret = extractJsonString(body, "tenantSecret");
         long id = Long.parseLong(extractJsonString(body, "id"));
 
-        String newBody = mockMvc.perform(post("/api/v1/admin/applications/" + id + "/reset-secret")
-                        .header("Authorization", "Bearer " + adminToken))
+        String newBody = mockMvc.perform(post("/api/v1/admin/tenants/" + id + "/reset-secret")
+                        .header("Authorization", "Bearer " + platformToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andReturn().getResponse().getContentAsString();
-        String newSecret = extractJsonString(newBody, "appSecret");
+        String newSecret = extractJsonString(newBody, "tenantSecret");
         assertThat(newSecret).isNotEqualTo(oldSecret);
 
-        // 旧 secret 拒绝 (内置端点凭据失败 → 200 envelope + code=401;
-        // E1 委托 TenantSecretService 后宽限期内旧钥可用, 届时反转)
+        // 旧 secret 在宽限期内 (grace-hours=24h) 仍可换 token (框架双版本语义)
         mockMvc.perform(post("/api/v1/auth/token")
                         .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                         .content("grant_type=client_credentials&client_id=" + name + "&client_secret=" + oldSecret))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(401));
+                .andExpect(jsonPath("$.code").value(0));
         // 新 secret 通过
         mockMvc.perform(post("/api/v1/auth/token")
                         .contentType(MediaType.APPLICATION_FORM_URLENCODED)
@@ -157,14 +156,14 @@ class AdminApplicationControllerTest {
     @Test
     @DisplayName("停用后不可换 token; 列表不含 secret")
     void inactivate_blocksToken_and_listHasNoSecret() throws Exception {
-        String name = unique("app-disable");
-        String body = createApp(name).getResponse().getContentAsString();
-        String secret = extractJsonString(body, "appSecret");
+        String name = unique("tn-disable");
+        String body = createTenant(name).getResponse().getContentAsString();
+        String secret = extractJsonString(body, "tenantSecret");
         long id = Long.parseLong(extractJsonString(body, "id"));
 
         // 停用
-        mockMvc.perform(post("/api/v1/admin/applications/" + id + "/status")
-                        .header("Authorization", "Bearer " + adminToken)
+        mockMvc.perform(post("/api/v1/admin/tenants/" + id + "/status")
+                        .header("Authorization", "Bearer " + platformToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"INACTIVE\"}"))
                 .andExpect(status().isOk())
@@ -177,8 +176,8 @@ class AdminApplicationControllerTest {
                 .andExpect(jsonPath("$.code").value(401));
 
         // 列表无 secret 字段
-        mockMvc.perform(get("/api/v1/admin/applications")
-                        .header("Authorization", "Bearer " + adminToken))
+        mockMvc.perform(get("/api/v1/admin/tenants")
+                        .header("Authorization", "Bearer " + platformToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.items[?(@.name=='app-disable')].appSecret").doesNotExist());

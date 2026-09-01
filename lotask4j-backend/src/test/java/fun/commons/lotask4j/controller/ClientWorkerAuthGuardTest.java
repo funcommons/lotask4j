@@ -78,13 +78,13 @@ class ClientWorkerAuthGuardTest {
         String platformToken = mintToken("PLATFORM", "lotask4j-platform-dev-secret");
 
         String appName = "guard-app-" + SEQ.incrementAndGet();
-        MvcResult created = mockMvc.perform(post("/api/v1/admin/applications")
+        MvcResult created = mockMvc.perform(post("/api/v1/admin/tenants")
                         .header("Authorization", "Bearer " + platformToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"" + appName + "\"}"))
                 .andExpect(status().isOk())
                 .andReturn();
-        String secret = extract(created.getResponse().getContentAsString(), "appSecret");
+        String secret = extract(created.getResponse().getContentAsString(), "tenantSecret");
 
         clientToken = mintToken(appName, secret);
         workerToken = clientToken;   // 租户级 worker: 与 client 同型同凭据

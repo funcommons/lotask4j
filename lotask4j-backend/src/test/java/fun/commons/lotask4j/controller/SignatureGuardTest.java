@@ -55,7 +55,7 @@ class SignatureGuardTest {
 
     private static final String SUBMIT_PATH = "/api/v1/client/tasks/submit";
     private static final String SUBMIT_BODY = "{\"type\":\"data_export\",\"payload\":{\"k\":\"v\"}}";
-    private static final String ADMIN_SECRET = "lotask4j-admin-dev-secret";
+    private static final String PLATFORM_SECRET = "lotask4j-platform-dev-secret";
 
     /** 签名头四元组 */
     private record SigHeaders(String accessKey, String timestamp, String nonce, String signature) {}
@@ -72,7 +72,7 @@ class SignatureGuardTest {
         String nonce = fixedNonce != null ? fixedNonce : UUID.randomUUID().toString();
         String bodyMd5 = md5Hex(SUBMIT_BODY);
         String toSign = SignatureUtil.buildStringToSign("POST", SUBMIT_PATH, timestamp, nonce, bodyMd5);
-        return new SigHeaders("ADMIN", timestamp, nonce, SignatureUtil.sign(secret, toSign));
+        return new SigHeaders("PLATFORM", timestamp, nonce, SignatureUtil.sign(secret, toSign));
     }
 
     private static String md5Hex(String s) throws Exception {
@@ -102,7 +102,7 @@ class SignatureGuardTest {
                 .andExpect(status().isUnauthorized());
 
         // 2. 合法签名 (md5(body) 覆盖请求体) → 200
-        SigHeaders ok = sign(ADMIN_SECRET, null);
+        SigHeaders ok = sign(PLATFORM_SECRET, null);
         mockMvc.perform(signedPost(ok))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
@@ -114,12 +114,12 @@ class SignatureGuardTest {
                 .andExpect(jsonPath("$.code").value(10302));
 
         // 4. nonce 重放 (同 nonce 第二次) → 401
-        SigHeaders replay = sign(ADMIN_SECRET, ok.nonce());
+        SigHeaders replay = sign(PLATFORM_SECRET, ok.nonce());
         mockMvc.perform(signedPost(replay))
                 .andExpect(status().isUnauthorized());
 
         // 5. 超前时间戳 (超出 ±5min 容差) → 401
-        SigHeaders future = new SigHeaders("ADMIN",
+        SigHeaders future = new SigHeaders("PLATFORM",
                 String.valueOf(System.currentTimeMillis() + 600_000),
                 UUID.randomUUID().toString(), Base64.getEncoder().encodeToString("x".getBytes()));
         mockMvc.perform(signedPost(future))

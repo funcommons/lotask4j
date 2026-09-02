@@ -39,6 +39,9 @@ class TenantIsolationTest {
     @Autowired
     private AstsTenantMapper tenantMapper;
 
+    @Autowired
+    private fun.commons.lotask4j.mapper.AstTaskTypeConfigMapper taskTypeConfigMapper;
+
     private Long tenantA;
     private Long tenantB;
     private Long taskA;
@@ -126,5 +129,43 @@ class TenantIsolationTest {
         rows = taskMapper.markCancelRequested(taskA, task.getVersion(),
                 OffsetDateTime.now(), OffsetDateTime.now(), tenantA);
         assertThat(rows).as("同租户 CAS 正常").isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("同 typeKey 跨租户共存: selectByTypeKey 按 tenantId 定向, 互不可见")
+    void typeKey_coexistsAcrossTenants() {
+        String shared = "shared-type-" + System.nanoTime();
+
+        fun.commons.lotask4j.entity.AstTaskTypeConfig ca = newConfig(tenantA, shared);
+        fun.commons.lotask4j.entity.AstTaskTypeConfig cb = newConfig(tenantB, shared);
+        taskTypeConfigMapper.insert(ca);
+        taskTypeConfigMapper.insert(cb);
+
+        // 定向查询: 各自看到自己的 (timeoutSeconds 不同以区分)
+        org.assertj.core.api.Assertions.assertThat(
+                taskTypeConfigMapper.selectByTypeKey(shared, tenantA).getTimeoutSeconds()).isEqualTo(111);
+        org.assertj.core.api.Assertions.assertThat(
+                taskTypeConfigMapper.selectByTypeKey(shared, tenantB).getTimeoutSeconds()).isEqualTo(222);
+
+        // 跨租户不可见: A 查 B 独有 key → null
+        String bOnly = "b-only-" + System.nanoTime();
+        taskTypeConfigMapper.insert(newConfig(tenantB, bOnly));
+        org.assertj.core.api.Assertions.assertThat(
+                taskTypeConfigMapper.selectByTypeKey(bOnly, tenantA)).isNull();
+    }
+
+    private fun.commons.lotask4j.entity.AstTaskTypeConfig newConfig(Long tenantId, String key) {
+        fun.commons.lotask4j.entity.AstTaskTypeConfig c = new fun.commons.lotask4j.entity.AstTaskTypeConfig();
+        c.setTenantId(tenantId);
+        c.setTypeKey(key);
+        c.setName("it");
+        c.setConcurrencyLimit(1);
+        c.setTimeoutSeconds(tenantId.equals(tenantA) ? 111 : 222);
+        c.setMaxRetries(0);
+        c.setIsEnabled(1);
+        c.setIsDeleted(0);
+        c.setCreatedAt(java.time.OffsetDateTime.now());
+        c.setUpdatedAt(java.time.OffsetDateTime.now());
+        return c;
     }
 }

@@ -55,7 +55,7 @@ class TaskSubmitGuardTest {
             when(typeConfigMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
 
             // 不抛
-            assertDoesNotThrow(() -> guard.checkOrThrow("data_export"));
+            assertDoesNotThrow(() -> guard.checkOrThrow("data_export", null));
             // 不应查询任务计数
             verify(taskMapper, never()).countInFlightByType(anyString());
         }
@@ -63,14 +63,14 @@ class TaskSubmitGuardTest {
         @Test
         @DisplayName("null taskType: 放行")
         void nullTaskType_Pass() {
-            assertDoesNotThrow(() -> guard.checkOrThrow(null));
+            assertDoesNotThrow(() -> guard.checkOrThrow(null, null));
             verify(taskMapper, never()).countInFlightByType(anyString());
         }
 
         @Test
         @DisplayName("空字符串 taskType: 放行")
         void emptyTaskType_Pass() {
-            assertDoesNotThrow(() -> guard.checkOrThrow(""));
+            assertDoesNotThrow(() -> guard.checkOrThrow("", null));
             verify(taskMapper, never()).countInFlightByType(anyString());
         }
     }
@@ -86,7 +86,7 @@ class TaskSubmitGuardTest {
         void noLimits_Pass() {
             when(typeConfigMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(enabledConfig);
 
-            assertDoesNotThrow(() -> guard.checkOrThrow("data_export"));
+            assertDoesNotThrow(() -> guard.checkOrThrow("data_export", null));
             verify(taskMapper, never()).countInFlightByType(anyString());
         }
 
@@ -97,7 +97,7 @@ class TaskSubmitGuardTest {
             enabledConfig.setConcurrencyLimit(null);
             when(typeConfigMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(enabledConfig);
 
-            assertDoesNotThrow(() -> guard.checkOrThrow("data_export"));
+            assertDoesNotThrow(() -> guard.checkOrThrow("data_export", null));
         }
 
         @Test
@@ -106,7 +106,7 @@ class TaskSubmitGuardTest {
             enabledConfig.setMaxQueued(0);
             when(typeConfigMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(enabledConfig);
 
-            assertDoesNotThrow(() -> guard.checkOrThrow("data_export"));
+            assertDoesNotThrow(() -> guard.checkOrThrow("data_export", null));
             // max_queued=0 视为不生效, 不查 inFlight
             verify(taskMapper, never()).countInFlightByType(anyString());
         }
@@ -126,7 +126,7 @@ class TaskSubmitGuardTest {
             when(taskMapper.countInFlightByType("data_export")).thenReturn(10L);
 
             ApiException ex = assertThrows(ApiException.class,
-                    () -> guard.checkOrThrow("data_export"));
+                    () -> guard.checkOrThrow("data_export", null));
             assertEquals(BusinessCode.QUEUE_FULL.getCode(), ex.getCode());
             assertTrue(ex.getMessage().contains("max_queued"));
             assertTrue(ex.getMessage().contains("data_export"));
@@ -140,7 +140,7 @@ class TaskSubmitGuardTest {
             when(taskMapper.countInFlightByType("data_export")).thenReturn(50L);
 
             ApiException ex = assertThrows(ApiException.class,
-                    () -> guard.checkOrThrow("data_export"));
+                    () -> guard.checkOrThrow("data_export", null));
             assertEquals(20006, ex.getCode());
         }
 
@@ -151,7 +151,7 @@ class TaskSubmitGuardTest {
             when(typeConfigMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(enabledConfig);
             when(taskMapper.countInFlightByType("data_export")).thenReturn(5L);
 
-            assertDoesNotThrow(() -> guard.checkOrThrow("data_export"));
+            assertDoesNotThrow(() -> guard.checkOrThrow("data_export", null));
         }
     }
 
@@ -170,7 +170,7 @@ class TaskSubmitGuardTest {
             when(taskMapper.countInFlightByType("data_export")).thenReturn(5L);
 
             ApiException ex = assertThrows(ApiException.class,
-                    () -> guard.checkOrThrow("data_export"));
+                    () -> guard.checkOrThrow("data_export", null));
             assertEquals(20006, ex.getCode());
             assertTrue(ex.getMessage().contains("max_concurrency"));
         }
@@ -182,7 +182,7 @@ class TaskSubmitGuardTest {
             when(typeConfigMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(enabledConfig);
             when(taskMapper.countInFlightByType("data_export")).thenReturn(3L);
 
-            assertDoesNotThrow(() -> guard.checkOrThrow("data_export"));
+            assertDoesNotThrow(() -> guard.checkOrThrow("data_export", null));
         }
     }
 
@@ -201,7 +201,7 @@ class TaskSubmitGuardTest {
             when(taskMapper.countInFlightByType("data_export")).thenReturn(15L);
 
             ApiException ex = assertThrows(ApiException.class,
-                    () -> guard.checkOrThrow("data_export"));
+                    () -> guard.checkOrThrow("data_export", null));
             assertEquals(20006, ex.getCode());
             // max_queued 分支先判断, 故报错信息反映它
             assertTrue(ex.getMessage().contains("max_queued"));

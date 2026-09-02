@@ -91,7 +91,7 @@ class WorkerServiceTest {
         @Test
         @DisplayName("正常抢占: 返回响应包含 id/type/payload/priority/executionToken/version")
         void pollTask_Success() {
-            when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(enabledTypeConfig);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("data_export"), isNull())).thenReturn(enabledTypeConfig);
             when(workerNodeMapper.upsertWorkerHeartbeat(any(AstWorkerNode.class))).thenReturn(1);
 
             AstTask task = new AstTask();
@@ -130,7 +130,7 @@ class WorkerServiceTest {
         @DisplayName("strategy 为 null 时默认 PRIORITY")
         void pollTask_StrategyDefaultsToPriority() {
             pollRequest.setStrategy(null);
-            when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(enabledTypeConfig);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("data_export"), isNull())).thenReturn(enabledTypeConfig);
             when(workerNodeMapper.upsertWorkerHeartbeat(any())).thenReturn(1);
             when(taskMapper.pollAndLockTask("data_export", "PRIORITY", "10.0.0.1", null)).thenReturn(null);
 
@@ -143,7 +143,7 @@ class WorkerServiceTest {
         @DisplayName("strategy=FIFO 透传给 mapper")
         void pollTask_FifoStrategy() {
             pollRequest.setStrategy("FIFO");
-            when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(enabledTypeConfig);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("data_export"), isNull())).thenReturn(enabledTypeConfig);
             when(workerNodeMapper.upsertWorkerHeartbeat(any())).thenReturn(1);
             when(taskMapper.pollAndLockTask("data_export", "FIFO", "10.0.0.1", null)).thenReturn(null);
 
@@ -155,7 +155,7 @@ class WorkerServiceTest {
         @Test
         @DisplayName("任务类型未知: 抛 20101")
         void pollTask_UnknownType() {
-            when(taskTypeConfigMapper.selectByTypeKey("unknown_type")).thenReturn(null);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("unknown_type"), isNull())).thenReturn(null);
             pollRequest.setTaskType("unknown_type");
 
             ApiException ex = assertThrows(ApiException.class,
@@ -168,7 +168,7 @@ class WorkerServiceTest {
         @DisplayName("任务类型已禁用 (isEnabled=0): 抛 20102")
         void pollTask_DisabledType() {
             enabledTypeConfig.setIsEnabled(0);
-            when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(enabledTypeConfig);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("data_export"), isNull())).thenReturn(enabledTypeConfig);
 
             ApiException ex = assertThrows(ApiException.class,
                     () -> workerService.pollTask(pollRequest, "10.0.0.1"));
@@ -180,7 +180,7 @@ class WorkerServiceTest {
         @DisplayName("任务类型 isEnabled=null: 抛 20102 (防御 null)")
         void pollTask_IsEnabledNull() {
             enabledTypeConfig.setIsEnabled(null);
-            when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(enabledTypeConfig);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("data_export"), isNull())).thenReturn(enabledTypeConfig);
 
             ApiException ex = assertThrows(ApiException.class,
                     () -> workerService.pollTask(pollRequest, "10.0.0.1"));
@@ -190,7 +190,7 @@ class WorkerServiceTest {
         @Test
         @DisplayName("心跳更新失败不阻断 poll (容错)")
         void pollTask_HeartbeatFailureDoesNotBlock() {
-            when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(enabledTypeConfig);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("data_export"), isNull())).thenReturn(enabledTypeConfig);
             when(workerNodeMapper.upsertWorkerHeartbeat(any()))
                     .thenThrow(new RuntimeException("DB connection lost"));
             when(taskMapper.pollAndLockTask("data_export", "PRIORITY", "10.0.0.1", null))
@@ -207,7 +207,7 @@ class WorkerServiceTest {
         @Test
         @DisplayName("心跳返回 0 行 (UPSERT 失败): 仍继续 poll")
         void pollTask_HeartbeatZeroRows() {
-            when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(enabledTypeConfig);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("data_export"), isNull())).thenReturn(enabledTypeConfig);
             when(workerNodeMapper.upsertWorkerHeartbeat(any())).thenReturn(0);
             when(taskMapper.pollAndLockTask("data_export", "PRIORITY", "10.0.0.1", null))
                     .thenReturn(sampleTask);
@@ -222,7 +222,7 @@ class WorkerServiceTest {
         @Test
         @DisplayName("无可用任务: 返回 null (不抛异常)")
         void pollTask_EmptyQueue() {
-            when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(enabledTypeConfig);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("data_export"), isNull())).thenReturn(enabledTypeConfig);
             when(workerNodeMapper.upsertWorkerHeartbeat(any())).thenReturn(1);
             when(taskMapper.pollAndLockTask("data_export", "PRIORITY", "10.0.0.1", null)).thenReturn(null);
 
@@ -314,7 +314,7 @@ class WorkerServiceTest {
             sampleTask.setStatus("RUNNING");
             sampleTask.setStepsDetail(null);
             when(taskMapper.selectByIdWithTypeName(eq(100001L), isNull())).thenReturn(sampleTask);
-            when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(null); // 无 steps 定义
+            when(taskTypeConfigMapper.selectByTypeKey(eq("data_export"), isNull())).thenReturn(null); // 无 steps 定义
             // P0: stateMachine 内部 CAS 失败抛 ApiException
             doThrow(new ApiException(BusinessCode.TASK_STATE_INVALID.getCode(),
                     "progress CAS failed"))
@@ -337,7 +337,7 @@ class WorkerServiceTest {
             sampleTask.setStepsDetail(new ArrayList<>(List.of(existingStep)));
 
             when(taskMapper.selectByIdWithTypeName(eq(100001L), isNull())).thenReturn(sampleTask);
-            when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(null);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("data_export"), isNull())).thenReturn(null);
 
             workerService.reportProgress(100001L, req);
 
@@ -353,7 +353,7 @@ class WorkerServiceTest {
             sampleTask.setStepsDetail(new ArrayList<>());
 
             when(taskMapper.selectByIdWithTypeName(eq(100001L), isNull())).thenReturn(sampleTask);
-            when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(null);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("data_export"), isNull())).thenReturn(null);
             req.setCurrentStepKey("uploading");
             req.setStepProgress(30);
 
@@ -374,7 +374,7 @@ class WorkerServiceTest {
             sampleTask.setStepsDetail(null);
 
             when(taskMapper.selectByIdWithTypeName(eq(100001L), isNull())).thenReturn(sampleTask);
-            when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(null);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("data_export"), isNull())).thenReturn(null);
 
             workerService.reportProgress(100001L, req);
 
@@ -398,7 +398,7 @@ class WorkerServiceTest {
             s3.put("key", "uploading"); s3.put("weight", 20);
             stepsDef.add(s1); stepsDef.add(s2); stepsDef.add(s3);
             cfg.setStepsConfig(stepsDef);
-            when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(cfg);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("data_export"), isNull())).thenReturn(cfg);
 
             when(taskMapper.selectByIdWithTypeName(eq(100001L), isNull())).thenReturn(sampleTask);
             req.setCurrentStepKey("transcoding");
@@ -416,7 +416,7 @@ class WorkerServiceTest {
             sampleTask.setStatus("RUNNING");
             sampleTask.setStepsDetail(null);
             when(taskMapper.selectByIdWithTypeName(eq(100001L), isNull())).thenReturn(sampleTask);
-            when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(null);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("data_export"), isNull())).thenReturn(null);
 
             workerService.reportProgress(100001L, req);
 
@@ -597,7 +597,7 @@ class WorkerServiceTest {
         @DisplayName("workerId 为 null → 心跳用 ip/type 生成 workerId; upsert 返回 0 只告警")
         void pollTask_NullWorkerId_GeneratesFallback() {
             pollRequest.setWorkerId(null);
-            when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(enabledTypeConfig);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("data_export"), isNull())).thenReturn(enabledTypeConfig);
             when(workerNodeMapper.upsertWorkerHeartbeat(any())).thenReturn(1);
             when(taskMapper.pollAndLockTask(anyString(), anyString(), anyString(), isNull())).thenReturn(null);
 
@@ -611,7 +611,7 @@ class WorkerServiceTest {
         @Test
         @DisplayName("心跳 upsert 抛异常被吞, poll 继续")
         void pollTask_HeartbeatThrows_Swallows() {
-            when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(enabledTypeConfig);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("data_export"), isNull())).thenReturn(enabledTypeConfig);
             when(workerNodeMapper.upsertWorkerHeartbeat(any())).thenThrow(new RuntimeException("redis down"));
             when(taskMapper.pollAndLockTask(anyString(), anyString(), anyString(), isNull())).thenReturn(null);
 
@@ -642,7 +642,7 @@ class WorkerServiceTest {
             sampleTask.setStatus("RUNNING");
             sampleTask.setStepsDetail(new ArrayList<>(List.of(existing)));
             when(taskMapper.selectByIdWithTypeName(eq(100001L), isNull())).thenReturn(sampleTask);
-            when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(null);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("data_export"), isNull())).thenReturn(null);
 
             workerService.reportProgress(100001L, req);
 
@@ -663,7 +663,7 @@ class WorkerServiceTest {
             sampleTask.setStatus("RUNNING");
             sampleTask.setStepsDetail(null);
             when(taskMapper.selectByIdWithTypeName(eq(100001L), isNull())).thenReturn(sampleTask);
-            when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(cfg);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("data_export"), isNull())).thenReturn(cfg);
 
             workerService.reportProgress(100001L, req);
 
@@ -686,7 +686,7 @@ class WorkerServiceTest {
             sampleTask.setStatus("RUNNING");
             sampleTask.setStepsDetail(null);
             when(taskMapper.selectByIdWithTypeName(eq(100001L), isNull())).thenReturn(sampleTask);
-            when(taskTypeConfigMapper.selectByTypeKey("data_export")).thenReturn(cfg);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("data_export"), isNull())).thenReturn(cfg);
 
             workerService.reportProgress(100001L, req);
 

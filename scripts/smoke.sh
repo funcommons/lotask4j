@@ -78,6 +78,7 @@ RB=$(curl -sf -X POST "$BASE/api/v1/admin/tenants" -H "Authorization: Bearer $PT
 SECRET_A=$(echo "$RA" | jsonget "d['data']['tenantSecret']")
 SECRET_B=$(echo "$RB" | jsonget "d['data']['tenantSecret']")
 TENANT_A_ID=$(echo "$RA" | jsonget "d['data']['id']")
+TENANT_B_ID=$(echo "$RB" | jsonget "d['data']['id']")
 [ -n "$SECRET_A" ] && ok "租户 A 创建 (一次性明文 ${#SECRET_A} 位)" || bad "租户 A 创建"
 [ -n "$SECRET_B" ] && ok "租户 B 创建" || bad "租户 B 创建"
 
@@ -90,7 +91,7 @@ TB=$(curl -sf -X POST "$BASE/api/v1/auth/token" -H "Content-Type: application/x-
 [ -n "$TB" ] && ok "租户 B Token" || bad "租户 B Token"
 
 # ---------- 3. 类型配置 (平台替租户建, 带租户归属 — V5 起必填) ----------
-TYPE_KEY="data-export-$TS"
+TYPE_KEY="smoke-export"  # 固定 key: 每轮对租户 A upsert, 验证租户内定位
 say "平台创建任务类型 $TYPE_KEY (归属租户 A)"
 RC=$(curl -sf -X POST "$BASE/api/v1/admin/types" -H "Authorization: Bearer $PT" \
   -H "Content-Type: application/json" \
@@ -136,15 +137,11 @@ say "租户隔离断言"
 RB_GET=$(curl -sf -H "Authorization: Bearer $TB" "$BASE/api/v1/client/tasks/$TASK_ID")
 assert_eq "B 查 A 任务 → 20100" "20100" "$(echo "$RB_GET" | jsonget "d['code']")"
 
-RB_HTTP=$(curl -s -o /tmp/smoke-b-poll.json -w '%{http_code}' -X POST "$BASE/api/v1/worker/tasks/poll" \
+RB_POLL_CODE=$(curl -s -X POST "$BASE/api/v1/worker/tasks/poll" \
   -H "Authorization: Bearer $TB" \
-  -H "Content-Type: application/json" -d '{"taskType":"'"$TYPE_KEY"'","strategy":"PRIORITY","workerId":"wkr-b"}')
-RB_DATA=$(jsonget "d['data']" < /tmp/smoke-b-poll.json)
-if [ "$RB_HTTP" = "200" ] && { [ -z "$RB_DATA" ] || [ "$RB_DATA" = "None" ]; }; then
-  ok "B worker poll → 空 (隔离)"
-else
-  bad "B worker poll 应为空 (http=$RB_HTTP body=$(head -c 200 /tmp/smoke-b-poll.json))"
-fi
+  -H "Content-Type: application/json" -d '{"taskType":"'"$TYPE_KEY"'","strategy":"PRIORITY","workerId":"wkr-b"}' \
+  | jsonget "d['code']")
+assert_eq "B poll A 独有类型 → 20101 (类型租户内可见性)" "20101" "$RB_POLL_CODE"
 
 # ---------- 7. A worker 消费全流程 ----------
 say "租户 A worker poll → progress → result"
@@ -163,6 +160,29 @@ curl -sf -X POST "$BASE/api/v1/worker/tasks/$TASK_ID/result" -H "Authorization: 
   -H "Content-Type: application/json" \
   -d "{\"status\":\"SUCCESS\",\"result\":{\"fileUrl\":\"oss://smoke/out.csv\"},\"executionToken\":$ET,\"version\":$((VER+1))}" > /dev/null
 ok "终态上报 SUCCESS"
+
+# ---------- 7.5 同 typeKey 跨租户共存 ----------
+say "租户 B 建同名类型并消费自己的任务"
+RC_B=$(curl -sf -X POST "$BASE/api/v1/admin/types" -H "Authorization: Bearer $PT" \
+  -H "Content-Type: application/json" \
+  -d '{"typeKey":"'"$TYPE_KEY"'","tenantId":'"$TENANT_B_ID"',"name":"B 同名类型","concurrencyLimit":5,"timeoutSeconds":600,"maxRetries":1,"isEnabled":true}')
+assert_eq "B 建同 typeKey 类型 (共存)" "0" "$(echo "$RC_B" | jsonget "d['code']")"
+
+BSUB_BODY='{"type":"'"$TYPE_KEY"'","payload":{"side":"b"},"idempotencyKey":"smoke-b-'$TS'"}'
+split_headers "$(signed_headers POST "/api/v1/client/tasks/submit" "$BSUB_BODY" "smoke-b-$TS" "$SECRET_B")"
+RSB=$(curl -sf -X POST "$BASE/api/v1/client/tasks/submit" -H "Authorization: Bearer $TB" \
+  -H "Content-Type: application/json" -d "$BSUB_BODY" -H "$_sh1" -H "$_sh2" -H "$_sh3" -H "$_sh4")
+BTASK_ID=$(echo "$RSB" | jsonget "d['data']['id']")
+[ -n "$BTASK_ID" ] && ok "B 提交任务 (同名类型) task_id=$BTASK_ID" || bad "B 提交失败: $RSB"
+
+RBP=$(curl -sf -X POST "$BASE/api/v1/worker/tasks/poll" -H "Authorization: Bearer $TB" \
+  -H "Content-Type: application/json" -d '{"taskType":"'"$TYPE_KEY"'","strategy":"PRIORITY","workerId":"wkr-b2"}')
+BET=$(echo "$RBP" | jsonget "d['data']['id']")
+if [ -n "$BET" ] && [ "$BET" = "$BTASK_ID" ]; then
+  ok "B worker 消费 B 自己的任务 (同 key 共存 + 隔离)"
+else
+  bad "B poll 结果异常: $(echo "$RBP" | head -c 200)"
+fi
 
 say "等待 Webhook 投递 (outbox 扫描 5s 周期)..."
 for i in $(seq 1 20); do [ -f /tmp/smoke-webhook.json ] && break; sleep 1; done

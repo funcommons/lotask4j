@@ -23,7 +23,7 @@ public interface AdminService {
     /**
      * 根据类型标识获取任务类型配置
      */
-    TaskTypeConfigResponse getTaskTypeConfig(String typeKey);
+    TaskTypeConfigResponse getTaskTypeConfig(String typeKey, Long tenantId);
 
     /**
      * 新增或更新任务类型配置
@@ -33,7 +33,7 @@ public interface AdminService {
     /**
      * 删除任务类型配置
      */
-    void deleteTaskTypeConfig(String typeKey);
+    void deleteTaskTypeConfig(String typeKey, Long tenantId);
 
     /**
      * 手动提交任务(管理员)

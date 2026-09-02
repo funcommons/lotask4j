@@ -14,7 +14,14 @@ public interface AstTaskTypeConfigMapper extends BaseMapper<AstTaskTypeConfig> {
     /**
      * 根据 typeKey 查询任务类型配置
      */
-    AstTaskTypeConfig selectByTypeKey(@Param("typeKey") String typeKey);
+    /**
+     * 按类型标识查询配置。
+     *
+     * @param typeKey  类型标识
+     * @param tenantId 租户过滤 (null=全局语义: 平台管理域用; client/worker 侧必须传 claim 租户)
+     */
+    AstTaskTypeConfig selectByTypeKey(@Param("typeKey") String typeKey,
+                                      @Param("tenantId") Long tenantId);
 
     /**
      * 检查任务类型是否启用

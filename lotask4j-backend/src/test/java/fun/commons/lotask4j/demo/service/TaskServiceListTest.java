@@ -65,7 +65,7 @@ class TaskServiceListTest {
         // 默认: idempotency 查找返 null
         lenient().when(stateMachine.findByIdempotencyKey(any(), any(), isNull())).thenReturn(null);
         // 默认: 背压放行
-        lenient().doNothing().when(submitGuard).checkOrThrow(anyString());
+        lenient().doNothing().when(submitGuard).checkOrThrow(anyString(), any());
     }
 
     // ==================== getTaskDetail ====================
@@ -339,7 +339,7 @@ class TaskServiceListTest {
         void configExists_ReturnsName() throws Exception {
             AstTaskTypeConfig cfg = new AstTaskTypeConfig();
             cfg.setName("视频转码");
-            when(taskTypeConfigMapper.selectByTypeKey("video_transcode")).thenReturn(cfg);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("video_transcode"), isNull())).thenReturn(cfg);
 
             assertEquals("视频转码", invoke("video_transcode"));
         }
@@ -347,7 +347,7 @@ class TaskServiceListTest {
         @Test
         @DisplayName("配置不存在时返回 typeKey 本身")
         void configMissing_ReturnsTypeKey() throws Exception {
-            when(taskTypeConfigMapper.selectByTypeKey("unknown")).thenReturn(null);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("unknown"), isNull())).thenReturn(null);
 
             assertEquals("unknown", invoke("unknown"));
         }
@@ -355,7 +355,7 @@ class TaskServiceListTest {
         @Test
         @DisplayName("mapper 抛异常时降级返回 typeKey")
         void mapperThrows_ReturnsTypeKey() throws Exception {
-            when(taskTypeConfigMapper.selectByTypeKey("boom"))
+            when(taskTypeConfigMapper.selectByTypeKey(eq("boom"), isNull()))
                     .thenThrow(new RuntimeException("DB down"));
 
             assertEquals("boom", invoke("boom"));

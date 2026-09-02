@@ -120,7 +120,7 @@ class AdminServiceImplTest {
             AstTaskTypeConfig existing = new AstTaskTypeConfig();
             existing.setTypeKey("video_transcode");
             existing.setTenantId(1L);
-            when(taskTypeConfigMapper.selectByTypeKey("video_transcode")).thenReturn(existing);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("video_transcode"), any())).thenReturn(existing);
 
             adminService.saveTaskTypeConfig(req);
 
@@ -138,7 +138,7 @@ class AdminServiceImplTest {
             AstTaskTypeConfig existing = new AstTaskTypeConfig();
             existing.setTypeKey("video_transcode");
             existing.setTenantId(1L);
-            when(taskTypeConfigMapper.selectByTypeKey("video_transcode")).thenReturn(existing);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("video_transcode"), any())).thenReturn(existing);
 
             adminService.saveTaskTypeConfig(req);
 
@@ -151,7 +151,7 @@ class AdminServiceImplTest {
         void newConfig_GoesInsert() {
             TaskTypeConfigRequest req = buildRequest("new_type", false);
 
-            when(taskTypeConfigMapper.selectByTypeKey("new_type")).thenReturn(null);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("new_type"), any())).thenReturn(null);
 
             adminService.saveTaskTypeConfig(req);
 
@@ -169,7 +169,7 @@ class AdminServiceImplTest {
         @DisplayName("isEnabled=null 时存为 0")
         void isEnabledNull_TreatedAsFalse() {
             TaskTypeConfigRequest req = buildRequest("t3", null);
-            when(taskTypeConfigMapper.selectByTypeKey("t3")).thenReturn(null);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("t3"), any())).thenReturn(null);
 
             adminService.saveTaskTypeConfig(req);
 
@@ -197,7 +197,7 @@ class AdminServiceImplTest {
         void newConfig_tenantRequired() {
             TaskTypeConfigRequest req = buildRequest("new_type", true);
             req.setTenantId(null);
-            when(taskTypeConfigMapper.selectByTypeKey("new_type")).thenReturn(null);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("new_type"), any())).thenReturn(null);
 
             assertThatThrownBy(() -> adminService.saveTaskTypeConfig(req))
                     .isInstanceOf(IllegalArgumentException.class)
@@ -213,7 +213,7 @@ class AdminServiceImplTest {
             AstTaskTypeConfig existing = new AstTaskTypeConfig();
             existing.setTypeKey("video_transcode");
             existing.setTenantId(1L);
-            when(taskTypeConfigMapper.selectByTypeKey("video_transcode")).thenReturn(existing);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("video_transcode"), any())).thenReturn(existing);
 
             assertThatThrownBy(() -> adminService.saveTaskTypeConfig(req))
                     .isInstanceOf(IllegalArgumentException.class)
@@ -336,9 +336,9 @@ class AdminServiceImplTest {
             cfg.setName("test");
             cfg.setIsEnabled(0);
 
-            when(taskTypeConfigMapper.selectByTypeKey("t")).thenReturn(cfg);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("t"), isNull())).thenReturn(cfg);
 
-            TaskTypeConfigResponse resp = adminService.getTaskTypeConfig("t");
+            TaskTypeConfigResponse resp = adminService.getTaskTypeConfig("t", null);
             assertEquals("test", resp.getName());
             assertFalse(resp.getIsEnabled());
         }
@@ -346,20 +346,20 @@ class AdminServiceImplTest {
         @Test
         @DisplayName("getTaskTypeConfig 不存在抛 ApiException")
         void getMissing_Throws() {
-            when(taskTypeConfigMapper.selectByTypeKey("missing")).thenReturn(null);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("missing"), isNull())).thenReturn(null);
 
             ApiException ex = assertThrows(ApiException.class,
-                    () -> adminService.getTaskTypeConfig("missing"));
+                    () -> adminService.getTaskTypeConfig("missing", null));
             assertEquals(BusinessCode.TASK_NOT_FOUND.getCode(), ex.getCode());
         }
 
         @Test
         @DisplayName("deleteTaskTypeConfig 不存在抛 ApiException")
         void deleteMissing_Throws() {
-            when(taskTypeConfigMapper.selectByTypeKey("missing")).thenReturn(null);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("missing"), isNull())).thenReturn(null);
 
             ApiException ex = assertThrows(ApiException.class,
-                    () -> adminService.deleteTaskTypeConfig("missing"));
+                    () -> adminService.deleteTaskTypeConfig("missing", null));
             assertEquals(BusinessCode.TASK_NOT_FOUND.getCode(), ex.getCode());
         }
 
@@ -370,9 +370,9 @@ class AdminServiceImplTest {
             cfg.setTypeKey("t");
             cfg.setId(88L);
 
-            when(taskTypeConfigMapper.selectByTypeKey("t")).thenReturn(cfg);
+            when(taskTypeConfigMapper.selectByTypeKey(eq("t"), isNull())).thenReturn(cfg);
 
-            adminService.deleteTaskTypeConfig("t");
+            adminService.deleteTaskTypeConfig("t", null);
 
             verify(taskTypeConfigMapper).deleteById(88L);
             verify(taskTypeConfigMapper, never()).updateById(any(AstTaskTypeConfig.class));

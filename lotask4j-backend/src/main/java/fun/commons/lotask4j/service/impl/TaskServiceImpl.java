@@ -62,11 +62,13 @@ public class TaskServiceImpl extends ServiceImpl<AstTaskMapper, AstTask> impleme
             }
 
             // P1-5: 背压准入 (max_queued / max_concurrency)
-            submitGuard.checkOrThrow(request.getType());
+            submitGuard.checkOrThrow(request.getType(), tenantId);
 
             AstTaskTypeConfig typeConfig = taskTypeConfigMapper.selectOne(
                     new LambdaQueryWrapper<AstTaskTypeConfig>()
                             .eq(AstTaskTypeConfig::getTypeKey, request.getType())
+                            // 类型是租户级资源: 按 claim 租户过滤, 同 typeKey 跨租户共存
+                            .eq(tenantId != null, AstTaskTypeConfig::getTenantId, tenantId)
                             .eq(AstTaskTypeConfig::getIsDeleted, 0));
 
             OffsetDateTime now = OffsetDateTime.now();
@@ -181,7 +183,7 @@ public class TaskServiceImpl extends ServiceImpl<AstTaskMapper, AstTask> impleme
             return "";
         }
         try {
-            AstTaskTypeConfig config = taskTypeConfigMapper.selectByTypeKey(typeKey);
+            AstTaskTypeConfig config = taskTypeConfigMapper.selectByTypeKey(typeKey, null);
             return config != null ? config.getName() : typeKey;
         } catch (Exception e) {
             log.warn("获取任务类型名称失败: typeKey={}", typeKey, e);

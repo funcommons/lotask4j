@@ -82,7 +82,7 @@ class TaskServiceTest {
         // 默认: idempotency 查找返 null
         lenient().when(stateMachine.findByIdempotencyKey(any(), any(), isNull())).thenReturn(null);
         // 默认: 背压准入放行 (单测场景不模拟队列满)
-        lenient().doNothing().when(submitGuard).checkOrThrow(anyString());
+        lenient().doNothing().when(submitGuard).checkOrThrow(anyString(), any());
     }
 
     @Test

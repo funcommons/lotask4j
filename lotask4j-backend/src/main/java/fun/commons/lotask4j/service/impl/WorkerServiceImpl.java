@@ -56,12 +56,13 @@ public class WorkerServiceImpl implements WorkerService {
         String taskType = request.getTaskType();
         String strategy = request.getStrategy() != null ? request.getStrategy() : "PRIORITY";
         String workerId = request.getWorkerId();
+        Long tenantId = TenantIdentity.currentTenantId(null);
 
         log.debug("Worker poll: type={}, strategy={}, ip={}, workerId={}",
                 taskType, strategy, workerIp, workerId);
 
-        // 校验任务类型存在且启用
-        AstTaskTypeConfig typeConfig = taskTypeConfigMapper.selectByTypeKey(taskType);
+        // 校验任务类型存在且启用 (租户内唯一: 同 typeKey 跨租户各自配置)
+        AstTaskTypeConfig typeConfig = taskTypeConfigMapper.selectByTypeKey(taskType, tenantId);
         if (typeConfig == null) {
             throw new ApiException(BusinessCode.TASK_TYPE_UNKNOWN.getCode(),
                     "未知的任务类型: " + taskType);
@@ -70,8 +71,6 @@ public class WorkerServiceImpl implements WorkerService {
             throw new ApiException(BusinessCode.TASK_TYPE_DISABLED.getCode(),
                     "该任务类型已被禁用: " + taskType);
         }
-
-        Long tenantId = TenantIdentity.currentTenantId(null);
 
         // 心跳容错
         updateWorkerHeartbeatOnPoll(workerIp, taskType, workerId, tenantId);
@@ -169,7 +168,8 @@ public class WorkerServiceImpl implements WorkerService {
         int globalProgress = calculateGlobalProgress(
                 task.getTaskTypeKey(),
                 request.getCurrentStepKey(),
-                request.getStepProgress());
+                request.getStepProgress(),
+                tenantId);
 
         // P0: CAS by version + token (含租户条件, 防跨租户篡改)
         stateMachine.reportProgress(id, request.getVersion(), request.getExecutionToken(),
@@ -180,8 +180,8 @@ public class WorkerServiceImpl implements WorkerService {
                 id, request.getCurrentStepKey(), globalProgress);
     }
 
-    private int calculateGlobalProgress(String taskTypeKey, String currentStepKey, int stepProgress) {
-        AstTaskTypeConfig taskTypeConfig = taskTypeConfigMapper.selectByTypeKey(taskTypeKey);
+    private int calculateGlobalProgress(String taskTypeKey, String currentStepKey, int stepProgress, Long tenantId) {
+        AstTaskTypeConfig taskTypeConfig = taskTypeConfigMapper.selectByTypeKey(taskTypeKey, tenantId);
         if (taskTypeConfig == null || taskTypeConfig.getStepsConfig() == null) {
             return stepProgress;
         }

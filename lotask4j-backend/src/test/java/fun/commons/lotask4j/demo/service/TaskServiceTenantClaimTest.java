@@ -100,7 +100,7 @@ class TaskServiceTenantClaimTest {
         Long id = taskService.submitTask(request("data_export", "idem-1"));
 
         assertEquals(555L, id);
-        verify(submitGuard, never()).checkOrThrow(anyString());
+        verify(submitGuard, never()).checkOrThrow(anyString(), any());
         verify(astTaskMapper, never()).insertTask(any(), anyString(), anyString());
     }
 
@@ -131,7 +131,7 @@ class TaskServiceTenantClaimTest {
     void submitTask_apiExceptionRethrown() {
         org.mockito.Mockito.doThrow(new ApiException(
                 BusinessCode.TASK_STATE_INVALID.getCode(), "并发已满"))
-                .when(submitGuard).checkOrThrow("data_export");
+                .when(submitGuard).checkOrThrow("data_export", 42L);
 
         ApiException ex = assertThrows(ApiException.class,
                 () -> taskService.submitTask(request("data_export", null)));

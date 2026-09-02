@@ -39,9 +39,10 @@ public class TaskSubmitGuard {
      * 准入校验。若超过 max_queued 或 max_concurrency 则抛 QUEUE_FULL。
      *
      * @param taskType 任务类型 key
+     * @param tenantId claim 租户 (类型租户内唯一; 同 typeKey 跨租户各自的背压配置)
      * @throws ApiException(code=20006) 队列已满
      */
-    public void checkOrThrow(String taskType) {
+    public void checkOrThrow(String taskType, Long tenantId) {
         if (taskType == null || taskType.isEmpty()) {
             return; // 无 type 不在背压范围内 (但 task type 校验由 service 层处理)
         }
@@ -49,6 +50,7 @@ public class TaskSubmitGuard {
         AstTaskTypeConfig config = typeConfigMapper.selectOne(
                 new LambdaQueryWrapper<AstTaskTypeConfig>()
                         .eq(AstTaskTypeConfig::getTypeKey, taskType)
+                        .eq(tenantId != null, AstTaskTypeConfig::getTenantId, tenantId)
                         .eq(AstTaskTypeConfig::getIsDeleted, 0));
 
         if (config == null) {

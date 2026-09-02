@@ -71,7 +71,9 @@ public class AdminServiceImpl implements AdminService {
         log.info("Saving task type config: {}", request.getTypeKey());
 
         // 查询是否已存在
-        AstTaskTypeConfig existing = taskTypeConfigMapper.selectByTypeKey(request.getTypeKey());
+        // 定位: 带 request.tenantId → 租户内 upsert (同 typeKey 跨租户共存);
+        // tenantId 缺省 → 全局语义 (update 缺省保留原归属的老路径)
+        AstTaskTypeConfig existing = taskTypeConfigMapper.selectByTypeKey(request.getTypeKey(), request.getTenantId());
 
         if (existing != null) {
             // 归属冲突守卫: typeKey 已被其他租户占用时拒绝 (防跨租户静默劫持更新)
@@ -185,10 +187,11 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
-    public TaskTypeConfigResponse getTaskTypeConfig(String typeKey) {
+    public TaskTypeConfigResponse getTaskTypeConfig(String typeKey, Long tenantId) {
         log.debug("Fetching task type config: {}", typeKey);
 
-        AstTaskTypeConfig config = taskTypeConfigMapper.selectByTypeKey(typeKey);
+        // tenantId 缺省 = 全局语义 (typeKey 平台内约定全局唯一; 租户内唯一时可显式传参消歧)
+        AstTaskTypeConfig config = taskTypeConfigMapper.selectByTypeKey(typeKey, tenantId);
         if (config == null) {
             throw new ApiException(BusinessCode.TASK_NOT_FOUND.getCode(), "任务类型配置不存在: " + typeKey);
         }
@@ -198,10 +201,10 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     @Transactional
-    public void deleteTaskTypeConfig(String typeKey) {
+    public void deleteTaskTypeConfig(String typeKey, Long tenantId) {
         log.info("Deleting task type config: {}", typeKey);
 
-        AstTaskTypeConfig existing = taskTypeConfigMapper.selectByTypeKey(typeKey);
+        AstTaskTypeConfig existing = taskTypeConfigMapper.selectByTypeKey(typeKey, tenantId);
         if (existing == null) {
             throw new ApiException(BusinessCode.TASK_NOT_FOUND.getCode(), "任务类型配置不存在: " + typeKey);
         }

@@ -157,6 +157,8 @@ export const system = {
     title: 'Web 嵌入配置',
     addNew: '新建配置',
     edit: '编辑配置',
+    tenant: '租户归属',
+    tenantPlaceholder: '选择配置归属的租户',
     componentType: '组件类型',
     configKey: '配置 Key',
     configKeyPlaceholder: '最长 64 字符',

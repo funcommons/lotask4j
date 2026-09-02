@@ -67,6 +67,11 @@ public class AdminWebEmbedServiceImpl implements AdminWebEmbedService {
 
     @Override
     public Long createConfig(WebEmbedConfigRequest request) {
+        // 0. 租户归属必填 (embed 短期 token 的租户 claim 来源, 平台替租户建配置)
+        if (request.getTenantId() == null) {
+            throw new IllegalArgumentException("tenantId 不能为空");
+        }
+
         // 1. 校验 configKey 唯一
         int count = configMapper.countByConfigKeyExcludeId(request.getConfigKey(), null);
         if (count > 0) {
@@ -109,7 +114,7 @@ public class AdminWebEmbedServiceImpl implements AdminWebEmbedService {
             throw new IllegalArgumentException("configKey 已存在: " + request.getConfigKey());
         }
 
-        // 3. 更新
+        // 3. 更新 (tenantId 可选: 传入即变更归属, 缺省保留原归属 — XML 条件更新)
         WebEmbedConfig update = new WebEmbedConfig();
         BeanUtils.copyProperties(request, update);
         update.setId(request.getId());

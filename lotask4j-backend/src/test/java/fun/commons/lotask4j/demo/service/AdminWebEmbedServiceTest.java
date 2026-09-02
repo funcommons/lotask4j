@@ -147,12 +147,26 @@ class AdminWebEmbedServiceTest {
     // ==================== createConfig ====================
 
     @Test
+    @DisplayName("createConfig: tenantId 缺失 → IAE (embed token 的租户 claim 来源)")
+    void createConfig_tenantRequired() {
+        WebEmbedConfigRequest req = new WebEmbedConfigRequest();
+        req.setConfigKey("ek-noTenant");
+        req.setConfigName("n");
+        req.setUserId("u");
+        req.setComponentType("task-list");
+        assertThatThrownBy(() -> service.createConfig(req))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("tenantId 不能为空");
+    }
+
+    @Test
     @DisplayName("createConfig: configKey 重复 → IAE")
     void createConfig_duplicateKey() {
         WebEmbedConfigRequest req = new WebEmbedConfigRequest();
         req.setConfigKey("dup");
         req.setConfigName("n");
         req.setUserId("u");
+        req.setTenantId(1L);
         req.setComponentType("task-list");
         when(configMapper.countByConfigKeyExcludeId("dup", null)).thenReturn(1);
         assertThatThrownBy(() -> service.createConfig(req))
@@ -167,6 +181,7 @@ class AdminWebEmbedServiceTest {
         req.setConfigKey("ek-new");
         req.setConfigName("n");
         req.setUserId("u");
+        req.setTenantId(1L);
         // componentType/isOpen/config 全 null
         when(configMapper.countByConfigKeyExcludeId("ek-new", null)).thenReturn(0);
 
@@ -187,6 +202,7 @@ class AdminWebEmbedServiceTest {
         req.setConfigKey("ek-json");
         req.setConfigName("n");
         req.setUserId("u");
+        req.setTenantId(1L);
         req.setComponentType("task-card");
         Map<String, Object> cfg = new HashMap<>();
         cfg.put("theme", "dark");

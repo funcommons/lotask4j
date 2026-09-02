@@ -3,6 +3,8 @@
 -- P0 增强：乐观锁 (version)、execution_token、lease、attempt、idempotency_key
 -- 分区: 与 Flyway V2 后生产结构对齐 (PARTITION BY RANGE created_at + default 兜底;
 --       月分区由 TaskArchiver 运维逻辑建, 测试只保证 default 兜底即可写入)
+-- tenant_id: V5 已在 Flyway 路径收紧 NOT NULL; 本测试 schema 有意保持 nullable,
+--            以兼容未携带租户 claim 的既有 mapper 层用例 (生产由 claim + V5 双保险)
 
 DROP TABLE IF EXISTS asts_task_execution_event CASCADE;
 DROP TABLE IF EXISTS asts_outbox CASCADE;

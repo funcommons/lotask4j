@@ -1,0 +1,57 @@
+# lotask4j 真实联调环境 (PG + Redis + backend)
+#
+# 用法:
+#   mvn -pl lotask4j-backend -am package -DskipTests   # 先打包
+#   docker compose up -d --build                        # 起环境 (Flyway 自动迁移 V1..V5)
+#   bash scripts/smoke.sh                               # 全链路冒烟 (另开终端亦可)
+#   docker compose down -v                              # 清理
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: smoke
+      POSTGRES_DB: lotask4j
+    ports:
+      - "15432:5432"
+    volumes:
+      - pgdata-smoke:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d lotask4j"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "16379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      LDX_DEV_DB_URL: jdbc:postgresql://postgres:5432/lotask4j
+      LDX_DEV_DB_USERNAME: admin
+      LDX_DEV_DB_PASSWORD: smoke
+      LDX_DEV_REDIS_HOST: redis
+      LDX_DEV_REDIS_PASSWORD: ""
+      PLATFORM_CLIENT_ID: PLATFORM
+      PLATFORM_CLIENT_SECRET: smoke-platform-secret
+      JAVA_OPTS: "-Xms256m -Xmx512m"
+    ports:
+      - "19080:9080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata-smoke:

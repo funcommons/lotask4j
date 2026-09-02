@@ -1367,6 +1367,8 @@ export type EmbedComponentType = 'task-list' | 'task-detail' | 'task-card'
 /** Web Embed 配置 (WebEmbedConfigResponse) */
 export interface WebEmbedConfig {
   id?: number
+  /** 租户归属 (embed 短期 token 的租户 claim 来源, 平台替租户建配置时必填) */
+  tenantId?: number
   configKey: string
   configName: string
   userId: string

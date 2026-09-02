@@ -91,6 +91,7 @@
     <update id="updateConfig">
         UPDATE asts_web_embed_config
         <set>
+            <if test="config.tenantId != null">tenant_id = #{config.tenantId},</if>
             config_key = #{config.configKey},
             config_name = #{config.configName},
             user_id = #{config.userId},

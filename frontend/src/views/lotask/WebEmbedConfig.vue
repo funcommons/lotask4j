@@ -78,6 +78,16 @@
       width="640px"
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
+        <el-form-item :label="t('lotask.system.webEmbed.tenant')" prop="tenantId" class="fc-form-item">
+          <FcSelect v-model="form.tenantId" :placeholder="t('lotask.system.webEmbed.tenantPlaceholder')" filterable>
+            <el-option
+              v-for="tenant in tenantOptions"
+              :key="tenant.id"
+              :label="tenant.name"
+              :value="tenant.id"
+            />
+          </FcSelect>
+        </el-form-item>
         <el-form-item :label="t('lotask.system.webEmbed.componentType')" prop="componentType" class="fc-form-item">
           <FcSelect v-model="form.componentType" :disabled="!!editing">
             <el-option label="task-list" value="task-list" />
@@ -195,6 +205,7 @@ import {
   type EmbedConfigQuery,
 } from '@/api/embedConfig'
 import type { WebEmbedConfig } from '@/api/types'
+import { listTenants, type TenantItem } from '@/api/tenants'
 import { useClipboard } from '@/composables'
 import { toast } from '@/components/sdk'
 import FcSection from '@/components/sdk/section/FcSection.vue'
@@ -230,9 +241,11 @@ const togglingId = ref<number | null>(null)
 const dialogVisible = ref(false)
 const editing = ref<WebEmbedConfig | null>(null)
 const formRef = ref<FormInstance>()
+const tenantOptions = ref<TenantItem[]>([])
 
 const form = reactive({
   id: undefined as number | undefined,
+  tenantId: undefined as number | undefined,
   componentType: 'task-list' as WebEmbedConfig['componentType'],
   configKey: '',
   configName: '',
@@ -244,6 +257,9 @@ const form = reactive({
 })
 
 const rules = computed<FormRules>(() => ({
+  tenantId: [
+    { required: true, message: () => t('lotask.system.common.required'), trigger: 'change' },
+  ],
   componentType: [
     { required: true, message: () => t('lotask.system.common.required'), trigger: 'change' },
   ],
@@ -287,10 +303,20 @@ function componentTagColor(t: string): 'success' | 'primary' | 'warning' {
   return map[t] || 'primary'
 }
 
+async function loadTenantOptions() {
+  try {
+    const res = await listTenants({ page: 1, pageSize: 200 })
+    tenantOptions.value = (res.items || []).filter((t) => t.status === 'ACTIVE')
+  } catch (err) {
+    console.error('load tenants failed:', err)
+  }
+}
+
 function handleAdd() {
   editing.value = null
   Object.assign(form, {
     id: undefined,
+    tenantId: undefined,
     componentType: 'task-list',
     configKey: '',
     configName: '',
@@ -309,6 +335,7 @@ async function handleEdit(row: WebEmbedConfig) {
     const data = res as WebEmbedConfig
     Object.assign(form, {
       id: data.id,
+      tenantId: data.tenantId,
       componentType: data.componentType,
       configKey: data.configKey,
       configName: data.configName,
@@ -351,6 +378,7 @@ async function handleSubmit() {
   submitting.value = true
   try {
     const data: Record<string, unknown> = {
+      tenantId: form.tenantId,
       componentType: form.componentType,
       configKey: form.configKey,
       configName: form.configName,
@@ -456,7 +484,10 @@ watch([page, pageSize], () => {
   load()
 })
 
-onMounted(load)
+onMounted(() => {
+  load()
+  loadTenantOptions()
+})
 </script>
 
 <style scoped lang="scss">

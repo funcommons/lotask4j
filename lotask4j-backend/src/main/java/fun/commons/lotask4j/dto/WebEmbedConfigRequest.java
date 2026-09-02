@@ -22,6 +22,12 @@ public class WebEmbedConfigRequest {
     private Long id;
 
     /**
+     * 租户归属 (决定 embed 短期 token 的租户 claim)。
+     * 创建必填 (校验在 AdminWebEmbedServiceImpl.createConfig, update 可选=保留原归属)
+     */
+    private Long tenantId;
+
+    /**
      * 访问密钥（accessKey）
      */
     @NotBlank(message = "configKey 不能为空")

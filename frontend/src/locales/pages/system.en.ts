@@ -157,6 +157,8 @@ export const system = {
     title: 'Web Embed Config',
     addNew: 'New Config',
     edit: 'Edit Config',
+    tenant: 'Tenant',
+    tenantPlaceholder: 'Select the owning tenant',
     componentType: 'Component Type',
     configKey: 'Config Key',
     configKeyPlaceholder: 'max 64 chars',

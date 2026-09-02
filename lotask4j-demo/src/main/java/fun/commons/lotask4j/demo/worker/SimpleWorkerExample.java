@@ -101,15 +101,22 @@ public class SimpleWorkerExample {
                 Map<String, Object> task = pollTask();
 
                 if (task != null) {
-                    // 获取任务信息
-                    String taskId = (String) task.get("taskId");
+                    // 获取任务信息 (P0 fencing 契约: poll 响应携带 executionToken + version,
+                    // 后续每次上报必须携带, 且每成功一次 version + 1)
+                    Object idObj = task.get("id");
+                    String taskId = idObj != null ? String.valueOf(idObj) : (String) task.get("taskId");
                     String type = (String) task.get("type");
                     Map<String, Object> payload = (Map<String, Object>) task.get("payload");
+                    Number tokenObj = (Number) task.get("executionToken");
+                    Number verObj = (Number) task.get("version");
 
-                    log.info("Acquired task: taskId={}, type={}", taskId, type);
+                    log.info("Acquired task: taskId={}, type={}, executionToken={}, version={}",
+                            taskId, type, tokenObj, verObj);
 
                     // 执行任务
-                    processTask(taskId, payload);
+                    processTask(taskId, payload,
+                            tokenObj != null ? tokenObj.longValue() : null,
+                            verObj != null ? verObj.intValue() : 0);
                 } else {
                     log.debug("No tasks available, waiting {}s...", pollIntervalSeconds);
                 }
@@ -187,10 +194,13 @@ public class SimpleWorkerExample {
     /**
      * 处理任务
      *
-     * @param taskId 任务 ID
-     * @param payload 任务载荷
+     * @param taskId         任务 ID
+     * @param payload        任务载荷
+     * @param executionToken P0 fencing 令牌 (poll 时签发, 上报必带)
+     * @param version        乐观锁版本 (poll 响应携带, 每成功上报一次 +1)
      */
-    private void processTask(String taskId, Map<String, Object> payload) {
+    private void processTask(String taskId, Map<String, Object> payload,
+                             Long executionToken, int version) {
         try {
             log.info("Processing task: {}", taskId);
 
@@ -211,8 +221,9 @@ public class SimpleWorkerExample {
                     TimeUnit.SECONDS.sleep(1);
                     stepProgress += 20;
 
-                    // 上报进度
-                    reportProgress(taskId, stepKey, stepProgress);
+                    // 上报进度 (成功后服务端 version + 1, 本地同步递增)
+                    reportProgress(taskId, stepKey, stepProgress, executionToken, version);
+                    version++;
                 }
             }
 
@@ -222,17 +233,17 @@ public class SimpleWorkerExample {
             result.put("duration", 120);
             result.put("quality", "1080p");
 
-            reportResult(taskId, "SUCCESS", result, null);
+            reportResult(taskId, "SUCCESS", result, null, executionToken, version);
 
             log.info("Task completed successfully: {}", taskId);
 
         } catch (InterruptedException e) {
             log.warn("Task interrupted: {}", taskId);
-            reportResult(taskId, "FAILED", null, "Task interrupted");
+            reportResult(taskId, "FAILED", null, "Task interrupted", executionToken, version);
             Thread.currentThread().interrupt();
         } catch (Exception e) {
             log.error("Task failed: {}", taskId, e);
-            reportResult(taskId, "FAILED", null, e.getMessage());
+            reportResult(taskId, "FAILED", null, e.getMessage(), executionToken, version);
         }
     }
 
@@ -266,18 +277,23 @@ public class SimpleWorkerExample {
     }
 
     /**
-     * 上报任务进度
+     * 上报任务进度 (P0 fencing: 必须携带 executionToken 与当前 version)
      *
      * @param taskId 任务 ID
      * @param currentStepKey 当前步骤键
      * @param stepProgress 步骤进度 (0-100)
+     * @param executionToken fencing 令牌
+     * @param version 乐观锁版本
      */
-    private void reportProgress(String taskId, String currentStepKey, int stepProgress) {
+    private void reportProgress(String taskId, String currentStepKey, int stepProgress,
+                                Long executionToken, int version) {
         String url = baseUrl + "/tasks/" + taskId + "/progress";
 
         Map<String, Object> request = new HashMap<>();
         request.put("currentStepKey", currentStepKey);
         request.put("stepProgress", stepProgress);
+        request.put("executionToken", executionToken);
+        request.put("version", version);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -294,14 +310,17 @@ public class SimpleWorkerExample {
     }
 
     /**
-     * 上报任务最终结果
+     * 上报任务最终结果 (P0 fencing: 必须携带 executionToken 与当前 version)
      *
      * @param taskId 任务 ID
      * @param status 最终状态 (SUCCESS/FAILED/CANCELLED)
      * @param result 结果数据
      * @param errorMsg 错误信息 (失败时提供)
+     * @param executionToken fencing 令牌
+     * @param version 乐观锁版本
      */
-    private void reportResult(String taskId, String status, Map<String, Object> result, String errorMsg) {
+    private void reportResult(String taskId, String status, Map<String, Object> result,
+                              String errorMsg, Long executionToken, int version) {
         String url = baseUrl + "/tasks/" + taskId + "/result";
 
         Map<String, Object> request = new HashMap<>();
@@ -312,6 +331,8 @@ public class SimpleWorkerExample {
         if (errorMsg != null) {
             request.put("errorMsg", errorMsg);
         }
+        request.put("executionToken", executionToken);
+        request.put("version", version);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);

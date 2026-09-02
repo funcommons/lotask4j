@@ -7,6 +7,9 @@ spring:
     exclude:
      - com.baomidou.mybatisplus.autoconfigure.MybatisPlusAutoConfiguration
      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+     # Druid starter 自带的 spring.datasource.* 装配 — 本项目走 framework4j 多数据源,
+     # 不排除时打包启动即失败 (v1.5.1 切 3-starter 后暴露, 被测试路径掩盖)
+     - com.alibaba.druid.spring.boot3.autoconfigure.DruidDataSourceAutoConfigure
      - org.redisson.spring.starter.RedissonAutoConfigurationV2
 
   # Jackson时区配置（北京时间 CST 规范）

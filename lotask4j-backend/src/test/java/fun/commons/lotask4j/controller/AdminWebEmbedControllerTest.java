@@ -64,7 +64,7 @@ class AdminWebEmbedControllerTest {
                         .header("Authorization", "Bearer " + platformToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"configKey":"%s","configName":"it-cfg","userId":"u-1",
+                                {"tenantId":1,"configKey":"%s","configName":"it-cfg","userId":"u-1",
                                  "componentType":"task-list","config":{"theme":"dark"}}
                                 """.formatted(key)))
                 .andExpect(status().isOk())
@@ -183,7 +183,7 @@ class AdminWebEmbedControllerTest {
                         .header("Authorization", "Bearer " + platformToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"configKey":"%s","configName":"n","userId":"u",
+                                {"tenantId":1,"configKey":"%s","configName":"n","userId":"u",
                                  "componentType":"task-list"}
                                 """.formatted(key)))
                 .andExpect(status().isOk())

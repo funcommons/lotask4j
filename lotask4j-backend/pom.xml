@@ -219,10 +219,18 @@
 
     <build>
         <plugins>
-            <!-- Spring Boot Maven 插件 -->
+            <!-- Spring Boot Maven 插件 — repackage 必须显式绑定 (父 POM 非 spring-boot-starter-parent,
+                 pluginManagement 不会自动带 repackage 执行; 缺失时 package 产出不可启动的瘦 jar) -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
 
             <!-- Maven Compiler Plugin -->

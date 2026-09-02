@@ -444,7 +444,10 @@
             updated_at = #{now}
         WHERE id = #{id}
           AND version = #{expectedVersion}
-          AND status IN ('PENDING', 'CANCELLING')
+          <!-- status 含 RUNNING: pollAndLockTask 已将任务置 RUNNING (不动 version),
+               本 worker 紧随其后的 dispatch 携带同一 version 落 fencing 信息;
+               version CAS 保证仅本轮 poll 的持有者能命中 -->
+          AND status IN ('PENDING', 'RUNNING', 'CANCELLING')
           AND is_deleted = 0
           <if test="tenantId != null">
             AND tenant_id = #{tenantId}
@@ -486,7 +489,8 @@
     <!-- 进度上报 (CAS by version + token) -->
     <update id="progressWithVersion">
         UPDATE asts_task
-        SET current_step_key = #{currentStepKey},
+        SET version = version + 1,
+            current_step_key = #{currentStepKey},
             current_step_progress = #{stepProgress},
             steps_detail = #{stepsDetail}::jsonb,
             progress = #{globalProgress},

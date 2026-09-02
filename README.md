@@ -5,6 +5,18 @@ Asynchronous Slow Task Service
 
 > 分布式异步任务处理平台，专门处理耗时较长（>10秒）的业务逻辑，如数据导出、视频转码等。提供实时细粒度进度反馈、任务取消机制、优先级调度、多租户隔离、可视化管理后台等企业级能力。
 
+## 📖 文档中心
+
+完整用户文档（产品简介 / 快速入门 / 用户指南 / 开发指南 / 最佳实践 / 管理指南 / 安全 / FAQ）见 **[docs/README.md](./docs/README.md)**。
+
+| 我想… | 直接看 |
+|--------|--------|
+| 把业务系统接入 ASTS | [准备工作](./docs/quick-start/prepare.md) → [提交第一个任务](./docs/quick-start/first-task.md) |
+| 开发任务执行器 (Worker) | [实现第一个 Worker](./docs/quick-start/first-worker.md) → [Worker 开发规范](./docs/best-practice/worker.md) |
+| 接收任务完成回调 | [回调与 Webhook](./docs/user-guide/webhook.md) → [验签与 verify-then-act](./docs/best-practice/webhook-verify.md) |
+| 运营管理平台 | [租户管理](./docs/admin-guide/tenant.md) → [任务类型配置](./docs/admin-guide/task-type.md) |
+| 查接口与错误码 | [Client API](./docs/dev-guide/client-api.md) / [Worker API](./docs/dev-guide/worker-api.md) / [Admin API](./docs/dev-guide/admin-api.md) / [错误码](./docs/dev-guide/error-codes.md) |
+
 ## 运行条件
 
 ### 必需环境
@@ -243,6 +255,7 @@ mvn test jacoco:report
 
 ## 快速导航
 
+- **用户文档中心**: [`docs/README.md`](./docs/README.md)（产品简介 / 快速入门 / 用户指南 / 开发指南 / 最佳实践 / 管理指南 / 安全 / FAQ）
 - **前端说明**: [`frontend/CLAUDE.md`](./CLAUDE.md)（含架构约定与开发规范）
 - **接入示例**: [`lotask4j-demo/README.md`](./lotask4j-demo/README.md)（client 提交 + worker 消费 + webhook 验签）
-- **产品/接口/数据库设计文档**: 位于内部 wiki（本仓库不含 `documents/` 目录）
+- **内部设计文档**: 位于内部 wiki（本仓库不含 `documents/` 目录）

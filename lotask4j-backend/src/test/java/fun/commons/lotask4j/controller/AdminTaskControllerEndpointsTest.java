@@ -65,7 +65,7 @@ class AdminTaskControllerEndpointsTest {
                         .header("Authorization", "Bearer " + platformToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"typeKey":"%s","name":"it-type","concurrencyLimit":2,
+                                {"typeKey":"%s","tenantId":1,"name":"it-type","concurrencyLimit":2,
                                  "timeoutSeconds":600,"maxRetries":1,"isEnabled":true}
                                 """.formatted(typeKey)))
                 .andExpect(status().isOk())

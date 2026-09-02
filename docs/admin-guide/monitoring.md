@@ -32,6 +32,8 @@
 - `lotask4j_task_queue_delay_seconds{quantile=0.99} > 300` — 排队 P99 超 5 分钟（容量不足）
 - `lotask4j.workers.active < 预期` — Worker 掉线
 
+**开箱即用看板**：`deploy/grafana-dashboard.json` — Grafana → Dashboards → Import 导入，支持按任务类型筛选，含状态总览/失败归因/排队时延/Worker 活跃度 7 个面板。
+
 ## 健康与端点
 
 | 端点 | 用途 |
@@ -57,6 +59,22 @@
 | 任务卡 `RUNNING` 很久 | 事件时间线最后一条是否停更 → Worker 是否离线 → 等租约到期自动重派 |
 | Webhook 收不到 | 任务详情 `callbackStatus`：0=未投/重试中，2=终态失败 → 查接收端可达性与验签 |
 | 认证突然 401 | 租户是否被停用/reset → 密钥宽限期是否已过 |
+
+## 本地联调与压测环境
+
+仓库自带 docker compose 真实联调栈（PG 16 + Redis 7 + backend，Flyway 全量迁移）：
+
+```bash
+mvn -pl lotask4j-backend -am package -DskipTests   # 打包
+docker compose up -d --build                        # 起环境 (backend :19080)
+bash scripts/smoke.sh                               # 全链路冒烟 (24 断言)
+python3 scripts/poll_bench.py --tasks 20 --workers 8  # poll 并发压测
+docker compose down -v                              # 清理
+```
+
+- `scripts/smoke.sh`：Flyway 迁移、双身份认证、HMAC 签名提交、幂等、租户隔离、消费全链、Webhook 真实投递+验签、reset-secret 宽限、embed token、防爆破。
+- `scripts/poll_bench.py`：并发抢占正确性（每任务恰好消费一次）+ 吞吐/时延基线。
+- 发版前建议全量跑一遍 smoke；压测吞吐随 submit 限流（30/min/租户）配速。
 
 ## 相关文档
 

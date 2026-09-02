@@ -74,7 +74,15 @@ public class AdminServiceImpl implements AdminService {
         AstTaskTypeConfig existing = taskTypeConfigMapper.selectByTypeKey(request.getTypeKey());
 
         if (existing != null) {
-            // 更新现有配置
+            // 归属冲突守卫: typeKey 已被其他租户占用时拒绝 (防跨租户静默劫持更新)
+            if (request.getTenantId() != null && !request.getTenantId().equals(existing.getTenantId())) {
+                throw new IllegalArgumentException(
+                        "typeKey 已被其他租户占用: " + request.getTypeKey());
+            }
+            // 更新现有配置 (tenantId 缺省保留原归属; 显式传入可变更归属)
+            if (request.getTenantId() != null) {
+                existing.setTenantId(request.getTenantId());
+            }
             existing.setName(request.getName());
             existing.setConcurrencyLimit(request.getConcurrencyLimit());
             existing.setTimeoutSeconds(request.getTimeoutSeconds());
@@ -85,8 +93,12 @@ public class AdminServiceImpl implements AdminService {
             taskTypeConfigMapper.updateById(existing);
             log.info("Task type config updated: {}", request.getTypeKey());
         } else {
-            // 创建新配置
+            // 创建新配置 — 租户归属必填 (V5 起 tenant_id NOT NULL, 且类型是租户级资源)
+            if (request.getTenantId() == null) {
+                throw new IllegalArgumentException("tenantId 不能为空");
+            }
             AstTaskTypeConfig config = new AstTaskTypeConfig();
+            config.setTenantId(request.getTenantId());
             config.setTypeKey(request.getTypeKey());
             config.setName(request.getName());
             config.setConcurrencyLimit(request.getConcurrencyLimit());

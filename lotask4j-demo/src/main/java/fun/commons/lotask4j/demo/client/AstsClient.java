@@ -91,27 +91,29 @@ public class AstsClient {
             .map(response -> {
                 JSONObject json = JSONObject.parseObject(response);
                 JSONObject data = json.getJSONObject("data");
-                return new TaskResponse(data.getString("taskId"));
+                // 服务端 SubmitTaskResponse 字段为 id (OpenID 串)
+                return new TaskResponse(data.getString("id"));
             })
             .doOnError(error -> log.error("提交任务失败", error));
     }
 
     /**
-     * 获取任务详情 (GET 免签名)
+     * 获取任务详情 (GET 免签名, 但需 Bearer 认证 — client GET 已收口 @TenantDomain)
      */
     public Mono<TaskDetail> getTaskDetail(String taskId) {
         log.info("获取任务详情: taskId={}", taskId);
 
-        return webClient
+        return bearerToken().flatMap(token -> webClient
             .get()
             .uri(serverUrl + "/api/v1/client/tasks/{taskId}", taskId)
+            .headers(h -> h.setBearerAuth(token))
             .retrieve()
-            .bodyToMono(String.class)
+            .bodyToMono(String.class))
             .map(response -> {
                 JSONObject json = JSONObject.parseObject(response);
                 JSONObject data = json.getJSONObject("data");
                 return new TaskDetail(
-                    data.getString("taskId"),
+                    data.getString("id"),
                     data.getString("type"),
                     data.getString("status"),
                     data.getIntValue("progress"),

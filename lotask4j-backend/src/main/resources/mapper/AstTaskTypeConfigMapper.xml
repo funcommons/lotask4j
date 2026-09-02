@@ -4,7 +4,7 @@
 
     <!-- 根据 typeKey 查询任务类型配置 -->
     <select id="selectByTypeKey" resultType="fun.commons.lotask4j.entity.AstTaskTypeConfig">
-        SELECT id, type_key, type_name, max_concurrency, exec_timeout_sec, max_retry_count,
+        SELECT id, tenant_id, type_key, type_name, max_concurrency, exec_timeout_sec, max_retry_count,
                is_enabled, steps_definition, created_at, updated_at, is_deleted
         FROM asts_task_type_config
         WHERE type_key = #{typeKey}

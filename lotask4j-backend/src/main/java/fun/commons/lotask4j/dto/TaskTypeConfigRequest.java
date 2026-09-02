@@ -17,6 +17,12 @@ import java.util.Map;
 public class TaskTypeConfigRequest {
 
     /**
+     * 租户归属 (平台替租户建类型; 创建必填 — V5 起 tenant_id NOT NULL,
+     * 校验在 AdminServiceImpl.saveTaskTypeConfig, update 缺省保留原归属)
+     */
+    private Long tenantId;
+
+    /**
      * 任务类型标识
      */
     @NotBlank(message = "任务类型标识不能为空")

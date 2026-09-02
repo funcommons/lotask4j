@@ -31,6 +31,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -118,6 +119,7 @@ class AdminServiceImplTest {
 
             AstTaskTypeConfig existing = new AstTaskTypeConfig();
             existing.setTypeKey("video_transcode");
+            existing.setTenantId(1L);
             when(taskTypeConfigMapper.selectByTypeKey("video_transcode")).thenReturn(existing);
 
             adminService.saveTaskTypeConfig(req);
@@ -135,6 +137,7 @@ class AdminServiceImplTest {
 
             AstTaskTypeConfig existing = new AstTaskTypeConfig();
             existing.setTypeKey("video_transcode");
+            existing.setTenantId(1L);
             when(taskTypeConfigMapper.selectByTypeKey("video_transcode")).thenReturn(existing);
 
             adminService.saveTaskTypeConfig(req);
@@ -178,6 +181,7 @@ class AdminServiceImplTest {
 
         private TaskTypeConfigRequest buildRequest(String key, Boolean isEnabled) {
             TaskTypeConfigRequest r = new TaskTypeConfigRequest();
+            r.setTenantId(1L);
             r.setTypeKey(key);
             r.setName("视频转码");
             r.setConcurrencyLimit(5);
@@ -186,6 +190,34 @@ class AdminServiceImplTest {
             r.setIsEnabled(isEnabled);
             r.setStepsConfig(new java.util.ArrayList<>());
             return r;
+        }
+
+        @Test
+        @DisplayName("新建时 tenantId 缺失 → IAE (V5 起 tenant_id NOT NULL)")
+        void newConfig_tenantRequired() {
+            TaskTypeConfigRequest req = buildRequest("new_type", true);
+            req.setTenantId(null);
+            when(taskTypeConfigMapper.selectByTypeKey("new_type")).thenReturn(null);
+
+            assertThatThrownBy(() -> adminService.saveTaskTypeConfig(req))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("tenantId 不能为空");
+        }
+
+        @Test
+        @DisplayName("typeKey 已被其他租户占用 → IAE (防跨租户劫持更新)")
+        void existingConfig_tenantConflict() {
+            TaskTypeConfigRequest req = buildRequest("video_transcode", true);
+            req.setTenantId(99L);
+
+            AstTaskTypeConfig existing = new AstTaskTypeConfig();
+            existing.setTypeKey("video_transcode");
+            existing.setTenantId(1L);
+            when(taskTypeConfigMapper.selectByTypeKey("video_transcode")).thenReturn(existing);
+
+            assertThatThrownBy(() -> adminService.saveTaskTypeConfig(req))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("已被其他租户占用");
         }
     }
 

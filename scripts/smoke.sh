@@ -89,12 +89,13 @@ TB=$(curl -sf -X POST "$BASE/api/v1/auth/token" -H "Content-Type: application/x-
 [ -n "$TA" ] && ok "租户 A Token" || bad "租户 A Token"
 [ -n "$TB" ] && ok "租户 B Token" || bad "租户 B Token"
 
-# ---------- 3. 类型配置 (平台替租户建) ----------
-say "平台创建任务类型 data_export"
+# ---------- 3. 类型配置 (平台替租户建, 带租户归属 — V5 起必填) ----------
+TYPE_KEY="data-export-$TS"
+say "平台创建任务类型 $TYPE_KEY (归属租户 A)"
 RC=$(curl -sf -X POST "$BASE/api/v1/admin/types" -H "Authorization: Bearer $PT" \
   -H "Content-Type: application/json" \
-  -d '{"typeKey":"data_export","name":"数据导出","concurrencyLimit":5,"timeoutSeconds":600,"maxRetries":1,"isEnabled":true}')
-assert_eq "类型配置创建" "0" "$(echo "$RC" | jsonget "d['code']")"
+  -d '{"typeKey":"'"$TYPE_KEY"'","tenantId":'"$TENANT_A_ID"',"name":"数据导出","concurrencyLimit":5,"timeoutSeconds":600,"maxRetries":1,"isEnabled":true}')
+assert_eq "类型配置创建 (带租户归属)" "0" "$(echo "$RC" | jsonget "d['code']")"
 
 # ---------- 4. Webhook 接收端 (宿主机, 后端容器经 host.docker.internal 回调) ----------
 say "启动 Webhook 接收端 (验签 HMAC)..."
@@ -106,7 +107,7 @@ sleep 1
 # ---------- 5. 提交任务 (A, 带幂等键 + HMAC 签名) ----------
 say "租户 A 提交任务 (submit 端点强制 HMAC 签名)"
 SUBMIT_BODY="{
-    \"type\":\"data_export\",
+    \"type\":\"$TYPE_KEY\",
     \"payload\":{\"query\":\"SELECT 1\"},
     \"priority\":10,
     \"idempotencyKey\":\"smoke-$TS\",
@@ -120,14 +121,14 @@ TASK_ID=$(echo "$RS" | jsonget "d['data']['id']")
 # 篡改 body 后签名失效 → 拒绝
 split_headers "$(signed_headers POST "/api/v1/client/tasks/submit" "$SUBMIT_BODY" "smoke-a-$TS" "$SECRET_A")"
 TAMPER=$(curl -s -X POST "$BASE/api/v1/client/tasks/submit" -H "Authorization: Bearer $TA" \
-  -H "Content-Type: application/json" -d "{\"type\":\"data_export\",\"payload\":{},\"idempotencyKey\":\"tamper-$TS\"}" -H "$_sh1" -H "$_sh2" -H "$_sh3" -H "$_sh4")
+  -H "Content-Type: application/json" -d "{\"type\":\"$TYPE_KEY\",\"payload\":{},\"idempotencyKey\":\"tamper-$TS\"}" -H "$_sh1" -H "$_sh2" -H "$_sh3" -H "$_sh4")
 assert_eq "篡改 body 被签名拒绝" "10302" "$(echo "$TAMPER" | jsonget "d['code']")"
 
 # 幂等: 同键再提交返回同一 id
-split_headers "$(signed_headers POST "/api/v1/client/tasks/submit" '{"type":"data_export","payload":{},"idempotencyKey":"smoke-'"$TS"'"}' "smoke-a-$TS" "$SECRET_A")"
+split_headers "$(signed_headers POST "/api/v1/client/tasks/submit" '{"type":"'"$TYPE_KEY"'","payload":{},"idempotencyKey":"smoke-'"$TS"'"}' "smoke-a-$TS" "$SECRET_A")"
 RS2=$(curl -sf -X POST "$BASE/api/v1/client/tasks/submit" -H "Authorization: Bearer $TA" \
   -H "Content-Type: application/json" \
-  -d "{\"type\":\"data_export\",\"payload\":{},\"idempotencyKey\":\"smoke-$TS\"}" -H "$_sh1" -H "$_sh2" -H "$_sh3" -H "$_sh4")
+  -d "{\"type\":\"$TYPE_KEY\",\"payload\":{},\"idempotencyKey\":\"smoke-$TS\"}" -H "$_sh1" -H "$_sh2" -H "$_sh3" -H "$_sh4")
 assert_eq "幂等键命中返回同任务" "$TASK_ID" "$(echo "$RS2" | jsonget "d['data']['id']")"
 
 # ---------- 6. 隔离断言 ----------
@@ -137,7 +138,7 @@ assert_eq "B 查 A 任务 → 20100" "20100" "$(echo "$RB_GET" | jsonget "d['cod
 
 RB_HTTP=$(curl -s -o /tmp/smoke-b-poll.json -w '%{http_code}' -X POST "$BASE/api/v1/worker/tasks/poll" \
   -H "Authorization: Bearer $TB" \
-  -H "Content-Type: application/json" -d '{"taskType":"data_export","strategy":"PRIORITY","workerId":"wkr-b"}')
+  -H "Content-Type: application/json" -d '{"taskType":"'"$TYPE_KEY"'","strategy":"PRIORITY","workerId":"wkr-b"}')
 RB_DATA=$(jsonget "d['data']" < /tmp/smoke-b-poll.json)
 if [ "$RB_HTTP" = "200" ] && { [ -z "$RB_DATA" ] || [ "$RB_DATA" = "None" ]; }; then
   ok "B worker poll → 空 (隔离)"
@@ -148,7 +149,7 @@ fi
 # ---------- 7. A worker 消费全流程 ----------
 say "租户 A worker poll → progress → result"
 RP=$(curl -sf -X POST "$BASE/api/v1/worker/tasks/poll" -H "Authorization: Bearer $TA" \
-  -H "Content-Type: application/json" -d '{"taskType":"data_export","strategy":"PRIORITY","workerId":"wkr-a"}')
+  -H "Content-Type: application/json" -d '{"taskType":"'"$TYPE_KEY"'","strategy":"PRIORITY","workerId":"wkr-a"}')
 ET=$(echo "$RP" | jsonget "d['data']['executionToken']")
 VER=$(echo "$RP" | jsonget "d['data']['version']")
 [ -n "$ET" ] && ok "抢占成功 executionToken=$ET" || { bad "poll 失败: $RP"; exit 1; }

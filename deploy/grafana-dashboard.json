@@ -1,0 +1,129 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "lotask4j 后端 /actuator/prometheus 数据源",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "title": "lotask4j 异步慢任务服务",
+  "uid": "lotask4j-overview",
+  "tags": ["lotask4j", "asts"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "type",
+        "label": "任务类型",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+        "query": "label_values(lotask4j_tasks_submitted_total, type)",
+        "includeAll": true,
+        "multi": true,
+        "current": { "selected": true, "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "任务状态总览 (Stat)",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 24, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "refId": "A", "expr": "sum(increase(lotask4j_tasks_submitted_total{type=~\"$type\"}[1h]))", "legendFormat": "提交/1h" },
+        { "refId": "B", "expr": "sum(increase(lotask4j_tasks_succeeded_total{type=~\"$type\"}[1h]))", "legendFormat": "成功/1h" },
+        { "refId": "C", "expr": "sum(increase(lotask4j_tasks_failed_total{type=~\"$type\"}[1h]))", "legendFormat": "失败/1h" },
+        { "refId": "D", "expr": "sum(increase(lotask4j_tasks_canceled_total{type=~\"$type\"}[1h]))", "legendFormat": "取消/1h" },
+        { "refId": "E", "expr": "sum(increase(lotask4j_tasks_timeout_total{type=~\"$type\"}[1h]))", "legendFormat": "超时/1h" },
+        { "refId": "F", "expr": "sum(increase(lotask4j_tasks_retry_total{type=~\"$type\"}[1h]))", "legendFormat": "重试/1h" }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "提交 vs 成功 vs 失败速率 (5m)",
+      "type": "timeseries",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 5 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (type) (rate(lotask4j_tasks_submitted_total{type=~\"$type\"}[5m]))", "legendFormat": "提交 {{type}}" },
+        { "refId": "B", "expr": "sum by (type) (rate(lotask4j_tasks_succeeded_total{type=~\"$type\"}[5m]))", "legendFormat": "成功 {{type}}" },
+        { "refId": "C", "expr": "sum by (type) (rate(lotask4j_tasks_failed_total{type=~\"$type\"}[5m]))", "legendFormat": "失败 {{type}}" }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "失败按错误码分布 (5m)",
+      "type": "timeseries",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 5 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (error_code) (rate(lotask4j_tasks_failed_total{type=~\"$type\"}[5m]))", "legendFormat": "{{error_code}}" }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "排队时延 (queue_delay, 秒)",
+      "description": "started_at - created_at; P99 持续偏高说明容量不足",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "refId": "A", "expr": "max by (type) (lotask4j_task_queue_delay_seconds{type=~\"$type\", quantile=\"0.5\"})", "legendFormat": "p50 {{type}}" },
+        { "refId": "B", "expr": "max by (type) (lotask4j_task_queue_delay_seconds{type=~\"$type\", quantile=\"0.99\"})", "legendFormat": "p99 {{type}}" }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "执行时长 / 端到端时长 (exec & e2e, 秒)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "refId": "A", "expr": "max by (type) (lotask4j_task_exec_seconds{type=~\"$type\", quantile=\"0.99\"})", "legendFormat": "exec p99 {{type}}" },
+        { "refId": "B", "expr": "max by (type) (lotask4j_task_e2e_seconds{type=~\"$type\", quantile=\"0.99\"})", "legendFormat": "e2e p99 {{type}}" }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "活跃 Worker (持有租约数)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 22 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        { "refId": "A", "expr": "lotask4j_workers_active", "legendFormat": "active workers" }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "重试与超时速率 (15m)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 22 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "refId": "A", "expr": "sum by (type) (rate(lotask4j_tasks_retry_total{type=~\"$type\"}[15m]))", "legendFormat": "重试 {{type}}" },
+        { "refId": "B", "expr": "sum by (type) (rate(lotask4j_tasks_timeout_total{type=~\"$type\"}[15m]))", "legendFormat": "超时 {{type}}" }
+      ]
+    }
+  ]
+}

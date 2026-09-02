@@ -3,7 +3,7 @@
  * 移植自 lotask4j-admin-frontend/src/api/admin.ts, 换用统一 http client
  */
 import { http } from '@/api/request'
-import type { StatsOverview, SystemConfig, TaskTypeConfig, WorkerNode } from '@/api/types'
+import type { LotaskPage, StatsOverview, SystemConfig, TaskDetail, TaskTypeConfig, WorkerNode } from '@/api/types'
 import type { SubmitTaskPayload } from '@/api/types'
 
 /** 在线 Worker 节点列表 */
@@ -39,6 +39,21 @@ export function deleteTaskTypeConfig(typeKey: string): Promise<null> {
 /** Admin 代提交任务 (默认 priority 100) */
 export function adminSubmitTask(data: SubmitTaskPayload): Promise<{ id: string }> {
   return http.post('/api/v1/admin/tasks/submit', data)
+}
+
+/** 平台域任务列表查询参数 (tenantId 为 nullable 收窄: null=全租户) */
+export interface AdminTaskListQuery {
+  page?: number
+  pageSize?: number
+  status?: string
+  type?: string
+  id?: string
+  tenantId?: number
+}
+
+/** 平台域任务列表 (治理视角: 全租户 + tenantId 收窄; 不含归档) */
+export function getAdminTaskList(params: AdminTaskListQuery): Promise<LotaskPage<TaskDetail>> {
+  return http.get('/api/v1/admin/tasks', { params })
 }
 
 /** 系统配置 (系统/线程池/DB/Redis/JVM/任务统计) */

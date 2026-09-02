@@ -42,7 +42,7 @@ const embedRoutes: RouteRecordRaw[] = [
   }
 ]
 
-/** 主应用路由 (控制台 + /dev 参考页 + Portal 门面) */
+/** 主应用路由 (双域控制台 + /dev 参考页 + Portal 门面) */
 const appRoutes: RouteRecordRaw[] = [
   {
     path: '/login',
@@ -56,88 +56,123 @@ const appRoutes: RouteRecordRaw[] = [
     component: () => import('@/views/PortalHome.vue'),
     meta: { title: 'router.portal', public: true, hideInMenu: true, layout: 'blank' }
   },
-  // —— lotask 控制台 (AppLayout 侧栏) ——
+  // —— 平台域控制台 (admin API; 登录身份 tenant_id=0 专属) ——
   {
-    path: '/',
+    path: '/platform',
     component: () => import('@/layout/AppLayout.vue'),
+    meta: { domain: 'platform' },
+    redirect: '/platform/dashboard',
     children: [
       {
         path: 'dashboard',
-        name: 'Dashboard',
+        name: 'PlatformDashboard',
         component: () => import('@/views/lotask/Dashboard.vue'),
-        meta: { title: 'router.dashboard' }
-      },
-      {
-        path: 'active',
-        name: 'ActiveTasks',
-        component: () => import('@/views/lotask/ActiveTasks.vue'),
-        meta: { title: 'router.active-tasks' }
+        meta: { title: 'router.dashboard', domain: 'platform' }
       },
       {
         path: 'tasks',
-        name: 'TaskList',
-        component: () => import('@/views/lotask/TaskList.vue'),
-        meta: { title: 'router.task-list' }
-      },
-      {
-        path: 'tasks/:id',
-        name: 'TaskDetail',
-        component: () => import('@/views/lotask/TaskDetail.vue'),
-        meta: { title: 'router.task-detail', hideInMenu: true }
+        name: 'PlatformTasks',
+        component: () => import('@/views/lotask/PlatformTasks.vue'),
+        meta: { title: 'router.task-list', domain: 'platform' }
       },
       {
         path: 'workers',
         name: 'WorkerNodes',
         component: () => import('@/views/lotask/WorkerNodes.vue'),
-        meta: { title: 'router.worker-nodes' }
+        meta: { title: 'router.worker-nodes', domain: 'platform' }
       },
       {
         path: 'types',
         name: 'TaskTypeConfig',
         component: () => import('@/views/lotask/TaskTypeConfig.vue'),
-        meta: { title: 'router.task-type-config' }
+        meta: { title: 'router.task-type-config', domain: 'platform' }
       },
       {
         path: 'settings',
         name: 'SystemSettings',
         component: () => import('@/views/lotask/SystemSettings.vue'),
-        meta: { title: 'router.system-settings' }
+        meta: { title: 'router.system-settings', domain: 'platform' }
       },
       {
         path: 'embed-config',
         name: 'WebEmbedConfig',
         component: () => import('@/views/lotask/WebEmbedConfig.vue'),
-        meta: { title: 'router.web-embed-config' }
+        meta: { title: 'router.web-embed-config', domain: 'platform' }
       },
       {
         path: 'tenants',
         name: 'Tenants',
         component: () => import('@/views/lotask/Tenants.vue'),
-        meta: { title: 'router.tenants' }
+        meta: { title: 'router.tenants', domain: 'platform' }
       },
       {
         path: 'guide',
-        name: 'UserGuide',
+        name: 'PlatformGuide',
         component: () => import('@/views/lotask/guide/UserGuide.vue'),
-        meta: { title: 'router.user-guide' }
+        meta: { title: 'router.user-guide', domain: 'platform' }
       },
       {
         path: 'guide/client',
-        name: 'ClientGuide',
+        name: 'PlatformClientGuide',
         component: () => import('@/views/lotask/guide/ClientGuide.vue'),
-        meta: { title: 'router.client-guide', hideInMenu: true }
+        meta: { title: 'router.client-guide', domain: 'platform', hideInMenu: true }
       },
       {
         path: 'guide/worker',
-        name: 'WorkerGuide',
+        name: 'PlatformWorkerGuide',
         component: () => import('@/views/lotask/guide/WorkerGuide.vue'),
-        meta: { title: 'router.worker-guide', hideInMenu: true }
+        meta: { title: 'router.worker-guide', domain: 'platform', hideInMenu: true }
+      }
+    ]
+  },
+  // —— 租户域控制台 (client/worker API; 登录身份 tenant_id>0 专属) ——
+  {
+    path: '/tenant',
+    component: () => import('@/layout/AppLayout.vue'),
+    meta: { domain: 'tenant' },
+    redirect: '/tenant/tasks',
+    children: [
+      {
+        path: 'active',
+        name: 'ActiveTasks',
+        component: () => import('@/views/lotask/ActiveTasks.vue'),
+        meta: { title: 'router.active-tasks', domain: 'tenant' }
+      },
+      {
+        path: 'tasks',
+        name: 'TenantTasks',
+        component: () => import('@/views/lotask/TaskList.vue'),
+        meta: { title: 'router.task-list', domain: 'tenant' }
+      },
+      {
+        path: 'tasks/:id',
+        name: 'TenantTaskDetail',
+        component: () => import('@/views/lotask/TaskDetail.vue'),
+        meta: { title: 'router.task-detail', domain: 'tenant', hideInMenu: true }
       },
       {
         path: 'demo',
         name: 'DemoSimulator',
         component: () => import('@/views/lotask/DemoSimulator.vue'),
-        meta: { title: 'router.demo-simulator' }
+        meta: { title: 'router.demo-simulator', domain: 'tenant' }
+      },
+      {
+        path: 'guide',
+        name: 'TenantGuide',
+        component: () => import('@/views/lotask/guide/UserGuide.vue'),
+        meta: { title: 'router.user-guide', domain: 'tenant' }
+      },
+      {
+        path: 'guide/client',
+        name: 'TenantClientGuide',
+        component: () => import('@/views/lotask/guide/ClientGuide.vue'),
+        meta: { title: 'router.client-guide', domain: 'tenant', hideInMenu: true }
+      },
+      {
+        path: 'guide/worker',
+        name: 'TenantWorkerGuide',
+        component: () => import('@/views/lotask/guide/WorkerGuide.vue'),
+        meta: { title: 'router.worker-guide', domain: 'tenant', hideInMenu: true }
       }
     ]
   },
@@ -297,6 +332,20 @@ router.beforeEach(async (to, _from) => {
       return {
         path: '/login',
         query: to.fullPath !== '/' ? { redirect: to.fullPath } : undefined,
+        replace: true,
+      }
+    }
+
+    // 身份未判定 (整页刷新恢复的 token) → 先反查 /auth/me 再判域
+    await auth.ensureIdentity()
+
+    // 域守卫: 登录身份与路由域不匹配 → 重定向回所属域首页。
+    // 体验层校验 — 真实鉴权由后端 @PlatformDomain/@TenantDomain 三域守卫兜底;
+    // identity 为 null (身份查询失败) 时放行, 保持旧行为。
+    const domain = to.meta.domain as 'platform' | 'tenant' | undefined
+    if (domain && auth.identity && auth.identity !== domain) {
+      return {
+        path: auth.identity === 'platform' ? '/platform/dashboard' : '/tenant/tasks',
         replace: true,
       }
     }

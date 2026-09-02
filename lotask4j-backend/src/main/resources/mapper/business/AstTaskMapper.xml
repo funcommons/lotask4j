@@ -92,6 +92,8 @@
         <result column="finished_at" property="finishedAt"/>
         <result column="expired_at" property="expiredAt"/>
         <result column="is_deleted" property="isDeleted"/>
+        <!-- 租户归属 (管理端列表展示用; selectByIdWithTypeName 未选此列时为 null) -->
+        <result column="tenant_id" property="tenantId"/>
         <!-- JOIN 查询字段 -->
         <result column="type_name" property="typeName"/>
         <result column="timeout_seconds" property="timeoutSeconds"/>
@@ -184,7 +186,7 @@
     <!-- 分页查询任务列表（包含类型名称和超时配置，不含大字段 payload/result） -->
     <select id="selectPageWithTypeName" resultMap="TaskWithTypeNameResultMap">
         SELECT
-            t.id, t.task_type_key, t.status, t.priority,
+            t.id, t.tenant_id, t.task_type_key, t.status, t.priority,
             t.attempt, t.max_attempts, t.next_run_at,
             t.version,
             t.execution_id, t.execution_token, t.worker_id, t.worker_ip, t.lease_expire_at,

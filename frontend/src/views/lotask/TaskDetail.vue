@@ -385,7 +385,7 @@ async function loadTask() {
 }
 
 function goBack() {
-  router.push('/tasks')
+  router.push('/tenant/tasks')
 }
 
 async function cancelTask() {

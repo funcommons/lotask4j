@@ -808,6 +808,7 @@ export default {
       task: 'Tasks',
       system: 'System',
       help: 'Help',
+      allTasks: 'All Tasks',
       dev: 'Developer',
     },
     status: {

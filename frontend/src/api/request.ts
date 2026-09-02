@@ -88,8 +88,11 @@ request.interceptors.request.use(
     }
 
     // 注入 Bearer Token (除鉴权公开接口外; embed 构建无登录态)
+    // 公开面与后端 exclude-path-patterns 对齐: 仅 /api/v1/auth/token。
+    // (2026-09 收敛: 原 `url.includes('/api/v1/auth/')` 会把 /auth/me 身份反查
+    //  也排除在 token 注入外, 导致双域身份判定永远拿不到 — 已删)
     const url = config.url || ''
-    const isAuthPublic = AUTH_PUBLIC_PATHS.has(url) || url.includes('/api/v1/auth/')
+    const isAuthPublic = AUTH_PUBLIC_PATHS.has(url)
     if (!IS_EMBED_BUILD && authStoreGetter && !isAuthPublic) {
       const store = authStoreGetter()
       if (store.token) {

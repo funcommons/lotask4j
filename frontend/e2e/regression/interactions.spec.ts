@@ -2,19 +2,28 @@ import { test, expect, type Page } from '@playwright/test'
 
 /**
  * 回归: 关键交互 (desktop, 登录态 + dev-mock)
- * - 侧边栏导航跳转
- * - 任务列表 Tab / 筛选 / 提交对话框
- * - 任务详情取消 confirm / 返回
+ * - 侧边栏导航跳转 (platform / tenant 两套菜单)
+ * - 任务列表 Tab / 筛选 / 提交对话框 (tenant 域)
+ * - 任务详情取消 confirm / 返回 (tenant 域)
+ * - 嵌入配置对话框 (platform 域)
  *
  * 注意: dev-mock 在 axios adapter 层短路, 无真实网络请求 →
  * 请求断言一律走 window.__devMockLog (由 mock 记录), 不用 waitForRequest。
+ *
+ * 登录态用与 dev-mock 签发同形的 JWT (payload 带 tenant_id claim):
+ *   平台 token → /platform/* + 平台菜单; 租户 token → /tenant/* + 租户菜单。
  */
-async function login(page: Page) {
-  await page.addInitScript(() => {
-    localStorage.setItem('lotask4j:access_token', 'mock-access-token')
+const PLATFORM_TOKEN = 'mock.eyJzdWIiOiJQTEFURk9STSIsInRlbmFudF9pZCI6MH0.sig'
+const TENANT_TOKEN = 'mock.eyJzdWIiOiJURU5BTlQiLCJ0ZW5hbnRfaWQiOjkxMDF9.sig'
+
+function login(page: Page, which: 'platform' | 'tenant') {
+  const token = which === 'platform' ? PLATFORM_TOKEN : TENANT_TOKEN
+  const appId = which === 'platform' ? 'ADMIN' : 'order-service'
+  return page.addInitScript((cfg: { token: string; appId: string }) => {
+    localStorage.setItem('lotask4j:access_token', cfg.token)
     localStorage.setItem('lotask4j:expires_at', String(Date.now() + 3600_000))
-    localStorage.setItem('lotask4j:app_id', 'ADMIN')
-  })
+    localStorage.setItem('lotask4j:app_id', cfg.appId)
+  }, { token, appId })
 }
 
 /** 等待 __devMockLog 中出现满足条件的调用 */
@@ -28,32 +37,45 @@ async function expectMockCall(page: Page, predicate: string, timeout = 5000) {
     }, predicate), { timeout }).toBe(true)
 }
 
-test.beforeEach(async ({ page }) => {
-  await login(page)
-})
+test.describe('侧边栏导航 (platform 域菜单)', () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page, 'platform')
+  })
 
-test.describe('侧边栏导航', () => {
   test('分组菜单展开后点击叶子跳转', async ({ page }) => {
-    await page.goto('/dashboard')
+    await page.goto('/platform/dashboard')
     // 分组默认折叠: 先点分组标题展开, 再点叶子 (el-menu-item → menuitem 角色)
     await page.locator('.el-sub-menu__title', { hasText: '任务管理' }).click()
-    await page.getByRole('menuitem', { name: '活跃任务' }).click()
-    await expect(page).toHaveURL(/\/active$/)
+    await page.getByRole('menuitem', { name: '全量任务' }).click()
+    await expect(page).toHaveURL(/\/platform\/tasks$/)
     await page.locator('.el-sub-menu__title', { hasText: '系统' }).click()
     await page.getByRole('menuitem', { name: '系统设置' }).click()
-    await expect(page).toHaveURL(/\/settings$/)
+    await expect(page).toHaveURL(/\/platform\/settings$/)
   })
 
   test('顶级叶子直接可点 (仪表盘)', async ({ page }) => {
-    await page.goto('/settings')
+    await page.goto('/platform/settings')
     await page.getByRole('menuitem', { name: '仪表盘' }).click()
-    await expect(page).toHaveURL(/\/dashboard$/)
+    await expect(page).toHaveURL(/\/platform\/dashboard$/)
   })
 })
 
-test.describe('任务列表交互', () => {
+test.describe('侧边栏导航 (tenant 域菜单)', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/tasks')
+    await login(page, 'tenant')
+  })
+
+  test('顶级叶子直接可点 (活跃任务)', async ({ page }) => {
+    await page.goto('/tenant/tasks')
+    await page.getByRole('menuitem', { name: '活跃任务' }).click()
+    await expect(page).toHaveURL(/\/tenant\/active$/)
+  })
+})
+
+test.describe('任务列表交互 (tenant 域)', () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page, 'tenant')
+    await page.goto('/tenant/tasks')
     await expect(page.getByText('视频转码').first()).toBeVisible({ timeout: 10_000 })
   })
 
@@ -100,9 +122,10 @@ test.describe('任务列表交互', () => {
   })
 })
 
-test.describe('任务详情交互', () => {
+test.describe('任务详情交互 (tenant 域)', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/tasks/YeirYkxHuQ')
+    await login(page, 'tenant')
+    await page.goto('/tenant/tasks/YeirYkxHuQ')
     await expect(page.getByText('拉取源文件').first()).toBeVisible({ timeout: 10_000 })
   })
 
@@ -123,19 +146,49 @@ test.describe('任务详情交互', () => {
 
   test('返回按钮回到任务列表', async ({ page }) => {
     await page.locator('.fc-section-header__back').click()
-    await expect(page).toHaveURL(/\/tasks$/)
+    await expect(page).toHaveURL(/\/tenant\/tasks$/)
   })
 
   test('FAILED 任务详情渲染错误信息与失败步骤 (mock 特例 ID)', async ({ page }) => {
-    await page.goto('/tasks/FailedAb9xQq')
+    await page.goto('/tenant/tasks/FailedAb9xQq')
     await expect(page.getByText(/渲染引擎超时|PDF_RENDER_TIMEOUT/).first()).toBeVisible({ timeout: 10_000 })
     await expect(page.getByText('渲染').first()).toBeVisible()
   })
 })
 
-test.describe('嵌入配置交互', () => {
+test.describe('平台任务治理交互 (platform 域)', () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page, 'platform')
+    await page.goto('/platform/tasks')
+    await expect(page.getByText('视频转码').first()).toBeVisible({ timeout: 10_000 })
+  })
+
+  test('租户筛选触发 tenantId 参数收窄', async ({ page }) => {
+    await page.locator('.filter-tenant .el-select__wrapper').first().click()
+    await page.locator('.el-select-dropdown:visible .el-select-dropdown__item', { hasText: 'order-service' }).first().click()
+    await expectMockCall(page, 'e => e.url?.includes("/api/v1/admin/tasks") && e.params?.tenantId === 9101')
+  })
+
+  test('详情对话框展示 result JSON (列表行数据直出)', async ({ page }) => {
+    // mock 列表行仅 SUCCESS 行带 result (列表层无 payload/stepsDetail)
+    const successRow = page.getByRole('row').filter({ hasText: '成功' }).first()
+    await successRow.getByRole('button', { name: /查看详情/ }).click()
+    const dialog = page.locator('.el-dialog').first()
+    await expect(dialog).toBeVisible()
+    await expect(dialog.getByText('Result')).toBeVisible()
+    await expect(dialog.getByText('"url"').first()).toBeVisible()
+  })
+
+  test('平台域列表走 admin 端点 (无提交/取消操作列)', async ({ page }) => {
+    await expectMockCall(page, 'e => e.url?.endsWith("/api/v1/admin/tasks")')
+    await expect(page.getByRole('button', { name: '手动提交任务' })).toHaveCount(0)
+  })
+})
+
+test.describe('嵌入配置交互 (platform 域)', () => {
   test('新建对话框可打开', async ({ page }) => {
-    await page.goto('/embed-config')
+    await login(page, 'platform')
+    await page.goto('/platform/embed-config')
     await page.getByRole('button', { name: /新建/ }).first().click()
     await expect(page.locator('.el-dialog').first()).toBeVisible({ timeout: 5000 })
   })

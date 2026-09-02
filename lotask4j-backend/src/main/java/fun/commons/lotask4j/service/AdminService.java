@@ -46,9 +46,9 @@ public interface AdminService {
     StatsOverviewResponse getStatsOverview();
 
     /**
-     * 获取任务列表(支持筛选和分页)
+     * 获取任务列表(支持筛选和分页; tenantId 平台 nullable 收窄: null=全租户, 非 null=定向租户)
      */
-    PageResponse<TaskDetailResponse> getTaskList(Long id, String status, String type, Integer page, Integer pageSize);
+    PageResponse<TaskDetailResponse> getTaskList(Long id, String status, String type, Integer page, Integer pageSize, Long tenantId);
 
     /**
      * 获取系统配置信息

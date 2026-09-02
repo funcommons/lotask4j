@@ -30,6 +30,12 @@ public class TaskDetailResponse {
     private Long id;
 
     /**
+     * 租户归属 (仅管理端列表回显; 客户端视角恒为本租户, 无需感知)
+     */
+    @Schema(description = "租户 ID (管理端)", example = "9101")
+    private Long tenantId;
+
+    /**
      * 任务类型 Key
      */
     @Schema(description = "任务类型标识", example = "data_export")

@@ -76,7 +76,8 @@ function handleLogout() {
 /** 侧栏用户显示名: client_credentials 场景显示 client_id */
 const displayName = computed(() => auth.appId || 'Admin')
 
-const navItems = useSidebarNavItems()
+// 双域菜单: 按登录身份 (JWT claim tenant_id) 渲染; null 兜底 platform
+const navItems = useSidebarNavItems(computed(() => auth.identity))
 
 // ---- Mobile drawer ----
 const mobileDrawerOpen = ref(false)

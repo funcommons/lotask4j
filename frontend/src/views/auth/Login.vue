@@ -121,7 +121,9 @@ async function handleLogin() {
   try {
     await auth.login(form.clientId, form.clientSecret)
     toast.success(t('auth.login-success'))
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/dashboard'
+    // 双域路由: 无显式 redirect 时按登录身份落各自首页 (平台→治理台, 租户→任务列表)
+    const fallback = auth.identity === 'tenant' ? '/tenant/tasks' : '/platform/dashboard'
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : fallback
     router.replace(redirect)
   } catch (err: any) {
     const msg = err?.response?.data?.message || err?.message || t('auth.login-failed')

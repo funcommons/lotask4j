@@ -422,13 +422,13 @@ function onFilterChange() {
 }
 
 function viewTask(row: TaskListItem) {
-  router.push(`/tasks/${row.id}`)
+  router.push(`/tenant/tasks/${row.id}`)
 }
 
 function goToSubmittedDetail() {
   if (!submittedTaskId.value) return
   submitDialogVisible.value = false
-  router.push(`/tasks/${submittedTaskId.value}`)
+  router.push(`/tenant/tasks/${submittedTaskId.value}`)
 }
 
 async function cancelTask(row: TaskListItem) {

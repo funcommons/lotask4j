@@ -808,6 +808,7 @@ export default {
       task: '任务管理',
       system: '系统',
       help: '帮助',
+      allTasks: '全量任务',
       dev: '开发者',
     },
     status: {

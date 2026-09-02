@@ -11,7 +11,22 @@ import type { AxiosInstance } from 'axios'
  * 安装位置: src/api/request.ts (业务 response 拦截器之前).
  */
 
-const MOCK_ACCESS = 'mock-access-token'
+/**
+ * mock token — 真 JWT 三段形状 (header.payload.signature), payload 带 tenant_id claim:
+ *   client_id='ADMIN' → 平台身份 (tenant_id=0, 只见 /platform/*)
+ *   其余 client_id   → 租户身份 (tenant_id=9101, 只见 /tenant/*)
+ * 真实框架 token 不带 claim — /auth/me 由真后端反查; dev-mock 拦 /me 解此 claim 回显。
+ */
+function b64u(o: unknown): string {
+  try {
+    return btoa(JSON.stringify(o)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  } catch {
+    return 'x'
+  }
+}
+
+const PLATFORM_ACCESS = `mock.${b64u({ sub: 'PLATFORM', tenant_id: 0 })}.sig`
+const TENANT_ACCESS = `mock.${b64u({ sub: 'TENANT', tenant_id: 9101 })}.sig`
 
 // —— mock 数据 ——
 
@@ -85,6 +100,17 @@ const MOCK_FAILED_DETAIL = {
   finishedAt: '2026-08-20T09:02:00+08:00',
 }
 
+/** 平台域任务列表 (admin/tasks) — 行带 tenantId 归属; 未命中的归属回退 #id 展示 */
+const MOCK_ADMIN_TASK_LIST = {
+  list: [
+    { ...MOCK_TASK_LIST.list[0], tenantId: 9101 },
+    { ...MOCK_TASK_LIST.list[1], tenantId: 9101 },
+    { ...MOCK_TASK_LIST.list[2], tenantId: 9102 },
+    { ...MOCK_TASK_LIST.list[3], tenantId: 9102 },
+  ],
+  total: 4, page: 1, pageSize: 20, totalPages: 1,
+}
+
 const MOCK_STATS_OVERVIEW = {
   totalPending: 3,
   totalRunning: 2,
@@ -135,19 +161,45 @@ interface MockConfig {
   method?: string
   data?: unknown
   params?: Record<string, unknown>
+  headers?: unknown
+}
+
+/** 从 Authorization 头解 dev-mock 自造 JWT 的 tenant_id claim (非 mock token → null) */
+function mockTenantIdFromHeader(config: MockConfig): number | null {
+  try {
+    const h = config.headers as { Authorization?: string; get?: (k: string) => string } | undefined
+    const auth = h?.Authorization ?? (typeof h?.get === 'function' ? h.get('Authorization') : undefined)
+    const token = typeof auth === 'string' ? auth.replace(/^Bearer\s+/i, '') : ''
+    // 复用 store 的解码逻辑会引循环依赖, 这里内联同款 base64url 解码
+    const parts = token.split('.')
+    if (parts.length !== 3 || !parts[1]) return null
+    let b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    while (b64.length % 4 !== 0) b64 += '='
+    const payload = JSON.parse(atob(b64)) as { tenant_id?: number }
+    return typeof payload?.tenant_id === 'number' ? payload.tenant_id : null
+  } catch {
+    return null
+  }
 }
 
 function pickMockResponse(config: MockConfig): unknown | undefined {
   const url = config.url || ''
   const method = (config.method || 'get').toLowerCase()
 
-  // client_credentials 登录: 'bad-secret' 走失败分支 (error-states 用例), 其余发 mock token
+  // client_credentials 登录: 'bad-secret' 走失败分支 (error-states 用例), 其余按 client_id 分域发 token
   if (method === 'post' && url.endsWith('/api/v1/auth/token')) {
     const body = String(config.data ?? '')
     if (body.includes('client_secret=bad-secret')) {
       return { code: 20105, message: 'client_id 或 client_secret 无效', data: null }
     }
-    return { access_token: MOCK_ACCESS, token_type: 'Bearer', expires_in: 7200 }
+    const isPlatform = /client_id=[^&]*ADMIN/i.test(body)
+    return { access_token: isPlatform ? PLATFORM_ACCESS : TENANT_ACCESS, token_type: 'Bearer', expires_in: 7200 }
+  }
+
+  // 身份反查 (GET /api/v1/auth/me): 真实框架 token 不带 claim, 由真后端反查;
+  // dev-mock 自造 token 的 payload 带 tenant_id — 直接解 Authorization 回显。
+  if (method === 'get' && url.endsWith('/api/v1/auth/me')) {
+    return { tenantId: mockTenantIdFromHeader(config) }
   }
 
   // 任务详情: 特例 ID → 404 业务码 / FAILED 详情 (error-states 用例); 其余返回 RUNNING 详情
@@ -188,6 +240,7 @@ function pickMockResponse(config: MockConfig): unknown | undefined {
   if (method === 'get' && url.endsWith('/api/v1/admin/workers')) return MOCK_WORKERS
   if (method === 'get' && url.endsWith('/api/v1/admin/types')) return MOCK_TYPE_CONFIGS
   if (method === 'get' && url.endsWith('/api/v1/admin/system/config')) return MOCK_SYSTEM_CONFIG
+  if (method === 'get' && url.endsWith('/api/v1/admin/tasks')) return MOCK_ADMIN_TASK_LIST
 
   // embed-config 域 (分页结构例外: items 而非 list)
   if (method === 'get' && url.endsWith('/configs')) return MOCK_EMBED_CONFIGS

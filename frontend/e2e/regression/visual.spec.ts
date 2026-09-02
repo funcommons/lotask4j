@@ -13,9 +13,10 @@ import { test, expect, type Page } from '@playwright/test'
 const PAGES: Array<{ name: string; path: string; auth: boolean; ready: string }> = [
   { name: 'login', path: '/login', auth: false, ready: 'Client ID' },
   { name: 'portal', path: '/', auth: false, ready: 'lotask4j' },
-  { name: 'dashboard', path: '/dashboard', auth: true, ready: '待处理' },
-  { name: 'settings', path: '/settings', auth: true, ready: '系统基本信息' },
-  { name: 'guide', path: '/guide', auth: true, ready: '使用手册' },
+  { name: 'dashboard', path: '/platform/dashboard', auth: true, ready: '待处理' },
+  { name: 'settings', path: '/platform/settings', auth: true, ready: '系统基本信息' },
+  { name: 'guide', path: '/platform/guide', auth: true, ready: '使用手册' },
+  { name: 'ptasks', path: '/platform/tasks', auth: true, ready: '视频转码' },
 ]
 
 async function setTheme(page: Page, theme: 'light' | 'dark') {
@@ -36,11 +37,11 @@ for (const theme of ['light', 'dark'] as const) {
     for (const p of PAGES) {
       test(`${p.name} (${p.path})`, async ({ page }) => {
         if (p.auth) {
-          await page.addInitScript(() => {
-            localStorage.setItem('lotask4j:access_token', 'mock-access-token')
+          await page.addInitScript((token) => {
+            localStorage.setItem('lotask4j:access_token', token)
             localStorage.setItem('lotask4j:expires_at', String(Date.now() + 3600_000))
             localStorage.setItem('lotask4j:app_id', 'ADMIN')
-          })
+          }, 'mock.eyJzdWIiOiJQTEFURk9STSIsInRlbmFudF9pZCI6MH0.sig')
         }
         await page.goto(p.path)
         // 等关键内容出现 (dev-mock 无网络请求, networkidle 不可靠)

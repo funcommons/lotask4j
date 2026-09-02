@@ -1275,6 +1275,8 @@ export interface SubmitTaskPayload {
 /** 任务详情 (TaskDetailResponse; ID 为 OpenID 混淆字符串) */
 export interface TaskDetail {
   id: string
+  /** 租户归属 (仅平台域列表回显; 客户端视角恒为本租户) */
+  tenantId?: number
   type: string
   typeName?: string
   status: TaskStatus

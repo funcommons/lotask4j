@@ -73,7 +73,7 @@ test.describe('前端 ↔ 真后端契约', () => {
     await page.getByPlaceholder('Client ID').fill(clientId)
     await page.getByPlaceholder('Client Secret').fill(clientSecret)
     await page.getByRole('button', { name: /登/ }).click()
-    await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 })
+    await expect(page).toHaveURL(/\/tenant\/tasks/, { timeout: 15_000 })
 
     // 全量 API 观测: 任何 401/403/4xx 与 auth 失效码都记录 (排障: 会话被踢回登录页)
     const apiLog: string[] = []
@@ -97,7 +97,7 @@ test.describe('前端 ↔ 真后端契约', () => {
 
     // 2. 任务列表 → 手动提交 (走 axios 签名拦截器 → 真后端签名校验)
     //    runtimeSecret 在 sessionStorage — 整页刷新不丢
-    await page.goto('/tasks')
+    await page.goto('/tenant/tasks')
     await expect(page.getByText('手动提交任务').first()).toBeVisible()
     await page.getByRole('button', { name: /手动提交任务|提交任务/ }).first().click()
 

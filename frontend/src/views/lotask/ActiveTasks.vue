@@ -214,7 +214,7 @@ async function loadTasks() {
 }
 
 function viewTask(row: TaskListItem) {
-  router.push(`/tasks/${row.id}`)
+  router.push(`/tenant/tasks/${row.id}`)
 }
 
 async function copyId(id: string) {

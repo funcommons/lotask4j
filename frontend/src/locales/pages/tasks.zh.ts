@@ -116,6 +116,21 @@ export const tasks = {
     },
   },
 
+  // —— PlatformTasks 平台域任务治理 (全租户视角) ——
+  platform: {
+    filter: {
+      type: '任务类型 Key',
+      tenant: '归属租户',
+      allTenants: '全部租户',
+    },
+    column: {
+      tenant: '归属租户',
+    },
+    detail: {
+      title: '任务详情 (只读)',
+    },
+  },
+
   // —— TaskDetail 任务详情 ——
   detail: {
     title: '任务详情',

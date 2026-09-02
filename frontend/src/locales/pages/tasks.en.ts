@@ -116,6 +116,21 @@ export const tasks = {
     },
   },
 
+  // —— PlatformTasks platform-domain task governance (all tenants) ——
+  platform: {
+    filter: {
+      type: 'Task Type Key',
+      tenant: 'Tenant',
+      allTenants: 'All Tenants',
+    },
+    column: {
+      tenant: 'Tenant',
+    },
+    detail: {
+      title: 'Task Detail (read-only)',
+    },
+  },
+
   // —— TaskDetail ——
   detail: {
     title: 'Task Detail',

@@ -18,10 +18,10 @@
       </div>
     </FcSection>
 
-    <!-- 3 个子卡片 -->
+    <!-- 3 个子卡片 (模拟器仅租户域 — demo 路由只在 /tenant 树) -->
     <div class="guide-grid">
       <FcSection padding="md" shadow="sm" hover>
-        <div class="guide-card" @click="goTo('/guide/client')">
+        <div class="guide-card" @click="goTo(`${base}/guide/client`)">
           <i class="ri-user-line guide-card__icon" />
           <h3>{{ t('lotask.guides.userGuide.clientTitle') }}</h3>
           <p>{{ t('lotask.guides.userGuide.clientDesc') }}</p>
@@ -29,15 +29,15 @@
       </FcSection>
 
       <FcSection padding="md" shadow="sm" hover>
-        <div class="guide-card" @click="goTo('/guide/worker')">
+        <div class="guide-card" @click="goTo(`${base}/guide/worker`)">
           <i class="ri-server-line guide-card__icon" />
           <h3>{{ t('lotask.guides.userGuide.workerTitle') }}</h3>
           <p>{{ t('lotask.guides.userGuide.workerDesc') }}</p>
         </div>
       </FcSection>
 
-      <FcSection padding="md" shadow="sm" hover>
-        <div class="guide-card" @click="goTo('/demo')">
+      <FcSection v-if="!isPlatform" padding="md" shadow="sm" hover>
+        <div class="guide-card" @click="goTo(`${base}/demo`)">
           <i class="ri-flask-line guide-card__icon" />
           <h3>{{ t('lotask.guides.userGuide.simulatorTitle') }}</h3>
           <p>{{ t('lotask.guides.userGuide.simulatorDesc') }}</p>
@@ -49,7 +49,7 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { Link } from '@element-plus/icons-vue'
 import FcSectionHeader from '@/components/sdk/section/FcSectionHeader.vue'
 import FcSection from '@/components/sdk/section/FcSection.vue'
@@ -58,7 +58,12 @@ import FcButton from '@/components/sdk/form/FcButton.vue'
 defineOptions({ name: 'LotaskUserGuidePage' })
 
 const { t } = useI18n()
+const route = useRoute()
 const router = useRouter()
+
+// 双域挂载 (/platform/guide 与 /tenant/guide 同组件): 子页跳转跟随当前域
+const isPlatform = route.path.startsWith('/platform')
+const base = isPlatform ? '/platform' : '/tenant'
 
 const LinkIcon = Link
 

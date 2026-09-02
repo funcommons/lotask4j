@@ -217,8 +217,8 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
-    public PageResponse<TaskDetailResponse> getTaskList(Long id, String status, String type, Integer page, Integer pageSize) {
-        log.debug("获取任务列表: id={}, status={}, type={}, page={}, pageSize={}", id, status, type, page, pageSize);
+    public PageResponse<TaskDetailResponse> getTaskList(Long id, String status, String type, Integer page, Integer pageSize, Long tenantId) {
+        log.debug("获取任务列表: id={}, status={}, type={}, page={}, pageSize={}, tenantId={}", id, status, type, page, pageSize, tenantId);
 
         // 设置默认分页参数
         int currentPage = (page != null && page > 0) ? page : 1;
@@ -229,10 +229,11 @@ public class AdminServiceImpl implements AdminService {
         long limit = size;
 
         // 执行 COUNT 查询获取总数（管理端默认只查询当前任务，不包括归档任务）
-        long total = taskMapper.countTasks(id, status, type, false, null, null, null);
+        // tenantId 为平台 nullable 收窄模式: null=全租户, 非 null=定向租户 (与 types/embed-config 一致)
+        long total = taskMapper.countTasks(id, status, type, false, null, null, tenantId);
 
         // 执行分页查询（数据库层面分页）
-        List<AstTask> tasks = taskMapper.selectPageWithTypeName(offset, limit, id, status, type, false, null, null, null);
+        List<AstTask> tasks = taskMapper.selectPageWithTypeName(offset, limit, id, status, type, false, null, null, tenantId);
 
         // 转换为 DTO
         List<TaskDetailResponse> list = tasks.stream()
@@ -268,6 +269,7 @@ public class AdminServiceImpl implements AdminService {
     private TaskDetailResponse convertToTaskDetail(AstTask task) {
         TaskDetailResponse response = new TaskDetailResponse();
         response.setId(task.getId());
+        response.setTenantId(task.getTenantId());
         response.setType(task.getTaskTypeKey());
         response.setTypeName(task.getTypeName()); // 直接使用 JOIN 查询结果
         response.setStatus(task.getStatus());

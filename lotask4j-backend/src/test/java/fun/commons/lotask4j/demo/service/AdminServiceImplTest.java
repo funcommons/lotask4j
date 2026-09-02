@@ -392,7 +392,7 @@ class AdminServiceImplTest {
             when(taskMapper.selectPageWithTypeName(anyLong(), anyLong(), any(), any(), any(), eq(false), any(), any(), isNull()))
                     .thenReturn(Collections.emptyList());
 
-            PageResponse<TaskDetailResponse> page = adminService.getTaskList(null, null, null, null, null);
+            PageResponse<TaskDetailResponse> page = adminService.getTaskList(null, null, null, null, null, null);
 
             assertEquals(1, page.getPage());
             assertEquals(20, page.getPageSize());
@@ -413,9 +413,28 @@ class AdminServiceImplTest {
             when(taskMapper.selectPageWithTypeName(anyLong(), anyLong(), any(), any(), any(), eq(false), any(), any(), isNull()))
                     .thenReturn(List.of(task));
 
-            PageResponse<TaskDetailResponse> page = adminService.getTaskList(null, null, null, 1, 10);
+            PageResponse<TaskDetailResponse> page = adminService.getTaskList(null, null, null, 1, 10, null);
 
             assertEquals(45L, page.getList().get(0).getDurationSeconds());
+        }
+
+        @Test
+        @DisplayName("tenantId 收窄 — 透传给 count/select 两条查询, 回显 tenantId 字段")
+        void tenantIdNarrowing_PassedThroughAndEchoed() {
+            AstTask task = new AstTask();
+            task.setId(2L);
+            task.setTenantId(9101L);
+            task.setStatus("RUNNING");
+
+            when(taskMapper.countTasks(any(), any(), any(), eq(false), any(), any(), eq(9101L))).thenReturn(1L);
+            when(taskMapper.selectPageWithTypeName(anyLong(), anyLong(), any(), any(), any(), eq(false), any(), any(), eq(9101L)))
+                    .thenReturn(List.of(task));
+
+            PageResponse<TaskDetailResponse> page = adminService.getTaskList(null, null, null, 1, 20, 9101L);
+
+            verify(taskMapper).countTasks(isNull(), isNull(), isNull(), eq(false), isNull(), isNull(), eq(9101L));
+            verify(taskMapper).selectPageWithTypeName(eq(0L), eq(20L), isNull(), isNull(), isNull(), eq(false), isNull(), isNull(), eq(9101L));
+            assertEquals(9101L, page.getList().get(0).getTenantId());
         }
     }
 

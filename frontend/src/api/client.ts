@@ -36,6 +36,11 @@ export function cancelTask(taskId: string): Promise<null> {
   return http.post(`/api/v1/client/tasks/${taskId}/cancel`)
 }
 
+/** 当前租户可用任务类型 (client 域, 提交表单下拉用; 不走 admin 域 — 租户身份 403) */
+export function listMyTypes(): Promise<Array<{ typeKey: string; name: string }>> {
+  return http.get('/api/v1/client/tasks/types')
+}
+
 /** 任务统计 (client 视角) */
 export function getTaskStats(): Promise<Record<string, number>> {
   return http.get('/api/v1/client/tasks/stats')

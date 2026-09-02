@@ -95,8 +95,8 @@ test.describe('任务列表交互', () => {
     await dialog.getByRole('button', { name: '提交' }).click()
     await expect(page.getByText('任务提交成功').first()).toBeVisible({ timeout: 10_000 })
     await expect(page.getByText('MockNewTask01').first()).toBeVisible()
-    // 列表页提交走 admin 代提交端点
-    await expectMockCall(page, 'e => e.method === "post" && e.url?.endsWith("/api/v1/admin/tasks/submit")')
+    // 列表页提交走 client 租户端点 (2026-09: 控制台为租户身份, admin 端点仅平台域)
+    await expectMockCall(page, 'e => e.method === "post" && e.url?.endsWith("/api/v1/client/tasks/submit")')
   })
 })
 

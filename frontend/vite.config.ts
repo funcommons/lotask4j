@@ -5,7 +5,8 @@ import AutoImport from 'unplugin-auto-import/vite'
 import pkg from './package.json'
 
 // lotask4j 后端 (Spring Boot :9080)
-const BACKEND = 'http://localhost:9080'
+// 本地联调可指向 compose 栈: LOTASK_BACKEND=http://localhost:19080 pnpm dev
+const BACKEND = process.env.LOTASK_BACKEND ?? 'http://localhost:9080'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -33,6 +34,8 @@ export default defineConfig(({ mode }) => {
       __APP_VERSION__: JSON.stringify(pkg.version || '0.0.0'),
       __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
       __EMBED_BUILD__: JSON.stringify(isEmbed),
+      // 真后端联调模式 (LOTASK_BACKEND=... pnpm dev): dev-mock 自动退场, 请求走 proxy 到真实栈
+      __LOTASK_REAL_BACKEND__: JSON.stringify(!!process.env.LOTASK_BACKEND),
     },
     resolve: {
       alias: {

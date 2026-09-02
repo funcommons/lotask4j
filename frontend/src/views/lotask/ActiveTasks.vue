@@ -85,7 +85,7 @@
             </div>
 
             <div class="card-id">
-              <span>ID: {{ task.id.substring(0, 14) }}...</span>
+              <span>ID: {{ String(task.id).substring(0, 14) }}...</span>
               <i
                 class="ri-file-copy-line copy-icon"
                 @click.stop="copyId(task.id)"

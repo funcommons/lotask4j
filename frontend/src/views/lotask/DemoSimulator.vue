@@ -150,7 +150,7 @@
           <div class="task-header">
             <div>
               <div class="task-name">{{ task.typeName || task.type }}</div>
-              <div class="task-id">{{ task.id.substring(0, 12) }}...</div>
+              <div class="task-id">{{ String(task.id).substring(0, 12) }}...</div>
             </div>
             <FcTag
               :color="taskTagColor(task.status)"
@@ -427,7 +427,7 @@ async function submitOneTask() {
     const res = await submitTask(data as never)
     const id = (res as { id?: string }).id
     if (!id) return
-    addLog('client', `✅ ${t('lotask.guides.demoSimulatorExt.submitSuccess')}: ${id.substring(0, 8)}... [${taskType.value}, priority=${priority}${hasCallback ? ', callback' : ''}]`)
+    addLog('client', `✅ ${t('lotask.guides.demoSimulatorExt.submitSuccess')}: ${String(id).substring(0, 8)}... [${taskType.value}, priority=${priority}${hasCallback ? ', callback' : ''}]`)
     taskStats.submitted++
     const typeName = taskTypeOptions.find(o => o.value === taskType.value)?.label || taskType.value
     try {
@@ -466,7 +466,7 @@ async function pollAndExecute() {
       return
     }
     const id = task.id
-    addLog('worker', `🔨 ${t('lotask.guides.demoSimulatorExt.worker.begin')}: ${id.substring(0, 8)}...`)
+    addLog('worker', `🔨 ${t('lotask.guides.demoSimulatorExt.worker.begin')}: ${String(id).substring(0, 8)}...`)
 
     let detail: { payload?: Record<string, unknown>; typeName?: string; type?: string } | null = null
     try {
@@ -522,7 +522,7 @@ async function pollAndExecute() {
         version: task.version,
       }
       await reportResult(id, resultReq)
-      addLog('worker', `✅ ${t('lotask.guides.demoSimulatorExt.execSuccess')}: ${id.substring(0, 8)}...`)
+      addLog('worker', `✅ ${t('lotask.guides.demoSimulatorExt.execSuccess')}: ${String(id).substring(0, 8)}...`)
       taskStats.completed++
       updateTask({ status: 'SUCCESS', progress: 100, payload: { ...activeTasks.value.find(x => x.id === id)?.payload, result } as Record<string, unknown> })
     } else {
@@ -534,7 +534,7 @@ async function pollAndExecute() {
         version: task.version,
       }
       await reportResult(id, resultReq)
-      addLog('worker', `❌ ${t('lotask.guides.demoSimulatorExt.execFailed')}: ${id.substring(0, 8)}... (${errorMsg})`)
+      addLog('worker', `❌ ${t('lotask.guides.demoSimulatorExt.execFailed')}: ${String(id).substring(0, 8)}... (${errorMsg})`)
       taskStats.failed++
       updateTask({ status: 'FAILED', progress: 0 })
     }

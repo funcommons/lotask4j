@@ -101,7 +101,7 @@ export const tasks = {
       type: '任务类型',
       typePlaceholder: '例如：data_export',
       payload: '任务参数（JSON）',
-      payloadPlaceholder: '{\n  "key": "value"\n}',
+      payloadPlaceholder: "{'{'}\n  \"key\": \"value\"\n{'}'}",
       priority: '优先级',
       callbackUrl: '回调地址（可选）',
       callbackUrlPlaceholder: 'https://your-domain.com/webhook',

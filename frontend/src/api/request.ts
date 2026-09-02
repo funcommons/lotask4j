@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { ApiError, HTTP_STATUS } from '@/api/errorCodes'
 import type { ApiFieldError } from '@/api/errorCodes'
 import { getOrCreateTraceId, TRACE_ID_STORAGE_KEY } from '@/utils/trace'
+import { buildSignatureHeaders } from '@/utils/signature'
 import { authBus } from '@/utils/authBus'
 import router from '@/router'
 import i18n from '@/locales'
@@ -27,7 +28,14 @@ const AUTH_PUBLIC_PATHS = new Set([
 const IS_EMBED_BUILD = !!__EMBED_BUILD__
 
 /** 懒加载 authStore (避免循环依赖: store 引用 api, api 引用 store) */
-let authStoreGetter: (() => { token: string | null; isLoggedIn: boolean; clearAuth: () => void }) | null = null
+let authStoreGetter: (() => {
+  token: string | null
+  isLoggedIn: boolean
+  clearAuth: () => void
+  /** 登录后内存持有的 client_secret — HMAC 签名端点使用 (不持久化) */
+  runtimeSecret: string | null
+  appId: string | null
+}) | null = null
 export function setAuthStoreGetter(getter: typeof authStoreGetter) {
   authStoreGetter = getter
 }
@@ -72,7 +80,10 @@ request.interceptors.request.use(
     // 这里按 data 类型动态调整: FormData → 删 Content-Type, 其他 → 强制 application/json
     if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
       config.headers.delete('Content-Type')
-    } else if (!config.headers.has('Content-Type') && !(config.data instanceof URLSearchParams)) {
+    } else if (typeof URLSearchParams !== 'undefined' && config.data instanceof URLSearchParams) {
+      // form 编码端点 (auth/token) — 实例默认 JSON 会覆盖 axios 自动判断, 显式改回
+      config.headers.set('Content-Type', 'application/x-www-form-urlencoded')
+    } else if (!config.headers.has('Content-Type')) {
       config.headers.set('Content-Type', 'application/json')
     }
 
@@ -84,6 +95,19 @@ request.interceptors.request.use(
       if (store.token) {
         config.headers.set('Authorization', `Bearer ${store.token}`)
       }
+    // HMAC 请求签名: 后端 signature.path-patterns 强制的写端点 (client submit/cancel)。
+    // secret 仅登录后内存持有 (见 store/auth runtimeSecret), 刷新丢失即不签名 → 后端拒绝 → 重登。
+    if (!IS_EMBED_BUILD && authStoreGetter && !isAuthPublic) {
+      const store = authStoreGetter()
+      const isSignedPath =
+        url === '/api/v1/client/tasks/submit' ||
+        /^\/api\/v1\/client\/tasks\/[^/]+\/cancel$/.test(url)
+      if (isSignedPath && store.runtimeSecret && store.appId) {
+        Object.entries(
+          buildSignatureHeaders(config.method || 'POST', url, store.runtimeSecret, store.appId, config.data),
+        ).forEach(([k, v]) => config.headers.set(k, v))
+      }
+    }
     } else if (IS_EMBED_BUILD && !isAuthPublic) {
       // embed 短期 token (2026-09 租户化): /web-embed/{type} 入口按 accessKey 归属租户
       // 签发 TENANT 型 token 种入 cookie, 此处读取后以 Bearer 调 client GET

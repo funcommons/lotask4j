@@ -42,8 +42,9 @@ The backend is a classic layered Spring Boot app: Controllers → Service interf
 | `ClientTaskController` | Upstream business systems | Submit / query / cancel tasks. Path: `/api/v1/client/**` |
 | `WorkerTaskController` | Worker processes | Poll pending tasks, report progress, report result, register/heartbeat the worker node. Path: `/api/v1/worker/**` |
 | `AdminTaskController` | Admin frontend / operators | Task CRUD, worker-node registry, task-type config, statistics, archive view. |
-| `AdminWebEmbedController` | Admin frontend | CRUD for `web_embed_config` rows (controls the embed widget's per-tenant config). |
-| `WebEmbedController` | The embed widget itself | Public-facing config fetch used by the embedded UI. |
+| `AdminTenantController` | Admin frontend | Tenant lifecycle: create (one-time secret) / reset-secret (24h grace) / enable-suspend / delete. |
+| `AdminWebEmbedController` | Admin frontend | CRUD for `web_embed_config` rows (controls the embed widget's per-tenant config; create requires `tenantId`). |
+| `WebEmbedController` | The embed widget itself | Public-facing config fetch + short-term TENANT token issuance used by the embedded UI. |
 
 **Service layer uses interface-in-`service/` + impl-in-`service/impl/` convention.** The Spring beans are the `*Impl` classes (`TaskServiceImpl`, `AdminServiceImpl`, `WorkerServiceImpl`, `CallbackServiceImpl`, `WebhookServiceImpl`, `WebEmbedServiceImpl`, `AdminWebEmbedServiceImpl`). When modifying behavior, edit the `Impl`, not the interface.
 
@@ -51,10 +52,12 @@ The backend is a classic layered Spring Boot app: Controllers → Service interf
 - `TaskArchiver` — runs daily 02:00, flips `is_deleted=1` on tasks completed ≥7 days ago (PENDING/RUNNING are excluded). Logical delete — rows remain.
 - `WorkerCleaner` — runs every minute, removes offline workers from `asts_worker_node`.
 - `TaskReaper` — reaps stuck/timed-out tasks back to a recoverable state.
+- `TaskPartitionMaintainer` — ensures current + next month partitions exist (runs with the archiver).
+- `OutboxPublisher` — scans `asts_outbox` every 5s and delivers webhooks with exponential backoff (max 8 attempts).
 
 **Data model — PostgreSQL with heavy JSONB use.** `task.payload`, `task.result`, `task.steps_detail` and `task.steps_history` are JSONB; do not add new columns without first checking whether they belong inside one of those blobs. Tables:
 - `asts_task` — primary task table (按月 RANGE 分区; status: `PENDING/RUNNING/SUCCESS/FAILED/CANCELLING/CANCELLED`; progress 0–100; 归档 = `is_deleted=1` 逻辑删, **无独立 history 表**)
-- `asts_task_type_config` — type definitions (`(tenant_id, type_key)` 租户内唯一)
+- `asts_task_type_config` — type definitions (`(tenant_id, type_key)` 租户内唯一; typeKey 跨租户可共存 — selectByTypeKey/guard 均按 claim/request tenantId 定向, admin 域缺省为全局语义)
 - `asts_task_execution_event` — append-only 执行事件 audit
 - `asts_worker_node` — worker registry (租户级)
 - `asts_web_embed_config` — embed widget per-tenant config (accessKey → 租户归属)
@@ -139,13 +142,15 @@ throw new RuntimeException("internal error");
 
 `OpenIdPathVariableArgumentResolver` 在 `IdObfuscator.fromOpenId()` 抛 IAE 时主动 `throw new ApiException(ApiCode.BUSINESS_RULE_ERROR, "Invalid @OpenId path variable ...")`,**不**走 `handleIllegalArgumentException` 的 10102 分流。所以非法 OpenID 路径拿到的是 **`code=10106` 而非 `10102`**。两种合理,但跟 issue #1 的优先级 3 提案不完全一致。看到这个不要误以为又是 v1.2.1 之前的 IAE bug。
 
+- **CI & 文档站 & 联调栈 (2026-09-02)**: `.github/workflows/ci.yml` 双 job (backend `mvn verify` + 100% LINE 门禁 / frontend verify + e2e, e2e 需 `--grep-invert "visual"` 因视觉基线是 darwin 专属) + gitleaks/dependency-review; `docs.yml` 发布 VitePress 文档站到 GitHub Pages (base `/lotask4j/`); `docker-compose.yml` + `scripts/smoke.sh` (24 断言) + `scripts/poll_bench.py` 为发版前标准联调; 控制台登录后前端对 submit/cancel 做 HMAC 签名 (secret 存 sessionStorage, 见 store/auth)。
+
 ## Common commands
 
 ### Backend (`lotask4j-backend/`)
 
 ```bash
 mvn clean install -DskipTests                         # build + install parent/sdk deps
-mvn spring-boot:run                                   # run on :8080 (Swagger at /swagger-ui.html)
+mvn spring-boot:run                                   # run on :9080 (Swagger at /swagger-ui.html)
 mvn clean package -DskipTests && \
   java -jar target/lotask4j-1.0.0-SNAPSHOT.jar   # packaged run
 

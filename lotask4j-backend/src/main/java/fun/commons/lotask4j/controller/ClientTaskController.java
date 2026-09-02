@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.OffsetDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -154,6 +155,16 @@ public class ClientTaskController {
      *
      * @return 任务统计数据
      */
+    /**
+     * 当前租户可用的任务类型列表 (启用) — 提交表单的类型下拉数据源
+     */
+    @GetMapping("/types")
+    @Operation(summary = "可用任务类型列表", description = "当前租户已配置且启用的任务类型 (typeKey + name)")
+    public ApiResponse<List<java.util.Map<String, Object>>> listEnabledTypes() {
+        return ApiResponse.success(taskService.listEnabledTypes(
+                fun.commons.framework4j.tenant.context.TenantIdentity.currentTenantId(null)));
+    }
+
     @GetMapping("/stats")
     @Operation(summary = "获取任务统计", description = "获取待处理、运行中等任务的统计信息")
     public ApiResponse<Map<String, Long>> getTaskStats() {

@@ -78,5 +78,19 @@ export default defineConfig({
         video: 'retain-on-failure',
       },
     },
+
+    // 真后端契约联调: dev server 需 LOTASK_BACKEND 指向 compose 栈;
+    // spec 内部按 LOTASK_PLATFORM_SECRET 是否设置自动跳过 (dev-mock 环境不跑)
+    {
+      name: 'integration',
+      testDir: './e2e/integration',
+      testMatch: /.*\.spec\.ts/,
+      retries: 0,
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1440, height: 900 },
+        trace: 'off',
+      },
+    },
   ],
 })

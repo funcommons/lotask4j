@@ -17,6 +17,14 @@ import java.time.OffsetDateTime;
 public interface TaskService extends IService<AstTask> {
 
     /**
+     * 当前租户可用的任务类型列表 (typeKey + name, 仅启用) — client 域类型下拉用。
+     *
+     * @param tenantId claim 租户 (null → 空列表)
+     */
+    java.util.List<java.util.Map<String, Object>> listEnabledTypes(Long tenantId);
+
+
+    /**
      * 提交异步任务
      *
      * @param request 提交任务请求

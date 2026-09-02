@@ -161,6 +161,13 @@ function pickMockResponse(config: MockConfig): unknown | undefined {
   }
   // 任务列表 / 统计 (client 域, 主应用与 embed 组件共用)
   if (method === 'get' && url.endsWith('/api/v1/client/tasks')) return MOCK_TASK_LIST
+  if (method === 'get' && url.endsWith('/api/v1/client/tasks/types')) {
+    return [
+      { typeKey: 'data_export', name: '数据导出' },
+      { typeKey: 'video_transcode', name: '视频转码' },
+      { typeKey: 'pdf_generate', name: 'PDF 生成' },
+    ]
+  }
   if (method === 'get' && url.endsWith('/api/v1/client/tasks/stats')) {
     return { total: 1234, pending: 3, running: 2, success: 1100, failed: 100, cancelled: 31 }
   }
@@ -212,6 +219,9 @@ declare global {
   interface Window {
     __devMockLog?: Array<{ url: string; method: string; params?: Record<string, unknown> }>
   }
+  // vite define 注入 (vite.config.ts): 真后端联调模式标志
+  // eslint-disable-next-line no-var
+  var __LOTASK_REAL_BACKEND__: boolean
 }
 
 function recordMockCall(config: MockConfig): void {
@@ -226,6 +236,11 @@ function recordMockCall(config: MockConfig): void {
 }
 
 export function installDevMock(instance: AxiosInstance): void {
+  // 真后端联调模式: vite define 注入 (LOTASK_BACKEND=... pnpm dev 时为 true) — 不短路任何请求
+  if (typeof __LOTASK_REAL_BACKEND__ !== 'undefined' && __LOTASK_REAL_BACKEND__) {
+    console.info('[dev-mock] LOTASK_BACKEND 已设置, dev-mock 停用 — 请求走真实后端')
+    return
+  }
   const originalAdapter = instance.defaults.adapter
   instance.defaults.adapter = async (config) => {
     const mock = pickMockResponse(config as MockConfig)

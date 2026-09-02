@@ -93,7 +93,7 @@
         <el-table-column :label="t('lotask.tasks.list.id')" min-width="170">
           <template #default="{ row }">
             <span class="task-id" @click="copyId(row.id)">
-              {{ row.id.substring(0, 12) }}...
+              {{ String(row.id).substring(0, 12) }}...
               <i class="ri-file-copy-line copy-icon" />
             </span>
           </template>
@@ -299,7 +299,7 @@ import {
   getTaskList,
   cancelTask as cancelTaskApi
 } from '@/api/client'
-import { adminSubmitTask } from '@/api/admin'
+import { submitTask, listMyTypes } from '@/api/client'
 import type { TaskListItem } from '@/api/types'
 import {
   formatDateTime,
@@ -402,7 +402,7 @@ async function loadTasks() {
 async function loadTaskTypes() {
   loadingTypes.value = true
   try {
-    const res = await import('@/api/admin').then(m => m.getAllTaskTypeConfigs())
+    const res = await listMyTypes()
     taskTypeOptions.value = (res || []).map((cfg: { typeKey: string; name: string }) => ({ typeKey: cfg.typeKey, name: cfg.name }))
   } catch (err) {
     console.error('加载任务类型配置失败:', err)
@@ -480,7 +480,7 @@ async function handleSubmit() {
   }
   submitting.value = true
   try {
-    const res = await adminSubmitTask({
+    const res = await submitTask({
       type: submitForm.type,
       payload,
       priority: submitForm.priority,

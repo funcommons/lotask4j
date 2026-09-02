@@ -42,12 +42,33 @@ public class TaskServiceImpl extends ServiceImpl<AstTaskMapper, AstTask> impleme
     private final TaskStateMachine stateMachine;
     private final TaskSubmitGuard submitGuard;
 
+    @Override
+    public List<java.util.Map<String, Object>> listEnabledTypes(Long tenantId) {
+        if (tenantId == null) {
+            return List.of();
+        }
+        List<AstTaskTypeConfig> configs = taskTypeConfigMapper.selectList(
+                new LambdaQueryWrapper<AstTaskTypeConfig>()
+                        .eq(AstTaskTypeConfig::getTenantId, tenantId)
+                        .eq(AstTaskTypeConfig::getIsEnabled, 1)
+                        .eq(AstTaskTypeConfig::getIsDeleted, 0)
+                        .orderByDesc(AstTaskTypeConfig::getCreatedAt));
+        return configs.stream()
+                .map(c -> {
+                    java.util.Map<String, Object> m = new java.util.HashMap<>();
+                    m.put("typeKey", c.getTypeKey());
+                    m.put("name", c.getName());
+                    return m;
+                })
+                .collect(java.util.stream.Collectors.toList());
+    }
+
     /**
      * 提交异步任务 — P0-5: 同 (type, idempotencyKey) 命中即返回首次 ID。
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Long submitTask(SubmitTaskRequest request) {
+        public Long submitTask(SubmitTaskRequest request) {
         Long tenantId = TenantIdentity.currentTenantId(null);
         try {
             // P0-5: 同 (租户, key, type) 直接命中已存在任务

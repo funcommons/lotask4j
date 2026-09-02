@@ -101,7 +101,7 @@ export const tasks = {
       type: 'Task Type',
       typePlaceholder: 'e.g. data_export',
       payload: 'Payload (JSON)',
-      payloadPlaceholder: '{\n  "key": "value"\n}',
+      payloadPlaceholder: "{'{'}\n  \"key\": \"value\"\n{'}'}",
       priority: 'Priority',
       callbackUrl: 'Callback URL (optional)',
       callbackUrlPlaceholder: 'https://your-domain.com/webhook',

@@ -6,6 +6,7 @@
 
 | 字段 | 说明 | 示例 |
 |------|------|------|
+| `tenantId` | 租户归属（**创建必填**，平台替租户建类型；V5 起 DB 层 NOT NULL） | 1 |
 | `typeKey` | 类型标识（提交时 `type` 的值），租户内唯一 | `data_export` |
 | `name` | 展示名 | 数据导出 |
 | `concurrencyLimit` | 该类型同时 `RUNNING` 的任务上限（背压水位） | 5 |

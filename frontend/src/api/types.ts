@@ -1339,6 +1339,8 @@ export interface WorkerNode {
 /** 任务类型配置 (TaskTypeConfigResponse) */
 export interface TaskTypeConfig {
   id: number
+  /** 租户归属 (平台替租户建类型; V5 起 tenant_id NOT NULL) */
+  tenantId?: number
   typeKey: string
   name: string
   description?: string

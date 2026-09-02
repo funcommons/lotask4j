@@ -20,6 +20,8 @@ export const system = {
   },
   // TaskTypeConfig
   taskType: {
+    tenant: '租户归属',
+    tenantPlaceholder: '选择类型归属的租户',
     title: '任务类型配置',
     addNew: '新建类型',
     edit: '编辑类型',

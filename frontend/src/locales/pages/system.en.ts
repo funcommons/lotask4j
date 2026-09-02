@@ -20,6 +20,8 @@ export const system = {
   },
   // TaskTypeConfig
   taskType: {
+    tenant: 'Tenant',
+    tenantPlaceholder: 'Select the owning tenant',
     title: 'Task Type Config',
     addNew: 'New Type',
     edit: 'Edit Type',

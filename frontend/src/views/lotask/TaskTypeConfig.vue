@@ -83,6 +83,16 @@
       width="720px"
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="140px">
+        <el-form-item :label="t('lotask.system.taskType.tenant')" prop="tenantId" class="fc-form-item">
+          <FcSelect v-model="form.tenantId" :placeholder="t('lotask.system.taskType.tenantPlaceholder')" filterable>
+            <el-option
+              v-for="tenant in tenantOptions"
+              :key="tenant.id"
+              :label="tenant.name"
+              :value="tenant.id"
+            />
+          </FcSelect>
+        </el-form-item>
         <el-form-item :label="t('lotask.system.taskType.typeKey')" prop="typeKey" class="fc-form-item">
           <el-input
             v-model="form.typeKey"
@@ -196,6 +206,7 @@ import {
   deleteTaskTypeConfig,
 } from '@/api/admin'
 import type { TaskTypeConfig } from '@/api/types'
+import { listTenants, type TenantItem } from '@/api/tenants'
 import { formatDateTime } from '@/utils/taskStatus'
 import { toast } from '@/components/sdk'
 import FcSection from '@/components/sdk/section/FcSection.vue'
@@ -223,8 +234,11 @@ const editing = ref<TaskTypeConfig | null>(null)
 const formRef = ref<FormInstance>()
 const stepsError = ref('')
 
+const tenantOptions = ref<TenantItem[]>([])
+
 const form = reactive({
   id: undefined as number | undefined,
+  tenantId: undefined as number | undefined,
   typeKey: '',
   typeName: '',
   description: '',
@@ -236,6 +250,9 @@ const form = reactive({
 })
 
 const rules = computed<FormRules>(() => ({
+  tenantId: [
+    { required: true, message: () => t('lotask.system.common.required'), trigger: 'change' },
+  ],
   typeKey: [
     { required: true, message: () => t('lotask.system.common.required'), trigger: 'blur' },
     {
@@ -276,6 +293,15 @@ function resetForm() {
   stepsError.value = ''
 }
 
+async function loadTenantOptions() {
+  try {
+    const res = await listTenants({ page: 1, pageSize: 200 })
+    tenantOptions.value = (res.items || []).filter((t) => t.status === 'ACTIVE')
+  } catch (err) {
+    console.error('load tenants failed:', err)
+  }
+}
+
 function handleAdd() {
   editing.value = null
   resetForm()
@@ -287,6 +313,7 @@ function handleEdit(row: TaskTypeConfig) {
   resetForm()
   Object.assign(form, {
     id: row.id,
+    tenantId: row.tenantId,
     typeKey: row.typeKey,
     typeName: row.name,
     description: row.description || '',
@@ -366,6 +393,7 @@ async function handleSubmit() {
   submitting.value = true
   try {
     const payload: Record<string, unknown> = {
+      tenantId: form.tenantId,
       typeKey: form.typeKey,
       name: form.typeName,
       description: form.description,
@@ -395,7 +423,10 @@ async function handleSubmit() {
   }
 }
 
-onMounted(load)
+onMounted(() => {
+  load()
+  loadTenantOptions()
+})
 </script>
 
 <style scoped lang="scss">

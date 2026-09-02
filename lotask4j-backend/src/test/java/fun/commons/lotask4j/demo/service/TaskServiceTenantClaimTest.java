@@ -175,6 +175,13 @@ class TaskServiceTenantClaimTest {
     }
 
     @Test
+    @DisplayName("listEnabledTypes: claim 为 null (平台/后台路径) → 空列表")
+    void listEnabledTypes_nullClaim() {
+        assertThat(taskService.listEnabledTypes(null)).isEmpty();
+        verify(taskTypeConfigMapper, never()).selectList(any());
+    }
+
+    @Test
     @DisplayName("getTaskDetail 不存在 → TASK_NOT_FOUND (envelope)")
     void getTaskDetail_notFound() {
         when(astTaskMapper.selectByIdWithTypeName(eq(404L), eq(42L))).thenReturn(null);

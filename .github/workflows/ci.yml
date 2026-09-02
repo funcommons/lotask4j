@@ -90,14 +90,15 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       # playwright.config 无 webServer, CI 自起 dev server (dev-mock 零后端)
-      - name: Run e2e (smoke + regression, 65)
+      # 视觉基线 (visual) 按 darwin 平台生成, Linux CI 字体渲染必然超差 — 仅本地跑
+      - name: Run e2e (smoke + regression, 视觉用例除外)
         run: |
           pnpm dev > /tmp/vite-dev.log 2>&1 &
           for i in $(seq 1 30); do
             curl -sf http://localhost:9083/ > /dev/null && break
             sleep 1
           done
-          pnpm test:e2e
+          pnpm test:e2e --grep-invert "visual"
 
       - name: Upload Playwright report
         if: failure()

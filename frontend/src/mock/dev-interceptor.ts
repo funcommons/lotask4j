@@ -12,10 +12,11 @@ import type { AxiosInstance } from 'axios'
  */
 
 /**
- * mock token — 真 JWT 三段形状 (header.payload.signature), payload 带 tenant_id claim:
+ * mock token — 真 JWT 三段形状 (header.payload.signature), 业务 claims 嵌套
+ * payload.claims 键 (framework4j v1.7.0 Issue #23 同形):
  *   client_id='ADMIN' → 平台身份 (tenant_id=0, 只见 /platform/*)
  *   其余 client_id   → 租户身份 (tenant_id=9101, 只见 /tenant/*)
- * 真实框架 token 不带 claim — /auth/me 由真后端反查; dev-mock 拦 /me 解此 claim 回显。
+ * 路由守卫 decodeTenantClaim 解嵌套 claims 分域; 不验签 (后端才验)。
  */
 function b64u(o: unknown): string {
   try {
@@ -25,8 +26,8 @@ function b64u(o: unknown): string {
   }
 }
 
-const PLATFORM_ACCESS = `mock.${b64u({ sub: 'PLATFORM', tenant_id: 0 })}.sig`
-const TENANT_ACCESS = `mock.${b64u({ sub: 'TENANT', tenant_id: 9101 })}.sig`
+const PLATFORM_ACCESS = `mock.${b64u({ sub: 'PLATFORM', claims: { tenant_id: 0 } })}.sig`
+const TENANT_ACCESS = `mock.${b64u({ sub: 'TENANT', claims: { tenant_id: 9101 } })}.sig`
 
 // —— mock 数据 ——
 
@@ -164,24 +165,6 @@ interface MockConfig {
   headers?: unknown
 }
 
-/** 从 Authorization 头解 dev-mock 自造 JWT 的 tenant_id claim (非 mock token → null) */
-function mockTenantIdFromHeader(config: MockConfig): number | null {
-  try {
-    const h = config.headers as { Authorization?: string; get?: (k: string) => string } | undefined
-    const auth = h?.Authorization ?? (typeof h?.get === 'function' ? h.get('Authorization') : undefined)
-    const token = typeof auth === 'string' ? auth.replace(/^Bearer\s+/i, '') : ''
-    // 复用 store 的解码逻辑会引循环依赖, 这里内联同款 base64url 解码
-    const parts = token.split('.')
-    if (parts.length !== 3 || !parts[1]) return null
-    let b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
-    while (b64.length % 4 !== 0) b64 += '='
-    const payload = JSON.parse(atob(b64)) as { tenant_id?: number }
-    return typeof payload?.tenant_id === 'number' ? payload.tenant_id : null
-  } catch {
-    return null
-  }
-}
-
 function pickMockResponse(config: MockConfig): unknown | undefined {
   const url = config.url || ''
   const method = (config.method || 'get').toLowerCase()
@@ -194,12 +177,6 @@ function pickMockResponse(config: MockConfig): unknown | undefined {
     }
     const isPlatform = /client_id=[^&]*ADMIN/i.test(body)
     return { access_token: isPlatform ? PLATFORM_ACCESS : TENANT_ACCESS, token_type: 'Bearer', expires_in: 7200 }
-  }
-
-  // 身份反查 (GET /api/v1/auth/me): 真实框架 token 不带 claim, 由真后端反查;
-  // dev-mock 自造 token 的 payload 带 tenant_id — 直接解 Authorization 回显。
-  if (method === 'get' && url.endsWith('/api/v1/auth/me')) {
-    return { tenantId: mockTenantIdFromHeader(config) }
   }
 
   // 任务详情: 特例 ID → 404 业务码 / FAILED 详情 (error-states 用例); 其余返回 RUNNING 详情

@@ -8,8 +8,8 @@ import { test, expect } from '@playwright/test'
  *   client_id='order-service' → 租户 token (tenant_id=9101) → 落 /tenant/*
  * 也可用 addInitScript 预置 token 直达 (与 dev-mock 常量同形, 见各 describe)。
  */
-const PLATFORM_TOKEN = 'mock.eyJzdWIiOiJQTEFURk9STSIsInRlbmFudF9pZCI6MH0.sig'
-const TENANT_TOKEN = 'mock.eyJzdWIiOiJURU5BTlQiLCJ0ZW5hbnRfaWQiOjkxMDF9.sig'
+const PLATFORM_TOKEN = 'mock.eyJzdWIiOiJQTEFURk9STSIsImNsYWltcyI6eyJ0ZW5hbnRfaWQiOjB9fQ.sig'
+const TENANT_TOKEN = 'mock.eyJzdWIiOiJURU5BTlQiLCJjbGFpbXMiOnsidGVuYW50X2lkIjo5MTAxfX0.sig'
 
 test.describe('auth smoke', () => {
   test('portal 门面可达', async ({ page }) => {

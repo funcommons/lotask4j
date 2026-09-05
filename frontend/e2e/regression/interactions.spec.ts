@@ -13,8 +13,8 @@ import { test, expect, type Page } from '@playwright/test'
  * 登录态用与 dev-mock 签发同形的 JWT (payload 带 tenant_id claim):
  *   平台 token → /platform/* + 平台菜单; 租户 token → /tenant/* + 租户菜单。
  */
-const PLATFORM_TOKEN = 'mock.eyJzdWIiOiJQTEFURk9STSIsInRlbmFudF9pZCI6MH0.sig'
-const TENANT_TOKEN = 'mock.eyJzdWIiOiJURU5BTlQiLCJ0ZW5hbnRfaWQiOjkxMDF9.sig'
+const PLATFORM_TOKEN = 'mock.eyJzdWIiOiJQTEFURk9STSIsImNsYWltcyI6eyJ0ZW5hbnRfaWQiOjB9fQ.sig'
+const TENANT_TOKEN = 'mock.eyJzdWIiOiJURU5BTlQiLCJjbGFpbXMiOnsidGVuYW50X2lkIjo5MTAxfX0.sig'
 
 function login(page: Page, which: 'platform' | 'tenant') {
   const token = which === 'platform' ? PLATFORM_TOKEN : TENANT_TOKEN

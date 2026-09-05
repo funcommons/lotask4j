@@ -41,7 +41,7 @@ for (const theme of ['light', 'dark'] as const) {
             localStorage.setItem('lotask4j:access_token', token)
             localStorage.setItem('lotask4j:expires_at', String(Date.now() + 3600_000))
             localStorage.setItem('lotask4j:app_id', 'ADMIN')
-          }, 'mock.eyJzdWIiOiJQTEFURk9STSIsInRlbmFudF9pZCI6MH0.sig')
+          }, 'mock.eyJzdWIiOiJQTEFURk9STSIsImNsYWltcyI6eyJ0ZW5hbnRfaWQiOjB9fQ.sig')
         }
         await page.goto(p.path)
         // 等关键内容出现 (dev-mock 无网络请求, networkidle 不可靠)

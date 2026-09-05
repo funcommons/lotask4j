@@ -6,8 +6,8 @@ import { test, expect } from '@playwright/test'
  * - tablet/desktop: 常驻侧栏可用
  * 双域: 布局壳用 platform 身份, 任务列表用 tenant 身份。
  */
-const PLATFORM_TOKEN = 'mock.eyJzdWIiOiJQTEFURk9STSIsInRlbmFudF9pZCI6MH0.sig'
-const TENANT_TOKEN = 'mock.eyJzdWIiOiJURU5BTlQiLCJ0ZW5hbnRfaWQiOjkxMDF9.sig'
+const PLATFORM_TOKEN = 'mock.eyJzdWIiOiJQTEFURk9STSIsImNsYWltcyI6eyJ0ZW5hbnRfaWQiOjB9fQ.sig'
+const TENANT_TOKEN = 'mock.eyJzdWIiOiJURU5BTlQiLCJjbGFpbXMiOnsidGVuYW50X2lkIjo5MTAxfX0.sig'
 
 test('布局壳完整渲染 (viewport 对照, platform 域)', async ({ page }) => {
   await page.addInitScript((token) => {

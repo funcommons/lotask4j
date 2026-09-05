@@ -6,8 +6,8 @@ import { test, expect } from '@playwright/test'
  * 2026-09 路由域分离: /platform/* (平台治理, tenant_id=0) 与 /tenant/* (租户业务, tenant_id>0)。
  * 注入与 dev-mock 签发同形的 JWT token, 域守卫按 claim 分域放行。
  */
-const PLATFORM_TOKEN = 'mock.eyJzdWIiOiJQTEFURk9STSIsInRlbmFudF9pZCI6MH0.sig'
-const TENANT_TOKEN = 'mock.eyJzdWIiOiJURU5BTlQiLCJ0ZW5hbnRfaWQiOjkxMDF9.sig'
+const PLATFORM_TOKEN = 'mock.eyJzdWIiOiJQTEFURk9STSIsImNsYWltcyI6eyJ0ZW5hbnRfaWQiOjB9fQ.sig'
+const TENANT_TOKEN = 'mock.eyJzdWIiOiJURU5BTlQiLCJjbGFpbXMiOnsidGVuYW50X2lkIjo5MTAxfX0.sig'
 
 test.describe('platform 域 smoke', () => {
   test.beforeEach(async ({ page }) => {

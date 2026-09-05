@@ -8,12 +8,11 @@
  *   - lotask4j:access_token
  *   - lotask4j:app_id       (client_id, 展示用)
  *   - lotask4j:expires_at   (ms 时间戳)
- *   - lotask4j:tenant_id    (身份锚点, /auth/me 回显; 0=平台, >0=租户)
+ *   - lotask4j:tenant_id    (身份锚点, JWT payload.claims.tenant_id 解码; 0=平台, >0=租户)
  */
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { loginApi } from '@/api/auth'
-import { http } from '@/api/request'
 
 export const AUTH_STORAGE_KEYS = {
   token: 'lotask4j:access_token',
@@ -28,9 +27,10 @@ function readStorage(key: string): string | null {
 
 /**
  * 解 JWT payload 的 tenant_id claim (数字或字符串)。
- * 注意: framework4j-tenant v1.5.1 签发的真实 JWT payload 不含 tenant_id claim
- * (身份存 Redis 会话侧) — 此函数仅服务 dev-mock 自造 token 与测试;
- * 真实身份以 GET /api/v1/auth/me 反查为准 (见 ensureIdentity)。
+ * framework4j v1.7.0 起 (Issue #23) 签发侧把业务 claims 嵌套写入 payload.claims —
+ * 嵌套优先, 平面 tenant_id 兼容旧 token / dev-mock 历史形状。
+ * 不验签 — 仅用于前端路由域判定 (真实鉴权由后端三域守卫兜底)。
+ * 解析失败 / claim 缺失 (v1.5.1 存量 token) → null (身份未知, 守卫放行)。
  */
 export function decodeTenantClaim(jwt: string | null | undefined): number | null {
   if (!jwt) return null
@@ -39,11 +39,16 @@ export function decodeTenantClaim(jwt: string | null | undefined): number | null
   try {
     let b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
     while (b64.length % 4 !== 0) b64 += '='
-    const payload = JSON.parse(atob(b64)) as { tenant_id?: number | string }
-    const raw = payload?.tenant_id
+    const payload = JSON.parse(atob(b64)) as {
+      tenant_id?: number | string
+      claims?: { tenant_id?: number | string }
+    }
+    const raw = payload?.claims?.tenant_id ?? payload?.tenant_id
     if (raw === undefined || raw === null) return null
     const n = typeof raw === 'number' ? raw : Number(raw)
-    return Number.isSafeInteger(n) ? n : null
+    // 雪花租户 id (19 位) 超过 Number.MAX_SAFE_INTEGER, JSON.parse 会丢精度 —
+    // 身份判定只需区分 0 与非 0 (ulp@2^61 ≈ 512, 非零值不可能舍入成 0), 不拒大数
+    return Number.isFinite(n) ? n : null
   } catch {
     return null
   }
@@ -65,12 +70,11 @@ export const useAuthStore = defineStore('auth', () => {
   }
   const runtimeSecret = ref<string | null>(readRuntimeSecret())
   const expiresAt = ref<number>(Number(readStorage(AUTH_STORAGE_KEYS.expiresAt) || 0))
-  // 登录身份的数值锚点 (GET /api/v1/auth/me 回显): 0=平台, >0=租户, null=未知
+  // 登录身份的数值锚点 (JWT payload.claims.tenant_id 解码): 0=平台, >0=租户, null=未知
   const tenantIdValue = ref<number | null>(
     readStorage(AUTH_STORAGE_KEYS.tenantId) !== null
       ? Number(readStorage(AUTH_STORAGE_KEYS.tenantId))
       : null)
-  let identityPromise: Promise<void> | null = null
 
   // —— getters ——
   const isLoggedIn = computed(() => !!token.value && Date.now() < expiresAt.value)
@@ -109,19 +113,13 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
-   * 确保 identity 可判定: tenantId 未知时反查 /api/v1/auth/me (框架 token 不带 claim)。
-   * 路由守卫在放行前 await — 失败静默 (identity 保持 null, 守卫放行, 后端兜底)。
+   * 确保 identity 可判定: tenantId 未知时从 token 解码 (framework4j v1.7.0 起
+   * 签发侧嵌入 payload.claims, Issue #23) — 纯本地解码, 无网络往返。
+   * 路由守卫在放行前 await; claim 缺失 (v1.5.1 存量 token) → identity null, 守卫放行。
    */
   async function ensureIdentity(): Promise<void> {
     if (!token.value || tenantIdValue.value !== null) return
-    identityPromise = identityPromise ?? (async () => {
-      try {
-        const me = await http.get<{ tenantId: number | null }>('/api/v1/auth/me')
-        setTenantIdValue(me?.tenantId ?? null)
-      } catch { /* 未知身份 → 放行 */ }
-    })()
-    await identityPromise
-    identityPromise = null
+    setTenantIdValue(decodeTenantClaim(token.value))
   }
 
   /** 登录: client_credentials 换 token */
@@ -141,7 +139,6 @@ export const useAuthStore = defineStore('auth', () => {
     appId.value = null
     expiresAt.value = 0
     runtimeSecret.value = null
-    identityPromise = null
     setTenantIdValue(null)
     try { sessionStorage.removeItem(RUNTIME_SECRET_KEY) } catch { /* noop */ }
     try {

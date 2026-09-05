@@ -6,7 +6,7 @@ import { test, expect } from '@playwright/test'
  * - 任务详情不存在 (mock 特例 → 20100) toast + 页面不崩 (tenant 域)
  * - 失败列表项渲染错误态 (tenant 域)
  */
-const TENANT_TOKEN = 'mock.eyJzdWIiOiJURU5BTlQiLCJ0ZW5hbnRfaWQiOjkxMDF9.sig'
+const TENANT_TOKEN = 'mock.eyJzdWIiOiJURU5BTlQiLCJjbGFpbXMiOnsidGVuYW50X2lkIjo5MTAxfX0.sig'
 
 test.describe('失败态', () => {
   test('登录失败: 错误凭据 → toast + 停留 /login', async ({ page }) => {

@@ -14,9 +14,18 @@
     <description>Parent POM for lotask4j 异步慢任务服务 (ASTS) — fun.commons.lotask4j namespace.</description>
 
     <modules>
+        <module>lotask4j-server-spring-boot-starter</module>
         <module>lotask4j-backend</module>
         <module>lotask4j-demo</module>
     </modules>
+
+    <!-- framework4j 系列构件来源 JitPack (原在各消费模块声明, starter 化后两模块消费 → 上移至此) -->
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

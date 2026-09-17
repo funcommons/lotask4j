@@ -1,0 +1,66 @@
+server:
+  port: 8888
+
+spring:
+  application:
+    name: lotask4j-test
+
+  # 真 PostgreSQL（docker pg :5432 库 lotask4j）— 建表用 schema-postgres.sql
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/lotask4j?stringtype=unspecified
+    username: admin
+    password: test@2026
+
+  # 初始化数据库 (PG 版)
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema-postgres.sql
+      continue-on-error: false
+
+  # 测试库由 sql.init + schema-postgres.sql 每次重建, Flyway 关闭 (键空间已迁 lotask4j.flyway.*)
+  # Flyway 面向 dev/生产库: baseline 存量库 + V2+ 演进; 全新库从 V1 全量建表
+lotask4j:
+  flyway:
+    enabled: false
+
+# framework4j 测试覆写（覆盖测试基线 application.yml 的默认值）
+framework4j:
+  # signature 测试默认关 (签名圈 client 写端点, 会拦截既有测试的裸调);
+  # 签名行为由 SignatureGuardTest 用 @SpringBootTest properties 单独开启验证
+  signature:
+    enabled: false
+
+  tenant:
+    # 测试库默认租户 id=1 (schema-postgres.sql INSERT)。
+    # DomainGuard "单租户模式": 无 token 的租户域请求按默认租户放行 —
+    # 兼容 exclude /api/v1/** 下既有 controller 测试的裸调;
+    # 带 token 的守卫语义 (平台↔租户互斥 403) 走 claim 分支不受影响 (Guard 测试覆盖)。
+    default-tenant-id: 1
+
+  datasource:
+    datasources:
+      business:
+        url: jdbc:postgresql://localhost:5432/lotask4j?stringtype=unspecified
+        username: admin
+        password: test@2026
+        driver-class-name: org.postgresql.Driver
+        druid:
+          initial-size: 0
+          min-idle: 0
+          max-active: 10
+          validation-query: SELECT 1
+
+  # 测试环境放开 ADMIN 域 token 守卫 (列表属性整组覆盖, 不与主配置合并);
+  # 守卫行为由 AdminAuthGuardTest 用 @SpringBootTest properties 单独开启验证
+  access-token:
+    exclude-path-patterns:
+      - /api/v1/**
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    fun.commons.lotask4j: DEBUG
+    org.springframework.test: DEBUG

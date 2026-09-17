@@ -18,6 +18,7 @@
     "test:e2e:smoke": "playwright test --project=smoke",
     "test:e2e:regression": "playwright test --project=regression-desktop --project=regression-tablet --project=regression-mobile",
     "sync-embed": "node scripts/sync-embed.mjs",
+    "sync-console": "node scripts/sync-console.mjs",
     "verify": "vue-tsc -b --noEmit && eslint \"src/**/*.vue\" && vitest run"
   },
   "dependencies": {

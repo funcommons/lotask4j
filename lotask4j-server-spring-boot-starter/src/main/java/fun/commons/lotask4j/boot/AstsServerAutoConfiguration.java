@@ -2,7 +2,6 @@ package fun.commons.lotask4j.boot;
 
 import fun.commons.lotask4j.properties.AstsServerProperties;
 import org.flywaydb.core.Flyway;
-import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -10,22 +9,21 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplicat
 import org.springframework.boot.autoconfigure.flyway.FlywayMigrationInitializer;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
+import org.springframework.context.annotation.Import;
 import org.springframework.core.env.Environment;
-import org.springframework.scheduling.annotation.EnableAsync;
-import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * ASTS 异步慢任务服务自动装配入口 (issue #4 starter 化)。
  *
- * <p>装配链: 壳应用 (1 主类 + 1 yml) → 本类 (imports 文件注册) → controller/service/
- * config/schedule 全量业务 bean + framework4j SDK 自动装配 + Flyway 启动迁移。
+ * <p>装配链: 壳应用 (1 主类 + 1 yml) → 本类 (imports 文件注册) →
+ * {@link AstsBusinessAssembly} (controller/service/config/schedule 全量业务 bean + mapper)
+ * + framework4j SDK 自动装配 + Flyway 启动迁移。
  *
- * <p>家族惯例 (thmp/token-gateway): 业务 bean 显式列子包扫描, boot 包自身不进扫描 —
- * 防止宿主组件扫描与本装配双注册。宿主基包落在 {@code fun.commons.lotask4j} 下时会触发
- * 已知双注册限制 (与 token-gateway 同款), 见 starter README。
+ * <p>两层装配 (token-gateway WorkerAssembly 家族范式): 本类只携带 light bean
+ * (配置/校验器/Flyway), 业务面由 {@link AstsBusinessAssembly} 独立开关
+ * ({@code lotask4j.business.enabled}) — 装配测试可单独验证 light 层。
  *
  * <p>总开关 {@code lotask4j.enabled=false} 时整体退出 (含 AutoConfigurationImportFilter
  * 放行原生 DataSource/MyBatisPlus/Druid/Redisson 装配), 宿主自管。
@@ -36,17 +34,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @AutoConfiguration
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 @ConditionalOnProperty(prefix = "lotask4j", name = "enabled", havingValue = "true", matchIfMissing = true)
-@EnableScheduling
-@EnableAsync
 @EnableConfigurationProperties(AstsServerProperties.class)
-@ComponentScan(basePackages = {
-        "fun.commons.lotask4j.config",
-        "fun.commons.lotask4j.controller",
-        "fun.commons.lotask4j.handler",
-        "fun.commons.lotask4j.metrics",
-        "fun.commons.lotask4j.schedule",
-        "fun.commons.lotask4j.service"})
-@MapperScan("fun.commons.lotask4j.mapper")
+@Import(AstsBusinessAssembly.class)
 public class AstsServerAutoConfiguration {
 
     /** 校验器 bean 名 — Flyway initializer @DependsOn 锚点 */

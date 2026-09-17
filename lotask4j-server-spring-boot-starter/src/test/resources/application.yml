@@ -1,61 +1,70 @@
-# lotask4j-backend 薄壳冒烟测试配置 (issue #4): 壳只验「starter 装配 + 样例 yml + health」
-# 完整功能测试在 lotask4j-server-spring-boot-starter 测试树
-server:
-  port: 8888
-
+# starter 测试基线 (仅测试 classpath, 不随 JAR 发布) — 原 lotask4j-backend 主 application.yml 的
+# framework4j 宿主侧声明等价物; 测试覆写见 application-test.yml (@ActiveProfiles("test"))
 spring:
   application:
-    name: lotask4j-test
+    name: lotask4j-test  # 必须配置, 用于 ID 生成和 Token Key
 
-  # 真 PostgreSQL (CI service container / 本地 docker PG) — 建表用 schema-postgres.sql
-  datasource:
-    driver-class-name: org.postgresql.Driver
-    url: jdbc:postgresql://localhost:5432/lotask4j?stringtype=unspecified
-    username: admin
-    password: test@2026
+  # Jackson时区配置（北京时间 CST 规范）
+  jackson:
+    time-zone: GMT+8
+    date-format: yyyy-MM-dd HH:mm:ss
+    serialization:
+      write-dates-as-timestamps: false
+  # FastJSON2时区配置（北京时间 CST 规范）
+  fastjson2:
+    writer-features:
+      - WriteDateUseDateFormat
+    format:
+      date-format: yyyy-MM-dd HH:mm:ss
+      time-zone: GMT+8
 
-  sql:
-    init:
-      mode: always
-      schema-locations: classpath:schema-postgres.sql
-      continue-on-error: false
-
-# 测试库由 sql.init 重建, Flyway 关闭 (V2 分区迁移非幂等, 共享库禁跑)
-lotask4j:
-  flyway:
-    enabled: false
-
-# framework4j SDK 宿主侧声明 (键名保持原样; 与 starter 测试基线同源)
+# framework4j SDK 宿主侧声明 (键名保持原样, issue #4 决策)
 framework4j:
-  # signature 测试默认关; access-token 守卫放行 /api/v1/** (守卫行为由 starter 测试树专项验证)
-  signature:
-    enabled: false
+  id:
+    worker:
+      strategy: ip
+      redis-name: stringRedisTemplate
+    mybatis:
+      enabled: true
 
+  openid:
+    fastjson2:
+      enabled: true
+    jackson:
+      enabled: false
+    swagger:
+      enabled: true
+
+  # 多数据源 — 测试 PG (CI service container / 本地 docker PG, 与 application-test.yml 对齐)
   datasource:
     enabled: true
     datasources:
       business:
         aliases: [default, primary]
         type: com.alibaba.druid.pool.DruidDataSource
-        url: jdbc:postgresql://localhost:5432/lotask4j?stringtype=unspecified
-        username: admin
-        password: test@2026
+        url: ${LDX_DEV_DB_URL:jdbc:postgresql://localhost:5432/lotask4j}?stringtype=unspecified
+        username: ${LDX_DEV_DB_USERNAME:admin}
+        password: ${LDX_DEV_DB_PASSWORD:test@2026}
         driver-class-name: org.postgresql.Driver
         druid:
           initial-size: 0
           min-idle: 0
           max-active: 10
           validation-query: SELECT 1
-          # 显式压掉 framework4j 默认 wall 过滤器 (wall 拦 PG 部分索引 WHERE 语法)
+          # 显式压掉 framework4j 默认 wall 过滤器 — wall 会拦 schema-postgres.sql 的
+          # PG 部分索引 (CREATE INDEX ... WHERE) 语法 (sql injection violation)
           filters: stat,slf4j
         mybatis-plus:
           mapper-locations: classpath*:/mapper/**/*.xml
           type-aliases-package: fun.commons.lotask4j.entity
           configuration:
             map-underscore-to-camel-case: true
+            cache-enabled: true
+            lazy-loading-enabled: true
         sql-tracing:
           mode: ALL
 
+  # 多 Redis — CI redis:7 service container / 本地 :6379
   redis:
     enabled: true
     datasources:
@@ -92,8 +101,6 @@ framework4j:
     enabled: true
     table-prefix: asts_
     ddl-mode: PROVIDED
-    # 单租户模式: 无 token 的租户域请求按默认租户放行 (壳冒烟不做守卫语义验证)
-    default-tenant-id: 1
     auth:
       enabled: true
       path: /api/v1/auth/token
@@ -116,10 +123,13 @@ framework4j:
     expireTime: 86400
     redis-name: default
     exclude-path-patterns:
-      - /api/v1/**
+      - /api/v1/auth/token
       - /web-embed/**
       - /web-embed
       - /actuator/**
+      - /swagger-ui/**
+      - /swagger-ui.html
+      - /v3/api-docs/**
       - /error
     policies:
       TENANT:
@@ -146,3 +156,20 @@ framework4j:
   sensitive:
     enabled: true
     encryption-key: ${AES_KEY:12345678901234567890123456789012}
+
+  signature:
+    enabled: true
+    timestamp-tolerance-ms: 300000
+    nonce-ttl-seconds: 600
+    nonce-key-prefix: lotask4j:sig:nonce
+    redis-name: default
+    path-patterns:
+      - /api/v1/client/tasks/submit
+      - /api/v1/client/tasks/*/cancel
+    exclude-path-patterns: []
+
+# 测试库由 sql.init + schema-postgres.sql 每次重建, Flyway 关闭避免两套建表机制打架
+# (Flyway 迁移路径由 scripts/smoke.sh 在 compose 环境覆盖)
+lotask4j:
+  flyway:
+    enabled: false

@@ -27,6 +27,7 @@ class AstsFlywayConfigTest {
                         "framework4j.access-token.secretKey=0123456789abcdef0123456789abcdef",
                         "framework4j.tenant.enabled=false",
                         "framework4j.sensitive.enabled=false",
+                        "lotask4j.business.enabled=false",
                         "lotask4j.flyway.url=jdbc:h2:mem:flywayprobe;DB_CLOSE_DELAY=-1",
                         "lotask4j.flyway.user=sa",
                         "lotask4j.flyway.locations=classpath:db/flywaytest")
@@ -54,8 +55,12 @@ class AstsFlywayConfigTest {
 
     @Test
     void backsOffWhenHostProvidesOwnFlyway() {
+        // 宿主 Flyway 必须自带 locations (默认 classpath:db/migration 会加载 starter 的 PG 脚本)
         h2Runner().withBean("hostFlyway", Flyway.class,
-                        () -> Flyway.configure().dataSource("jdbc:h2:mem:hostdb;DB_CLOSE_DELAY=-1", "sa", "").load())
+                        () -> Flyway.configure()
+                                .dataSource("jdbc:h2:mem:hostdb;DB_CLOSE_DELAY=-1", "sa", "")
+                                .locations("classpath:db/__none__")
+                                .load())
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     assertThat(context).hasSingleBean(Flyway.class);

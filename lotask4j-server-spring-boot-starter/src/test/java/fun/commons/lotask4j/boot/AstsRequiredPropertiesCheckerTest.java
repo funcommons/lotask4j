@@ -17,7 +17,7 @@ class AstsRequiredPropertiesCheckerTest {
 
     private static final String DEFAULT_SECRET = "0123456789abcdef0123456789abcdef";
 
-    /** 关闭可关闭域 (flyway/tenant/sensitive) 的最小属性基线 */
+    /** 关闭可关闭域 (business/flyway/tenant/sensitive) 的最小属性基线 */
     private WebApplicationContextRunner baseRunner(String... extra) {
         return new WebApplicationContextRunner()
                 .withConfiguration(AutoConfigurations.of(AstsServerAutoConfiguration.class))
@@ -28,7 +28,8 @@ class AstsRequiredPropertiesCheckerTest {
                         "framework4j.access-token.secretKey=" + DEFAULT_SECRET,
                         "framework4j.tenant.enabled=false",
                         "framework4j.sensitive.enabled=false",
-                        "lotask4j.flyway.enabled=false")
+                        "lotask4j.flyway.enabled=false",
+                        "lotask4j.business.enabled=false")
                 .withPropertyValues(extra);
     }
 

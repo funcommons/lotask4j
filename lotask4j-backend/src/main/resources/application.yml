@@ -2,15 +2,9 @@ spring:
   application:
     name: lotask4j  # 必须配置，用于 ID 生成和 Token Key
 
-    # 排除 MybatisPlusAutoConfiguration 自动配置
-  autoconfigure:
-    exclude:
-     - com.baomidou.mybatisplus.autoconfigure.MybatisPlusAutoConfiguration
-     - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
-     # Druid starter 自带的 spring.datasource.* 装配 — 本项目走 framework4j 多数据源,
-     # 不排除时打包启动即失败 (v1.5.1 切 3-starter 后暴露, 被测试路径掩盖)
-     - com.alibaba.druid.spring.boot3.autoconfigure.DruidDataSourceAutoConfigure
-     - org.redisson.spring.starter.RedissonAutoConfigurationV2
+    # 说明: 原本此处的 4 项 spring.autoconfigure.exclude (MybatisPlus/DataSource/Druid/Redisson)
+    # 已由 lotask4j-server-spring-boot-starter 的 AutoConfigurationImportFilter 接管 (issue #4),
+    # 壳应用零配置; lotask4j.enabled=false 时 starter 自动放行原生装配。
 
   # Jackson时区配置（北京时间 CST 规范）
   jackson:
@@ -26,19 +20,7 @@ spring:
       date-format: yyyy-MM-dd HH:mm:ss
       time-zone: GMT+8
 
-  # Flyway 数据库迁移 (版本化 DDL, 存量库 baseline)
-  # baseline-on-migrate: 已有表的存量库只打 baseline 标记 (baseline-version 起), V2+ 才执行;
-  # 全新空库 (新环境/CI) 从 V1__baseline.sql 全量建表。
-  # 独立 datasource 直连 (不走 Druid): Druid Wall 会拦 Flyway 脚本的部分 PG 语法。
-  flyway:
-    enabled: true
-    locations: classpath:db/migration
-    baseline-on-migrate: true
-    baseline-version: '1'
-    validate-on-migrate: true
-    url: ${LDX_DEV_DB_URL:jdbc:postgresql://localhost:5432/lotask4j}?stringtype=unspecified
-    user: ${LDX_DEV_DB_USERNAME:admin}
-    password: ${LDX_DEV_DB_PASSWORD:}
+  # Flyway 迁移配置已收敛到 lotask4j.flyway.* (见文件末尾, issue #4 starter 化)
 
 # framework4j SDK 配置
 framework4j:
@@ -264,14 +246,6 @@ framework4j:
       - /api/v1/client/tasks/*/cancel
     exclude-path-patterns: []
 
-# lotask4j 应用配置
-lotask4j:
-  security:
-    admin:
-      # 已废弃 (C 阶段): 控制台改用 framework4j.tenant.platform.* 凭据 (PLATFORM_CLIENT_SECRET)
-      client-id: ${ADMIN_CLIENT_ID:ADMIN}
-      client-secret: ${ADMIN_CLIENT_SECRET:}
-
 # 日志配置
 logging:
   level:
@@ -355,8 +329,22 @@ springdoc:
     tags-sorter: alpha
   show-actuator: true
 
-# 应用配置
-app:
+# 应用配置 (lotask4j.* 键空间, 由 starter AstsServerProperties 绑定; issue #4 starter 化)
+lotask4j:
+  # Flyway 数据库迁移 (版本化 DDL, 存量库 baseline; 家族 DDF 宿主投放 DDL 时设 enabled: false)
+  # baseline-on-migrate: 已有表的存量库只打 baseline 标记 (baseline-version 起), V2+ 才执行;
+  # 全新空库 (新环境/CI) 从 V1__baseline.sql 全量建表。
+  # 独立 datasource 直连 (不走 Druid): Druid Wall 会拦 Flyway 脚本的部分 PG 语法。
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: '1'
+    validate-on-migrate: true
+    url: ${LDX_DEV_DB_URL:jdbc:postgresql://localhost:5432/lotask4j}?stringtype=unspecified
+    user: ${LDX_DEV_DB_USERNAME:admin}
+    password: ${LDX_DEV_DB_PASSWORD:}
+
   # 异步线程池配置
   async:
     core-pool-size: 10            # 核心线程数
@@ -386,6 +374,8 @@ app:
     worker-concurrency: 5
     # 轮询任务的间隔（秒）
     poll-interval: 1
+    # Outbox 扫描间隔（毫秒）— OutboxPublisher 读取
+    outbox-interval: 5000
 
   # Webhook 回调配置
   webhook:
@@ -415,3 +405,7 @@ app:
     cookie-expire-seconds: 7200
     # 嵌入 URL 基础地址（用于后台生成预览 URL）
     embed-base-url: http://localhost:9080
+
+  # 安全管控: true 时检测到默认密钥 (TOKEN_SECRET/AES_KEY/PLATFORM_SECRET) 拒绝启动 (生产口径)
+  # security:
+  #   strict: true

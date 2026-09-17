@@ -3,7 +3,6 @@ package fun.commons.lotask4j.boot;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.boot.autoconfigure.AutoConfigurationMetadata;
-import org.springframework.context.support.StaticApplicationContext;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.mock.env.MockEnvironment;
 
@@ -59,9 +58,7 @@ class AstsServerAutoConfigurationExcludeFilterTest {
 
     private AstsServerAutoConfigurationExcludeFilter newFilter(ConfigurableEnvironment environment) {
         AstsServerAutoConfigurationExcludeFilter filter = new AstsServerAutoConfigurationExcludeFilter();
-        StaticApplicationContext context = new StaticApplicationContext();
-        context.setEnvironment(environment);
-        filter.setApplicationContext(context);
+        filter.setEnvironment(environment);
         return filter;
     }
 }

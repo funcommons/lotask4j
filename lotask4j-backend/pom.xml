@@ -13,146 +13,21 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
+    <!-- ASTS 独立部署样例壳 (issue #4): 壳内零业务代码, 全部业务由
+         lotask4j-server-spring-boot-starter 自动装配。仓库内角色 = 独立运行样例 + compose/smoke 联调载体;
+         家族接入请建自家薄壳 (1 主类 + 1 yml + 本 starter 依赖)。 -->
     <artifactId>lotask4j-backend</artifactId>
     <packaging>jar</packaging>
 
-    <name>lotask4j 异步慢任务服务 (ASTS) - 后端服务</name>
-    <description>后端 REST API 服务，处理任务的提交、查询、取消等核心业务逻辑</description>
-
-    <repositories>
-        <repository>
-            <id>jitpack.io</id>
-            <url>https://jitpack.io</url>
-        </repository>
-    </repositories>
+    <name>lotask4j 异步慢任务服务 (ASTS) - 独立部署样例壳</name>
+    <description>薄壳应用: 引 lotask4j-server-spring-boot-starter 即得完整 ASTS 服务 (:9080)</description>
 
     <dependencies>
-        <!-- Spring Boot Web Starter -->
+        <!-- ASTS 全量业务 (controller/service/mapper/config + 迁移脚本 + 控制台/embed 静态资源) -->
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
-        </dependency>
-
-        <!-- Spring Boot Validation (参数校验) -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation</artifactId>
-        </dependency>
-
-        <!-- Spring Boot Actuator (监控端点) -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-actuator</artifactId>
-        </dependency>
-
-        <!-- ==================== Micrometer Tracing 分布式追踪 ==================== -->
-        <dependency>
-            <groupId>io.micrometer</groupId>
-            <artifactId>micrometer-tracing</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.micrometer</groupId>
-            <artifactId>micrometer-tracing-bridge-otel</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.opentelemetry</groupId>
-            <artifactId>opentelemetry-exporter-otlp</artifactId>
-        </dependency>
-
-        <!-- ==================== framework4j SDK (API、ID、DataSource、Redis、AccessToken 等) ==================== -->
-        <!-- 来源：JitPack，详见 https://jitpack.io  -->
-        <!-- 升级：v1.2.1 → v1.4.2 → v1.5.1 → v1.7.0。
-             v1.4.2 修复 issue #18 (TransportAutoConfiguration 多 RestTemplate 注入歧义)。
-             v1.5.1 新增 framework4j-tenant 模块 (tenant.enabled 默认 false, 不配置不生效)。
-             v1.7.0 修复 issue #23 (token 自包含): TenantAuthTemplate 签发 token 的 JWT payload
-             嵌套 claims 键携带 tenant_id (平台=0/租户>0, embed-claims 默认 true) ——
-             控制台双域路由由前端解码 claim 判身份, AuthMeController 反查端点随之删除。 -->
-        <dependency>
-            <groupId>com.github.funcommons.framework4j</groupId>
-            <artifactId>framework4j-all</artifactId>
-            <version>v1.7.0</version>
-        </dependency>
-
-        <!-- framework4j-tenant 多租户模块。
-             注意: tenant 模块不在 framework4j-all 聚合中, 需显式引入。
-             提供: @PlatformDomain/@TenantDomain 域守卫 + 内置 client_credentials 认证端点
-             (防爆破/平台合成租户 tenant_id=0/密钥双版本宽限期/reset 撤会话) + TenantEntity 契约。
-             数据隔离仍是业务表手动 tenant_id (无 SQL 拦截器), 见 documents/中间件中台租户设计.md §3.2。 -->
-        <dependency>
-            <groupId>com.github.funcommons.framework4j</groupId>
-            <artifactId>framework4j-tenant</artifactId>
-            <version>v1.7.0</version>
-        </dependency>
-
-        <!-- MyBatis Plus -->
-        <dependency>
-            <groupId>com.baomidou</groupId>
-            <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
-        </dependency>
-
-        <!-- Druid 连接池 (v1.2.1 升级：druid-spring-boot-starter → druid-spring-boot-3-starter 1.2.28) -->
-        <dependency>
-            <groupId>com.alibaba</groupId>
-            <artifactId>druid-spring-boot-3-starter</artifactId>
-        </dependency>
-
-        <!-- PostgreSQL 驱动 -->
-        <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
-            <version>${postgresql.jdbc.version}</version>
-        </dependency>
-
-        <!-- Flyway 数据库迁移 (baseline=存量 schema, 以后 DDL 演进版本化)。
-             Flyway 10 起 PG 支持拆到独立 artifact, 版本随 Spring Boot BOM。 -->
-        <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-database-postgresql</artifactId>
-        </dependency>
-
-        <!-- FastJSON2 -->
-        <dependency>
-            <groupId>com.alibaba.fastjson2</groupId>
-            <artifactId>fastjson2</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.alibaba.fastjson2</groupId>
-            <artifactId>fastjson2-extension-spring6</artifactId>
-        </dependency>
-
-        <!-- Redisson -->
-        <dependency>
-            <groupId>org.redisson</groupId>
-            <artifactId>redisson-spring-boot-starter</artifactId>
-        </dependency>
-
-        <!-- SpringDoc OpenAPI -->
-        <dependency>
-            <groupId>org.springdoc</groupId>
-            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-        </dependency>
-
-        <!-- Redis (for WorkerId allocation) -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-redis</artifactId>
-            <optional>true</optional>
-        </dependency>
-
-        <!-- Hutool -->
-        <dependency>
-            <groupId>cn.hutool</groupId>
-            <artifactId>hutool-all</artifactId>
-        </dependency>
-
-        <!-- Lombok -->
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
+            <groupId>fun.commons.lotask4j</groupId>
+            <artifactId>lotask4j-server-spring-boot-starter</artifactId>
+            <version>${project.version}</version>
         </dependency>
 
         <!-- ==================== 测试依赖 ==================== -->
@@ -161,69 +36,19 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
-
-        <!-- JUnit 5 -->
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <!-- Mockito -->
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-core</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <!-- H2 Database (测试用内存数据库) -->
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <!-- MyBatis Test (测试支持) -->
-        <dependency>
-            <groupId>org.mybatis.spring.boot</groupId>
-            <artifactId>mybatis-spring-boot-starter-test</artifactId>
-            <version>3.0.3</version>
-            <scope>test</scope>
-        </dependency>
-
-        <!-- tenant-tck: 租户合规结构断言 (租户表契约列 / 业务表 tenant_id 索引打头 / email 唯一) -->
-        <dependency>
-            <groupId>com.github.funcommons.framework4j</groupId>
-            <artifactId>framework4j-tenant-tck</artifactId>
-            <version>v1.7.0</version>
-            <scope>test</scope>
-        </dependency>
-
-        <!-- Testcontainers (PostgreSQL 集成测试) -->
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>postgresql</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
     <build>
         <plugins>
             <!-- Spring Boot Maven 插件 — repackage 必须显式绑定 (父 POM 非 spring-boot-starter-parent,
-                 pluginManagement 不会自动带 repackage 执行; 缺失时 package 产出不可启动的瘦 jar) -->
+                 pluginManagement 不会自动带 repackage 执行; 缺失时 package 产出不可启动的瘦 jar)。
+                 mainClass 显式钉死: 壳主类在 .app 子包, 避免启动器猜测。 -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <mainClass>fun.commons.lotask4j.app.AstsApplication</mainClass>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>
@@ -245,70 +70,8 @@
                 <artifactId>maven-surefire-plugin</artifactId>
             </plugin>
 
-            <!-- JaCoCo Maven Plugin (测试覆盖率) — 门禁: bundle 级 100% 行覆盖
-                 排除: AstsApplication (Spring 引导入口 main(), 行业惯例不纳入统计) -->
-            <plugin>
-                <groupId>org.jacoco</groupId>
-                <artifactId>jacoco-maven-plugin</artifactId>
-                <configuration>
-                    <excludes>
-                        <exclude>fun/commons/lotask4j/AstsApplication*</exclude>
-                    </excludes>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>prepare-agent</id>
-                        <goals>
-                            <goal>prepare-agent</goal>
-                        </goals>
-                    </execution>
-                    <execution>
-                        <id>report</id>
-                        <phase>test</phase>
-                        <goals>
-                            <goal>report</goal>
-                        </goals>
-                    </execution>
-                    <execution>
-                        <id>jacoco-check</id>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                        <configuration>
-                            <rules>
-                                <!-- 核心包强门禁: 100% 行覆盖 -->
-                                <rule>
-                                    <element>PACKAGE</element>
-                                    <includes>
-                                        <include>fun.commons.lotask4j.service.*</include>
-                                        <include>fun.commons.lotask4j.schedule</include>
-                                        <include>fun.commons.lotask4j.enums</include>
-                                        <include>fun.commons.lotask4j.dto</include>
-                                    </includes>
-                                    <limits>
-                                        <limit>
-                                            <counter>LINE</counter>
-                                            <value>COVEREDRATIO</value>
-                                            <minimum>1.00</minimum>
-                                        </limit>
-                                    </limits>
-                                </rule>
-                                <!-- 全局兜底: bundle 级 100% 行覆盖 -->
-                                <rule>
-                                    <element>BUNDLE</element>
-                                    <limits>
-                                        <limit>
-                                            <counter>LINE</counter>
-                                            <value>COVEREDRATIO</value>
-                                            <minimum>1.00</minimum>
-                                        </limit>
-                                    </limits>
-                                </rule>
-                            </rules>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
+            <!-- 装配壳豁免 JaCoCo 门禁 (家族惯例, 参 token-gateway starter): 壳内零业务行,
+                 覆盖率门禁随业务代码落在 starter 模块 -->
         </plugins>
     </build>
 </project>

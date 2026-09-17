@@ -105,7 +105,6 @@ HELP.md
 *.tmp
 *.orig
 
-# Web-embed frontend bundle artifacts (rebuild via `cd lotask4j-web-embed-frontend && npm run build`)
-# Backend static assets are built/copied by `npm run build` → cp dist/ → backend
-lotask4j-backend/src/main/resources/static/web-embed/
-lotask4j-backend/src/main/resources/static/assets/
+# 前端构建产物 (issue #4 starter 化: 控制台 + embed 静态资源随 starter JAR 发布)
+# 重建: cd frontend && pnpm build:embed && pnpm sync-embed && pnpm build && pnpm sync-console
+lotask4j-server-spring-boot-starter/src/main/resources/static/

@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * sync-embed — 把 embed 构建产物拷入 backend 静态目录
+ * sync-embed — 把 embed 构建产物拷入 starter 静态目录 (issue #4 starter 化)
  *
  * 用法: pnpm sync-embed   (先 pnpm build:embed)
  *
- * 目标: ../lotask4j-backend/src/main/resources/static/web-embed/
+ * 目标: ../lotask4j-server-spring-boot-starter/src/main/resources/static/web-embed/
  * 后端 Spring Boot 以 /web-embed/** 直接 serve (WebEmbedController 302 到
  * /web-embed/index.html?component=xxx&taskId=xxx)。
  */
@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const src = resolve(here, '../dist-embed')
-const dest = resolve(here, '../../lotask4j-backend/src/main/resources/static/web-embed')
+const dest = resolve(here, '../../lotask4j-server-spring-boot-starter/src/main/resources/static/web-embed')
 
 if (!existsSync(src)) {
   console.error('[sync-embed] dist-embed/ 不存在 — 先运行 pnpm build:embed')

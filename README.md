@@ -62,7 +62,7 @@ docker run -d -p 6379:6379 redis:latest
 
 ### 2. 数据库初始化
 
-数据库结构由 **Flyway** 管理（`lotask4j-backend/src/main/resources/db/migration/`）：
+数据库结构由 **Flyway** 管理（`lotask4j-server-spring-boot-starter/src/main/resources/db/migration/`）：
 
 - 存量库：`baseline-on-migrate` 自动打基线标记（baseline-version=1），仅执行 V2+ 增量迁移
 - 全新空库：从 `V1__baseline.sql` 全量建表，依次应用 V2（任务表按月分区）/ V3（outbox）/ V4（多租户隔离）
@@ -80,6 +80,8 @@ mvn clean
 
 ### 4. 运行应用
 
+> 架构 (issue #4, 2026-09-17): 全部业务代码在 `lotask4j-server-spring-boot-starter` (引用即嵌入), `lotask4j-backend` 为独立部署样例薄壳。家族接入 = 自家薄壳 + starter 依赖, 详见 `lotask4j-server-spring-boot-starter/README.md`。
+
 **方式 A: 使用 Maven 直接运行**
 ```bash
 cd lotask4j-backend
@@ -88,9 +90,10 @@ mvn spring-boot:run
 
 **方式 B: 构建 JAR 后运行**
 ```bash
-cd lotask4j-backend
-mvn clean package -DskipTests
-java -jar target/lotask4j-1.0.0-SNAPSHOT.jar
+# 打包前先同步前端双产物 (控制台 + embed 随 starter JAR 发布)
+cd frontend && pnpm build:embed && pnpm sync-embed && pnpm build && pnpm sync-console && cd ..
+mvn -pl lotask4j-server-spring-boot-starter,lotask4j-backend package -DskipTests
+java -jar lotask4j-backend/target/lotask4j-backend-1.0.0-SNAPSHOT.jar
 ```
 
 ### 5. 访问应用（端口 9080）

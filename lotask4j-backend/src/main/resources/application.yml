@@ -370,14 +370,16 @@ app:
   asts:
     # Worker 心跳间隔（秒）
     heartbeat-interval: 30
-    # Reaper 清理间隔（秒）
-    reaper-interval: 60
+    # Reaper 清理间隔（毫秒）— @Scheduled fixedRateString 按 ms 读取
+    reaper-interval: 60000
     # 任务执行超时时间（秒）
     default-timeout: 600
     # 最大重试次数
     max-retries: 3
     # 默认 lease 秒数（worker poll 之后持锁时长，到期不续约视为失联）
     default-lease-seconds: 120
+    # Reaper 宽限秒数（lease 过期后再等这么久才回收，防边界误杀）— TaskReaper 读取
+    lease-grace-seconds: 30
     # 续约允许时间余量（lease_buffer_sec）：worker 必须早于 lease_expire_at 这么久发起续约
     lease-buffer-seconds: 20
     # 并发执行任务数

@@ -1,0 +1,6 @@
+# gitleaks 压制清单 (fingerprint: commit:file:line:rule)
+# 以下为测试 runner 的占位密钥 (非真实凭据, 值形如 0123456789abcdef 递增 hex),
+# generic-api-key 规则误报; 见 issue #4 starter 装配测试 (AstsServerAutoConfigurationTest 等)
+0da64d1a27acf5a20f70dcf30c29d5b780429a2d:lotask4j-server-spring-boot-starter/src/test/java/fun/commons/lotask4j/boot/AstsFlywayConfigTest.java:27:generic-api-key
+0da64d1a27acf5a20f70dcf30c29d5b780429a2d:lotask4j-server-spring-boot-starter/src/test/java/fun/commons/lotask4j/boot/AstsServerAutoConfigurationTest.java:25:generic-api-key
+0da64d1a27acf5a20f70dcf30c29d5b780429a2d:lotask4j-server-spring-boot-starter/src/test/java/fun/commons/lotask4j/boot/AstsRequiredPropertiesCheckerTest.java:18:generic-api-key

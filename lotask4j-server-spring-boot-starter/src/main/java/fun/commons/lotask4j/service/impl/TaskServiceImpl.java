@@ -69,12 +69,16 @@ public class TaskServiceImpl extends ServiceImpl<AstTaskMapper, AstTask> impleme
     @Override
     @Transactional(rollbackFor = Exception.class)
         public Long submitTask(SubmitTaskRequest request) {
-        Long tenantId = TenantIdentity.currentTenantId(null);
+        Long claimTenantId = TenantIdentity.currentTenantId(null);
+        // 平台身份 (claim=0/null, admin 手动提交) 走全局语义: 全局查类型配置,
+        // 唯一命中时收养该配置的租户为任务归属 — 否则补单落 tenant_id=0, 无租户 worker 可消费
+        boolean platformScope = claimTenantId == null || claimTenantId == 0L;
         try {
-            // P0-5: 同 (租户, key, type) 直接命中已存在任务
+            // P0-5: 同 (租户, key, type) 直接命中已存在任务 (平台域全局查)
             if (request.getIdempotencyKey() != null && !request.getIdempotencyKey().isEmpty()) {
                 AstTask existing = stateMachine.findByIdempotencyKey(
-                        request.getType(), request.getIdempotencyKey(), tenantId);
+                        request.getType(), request.getIdempotencyKey(),
+                        platformScope ? null : claimTenantId);
                 if (existing != null) {
                     log.info("幂等命中: 已存在任务 id={}, type={}, key={}",
                             existing.getId(), request.getType(), request.getIdempotencyKey());
@@ -82,21 +86,51 @@ public class TaskServiceImpl extends ServiceImpl<AstTaskMapper, AstTask> impleme
                 }
             }
 
-            // P1-5: 背压准入 (max_queued / max_concurrency)
-            submitGuard.checkOrThrow(request.getType(), tenantId);
+            // 类型准入 (issue #5): 未注册/禁用类型拒绝提交, 与 worker poll 同口径 —
+            // 否则产出无 worker 认领的幻影任务, 滞留至超时才被 Reaper 判死
+            AstTaskTypeConfig typeConfig;
+            if (platformScope) {
+                List<AstTaskTypeConfig> configs = taskTypeConfigMapper.selectList(
+                        new LambdaQueryWrapper<AstTaskTypeConfig>()
+                                .eq(AstTaskTypeConfig::getTypeKey, request.getType())
+                                .eq(AstTaskTypeConfig::getIsDeleted, 0));
+                if (configs.isEmpty()) {
+                    throw new ApiException(BusinessCode.TASK_TYPE_UNKNOWN.getCode(),
+                            "未知的任务类型: " + request.getType());
+                }
+                if (configs.size() > 1) {
+                    // 同 typeKey 跨租户注册, 平台域收养存在归属歧义, 拒绝猜测
+                    throw new ApiException(BusinessCode.TASK_TYPE_UNKNOWN.getCode(),
+                            "任务类型跨租户注册, 无法确定归属租户: " + request.getType());
+                }
+                typeConfig = configs.get(0);
+            } else {
+                typeConfig = taskTypeConfigMapper.selectOne(
+                        new LambdaQueryWrapper<AstTaskTypeConfig>()
+                                .eq(AstTaskTypeConfig::getTypeKey, request.getType())
+                                // 类型是租户级资源: 按 claim 租户过滤, 同 typeKey 跨租户共存
+                                .eq(AstTaskTypeConfig::getTenantId, claimTenantId)
+                                .eq(AstTaskTypeConfig::getIsDeleted, 0));
+                if (typeConfig == null) {
+                    throw new ApiException(BusinessCode.TASK_TYPE_UNKNOWN.getCode(),
+                            "未知的任务类型: " + request.getType());
+                }
+            }
+            if (typeConfig.getIsEnabled() == null || typeConfig.getIsEnabled() != 1) {
+                throw new ApiException(BusinessCode.TASK_TYPE_DISABLED.getCode(),
+                        "该任务类型已被禁用: " + request.getType());
+            }
 
-            AstTaskTypeConfig typeConfig = taskTypeConfigMapper.selectOne(
-                    new LambdaQueryWrapper<AstTaskTypeConfig>()
-                            .eq(AstTaskTypeConfig::getTypeKey, request.getType())
-                            // 类型是租户级资源: 按 claim 租户过滤, 同 typeKey 跨租户共存
-                            .eq(tenantId != null, AstTaskTypeConfig::getTenantId, tenantId)
-                            .eq(AstTaskTypeConfig::getIsDeleted, 0));
+            // 平台补单收养类型配置的归属租户; 租户提交保持 claim (与配置租户一致)
+            Long tenantId = platformScope ? typeConfig.getTenantId() : claimTenantId;
+
+            // P1-5: 背压准入 (max_queued / max_concurrency) — 按归属租户计量
+            submitGuard.checkOrThrow(request.getType(), tenantId);
 
             OffsetDateTime now = OffsetDateTime.now();
             OffsetDateTime expiredAt;
 
-            if (typeConfig != null && typeConfig.getTimeoutSeconds() != null
-                    && typeConfig.getTimeoutSeconds() > 0) {
+            if (typeConfig.getTimeoutSeconds() != null && typeConfig.getTimeoutSeconds() > 0) {
                 expiredAt = now.plusSeconds(typeConfig.getTimeoutSeconds());
                 log.debug("任务类型 {} 使用配置超时时间: {} 秒",
                         request.getType(), typeConfig.getTimeoutSeconds());

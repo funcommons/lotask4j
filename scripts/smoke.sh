@@ -99,6 +99,8 @@ RC=$(curl -sf -X POST "$BASE/api/v1/admin/types" -H "Authorization: Bearer $PT" 
 assert_eq "类型配置创建 (带租户归属)" "0" "$(echo "$RC" | jsonget "d['code']")"
 
 # ---------- 4. Webhook 接收端 (宿主机, 后端容器经 host.docker.internal 回调) ----------
+# 后端在容器里跑用默认 host.docker.internal; 后端跑在宿主机时设 SMOKE_CALLBACK_BASE=http://localhost:19999
+CALLBACK_BASE="${SMOKE_CALLBACK_BASE:-http://host.docker.internal:19999}"
 say "启动 Webhook 接收端 (验签 HMAC)..."
 python3 "$SCRIPT_DIR/webhook_receiver.py" --port 19999 --secret "$SECRET_A" --out /tmp/smoke-webhook.json &
 RECEIVER_PID=$!
@@ -112,7 +114,7 @@ SUBMIT_BODY="{
     \"payload\":{\"query\":\"SELECT 1\"},
     \"priority\":10,
     \"idempotencyKey\":\"smoke-$TS\",
-    \"callbackUrl\":\"http://host.docker.internal:19999/hook\"}"
+    \"callbackUrl\":\"$CALLBACK_BASE/hook\"}"
 split_headers "$(signed_headers POST "/api/v1/client/tasks/submit" "$SUBMIT_BODY" "smoke-a-$TS" "$SECRET_A")"
 RS=$(curl -sf -X POST "$BASE/api/v1/client/tasks/submit" -H "Authorization: Bearer $TA" \
   -H "Content-Type: application/json" -d "$SUBMIT_BODY" -H "$_sh1" -H "$_sh2" -H "$_sh3" -H "$_sh4")
@@ -131,6 +133,13 @@ RS2=$(curl -sf -X POST "$BASE/api/v1/client/tasks/submit" -H "Authorization: Bea
   -H "Content-Type: application/json" \
   -d "{\"type\":\"$TYPE_KEY\",\"payload\":{},\"idempotencyKey\":\"smoke-$TS\"}" -H "$_sh1" -H "$_sh2" -H "$_sh3" -H "$_sh4")
 assert_eq "幂等键命中返回同任务" "$TASK_ID" "$(echo "$RS2" | jsonget "d['data']['id']")"
+
+# 未注册类型提交 → 20101 拒绝 (issue #5: 不落库不滞留)
+split_headers "$(signed_headers POST "/api/v1/client/tasks/submit" '{"type":"ghost-type-'"$TS"'","payload":{},"idempotencyKey":"ghost-'"$TS"'"}' "smoke-a-$TS" "$SECRET_A")"
+GHOST=$(curl -s -X POST "$BASE/api/v1/client/tasks/submit" -H "Authorization: Bearer $TA" \
+  -H "Content-Type: application/json" \
+  -d "{\"type\":\"ghost-type-$TS\",\"payload\":{},\"idempotencyKey\":\"ghost-$TS\"}" -H "$_sh1" -H "$_sh2" -H "$_sh3" -H "$_sh4")
+assert_eq "未注册类型提交被拒 (20101)" "20101" "$(echo "$GHOST" | jsonget "d['code']")"
 
 # ---------- 6. 隔离断言 ----------
 say "租户隔离断言"

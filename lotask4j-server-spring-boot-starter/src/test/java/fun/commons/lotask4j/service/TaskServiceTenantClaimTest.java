@@ -109,6 +109,7 @@ class TaskServiceTenantClaimTest {
     void submitTask_typeConfigTimeout() {
         AstTaskTypeConfig cfg = new AstTaskTypeConfig();
         cfg.setTypeKey("data_export");
+        cfg.setIsEnabled(1); // issue #5: 禁用类型拒绝提交, 夹具必须显式启用
         cfg.setTimeoutSeconds(600);
         when(taskTypeConfigMapper.selectOne(any())).thenReturn(cfg);
 
@@ -127,8 +128,26 @@ class TaskServiceTenantClaimTest {
     }
 
     @Test
+    @DisplayName("租户 claim 下类型未注册 → TASK_TYPE_UNKNOWN (issue #5, 租户路径)")
+    void submitTask_unknownTypeTenantScope() {
+        when(taskTypeConfigMapper.selectOne(any())).thenReturn(null);
+
+        ApiException ex = assertThrows(ApiException.class,
+                () -> taskService.submitTask(request("ghost_type", null)));
+        assertEquals(BusinessCode.TASK_TYPE_UNKNOWN.getCode(), ex.getCode());
+        verify(astTaskMapper, never()).insertTask(any(), anyString(), anyString());
+    }
+
+    @Test
     @DisplayName("guard 抛 ApiException → 原样上抛 (不包装成 TASK_SUBMIT_FAILED)")
     void submitTask_apiExceptionRethrown() {
+        // 类型校验先于背压 (issue #5 后) — 先放行类型, 让流程到达 guard
+        AstTaskTypeConfig cfg = new AstTaskTypeConfig();
+        cfg.setTypeKey("data_export");
+        cfg.setTenantId(42L);
+        cfg.setIsEnabled(1);
+        when(taskTypeConfigMapper.selectOne(any())).thenReturn(cfg);
+
         org.mockito.Mockito.doThrow(new ApiException(
                 BusinessCode.TASK_STATE_INVALID.getCode(), "并发已满"))
                 .when(submitGuard).checkOrThrow("data_export", 42L);

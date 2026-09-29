@@ -39,6 +39,8 @@ lotask4j-demo/
   Mono<TaskResponse> response = astsClient.submitTask("data_export", payload, 10);
   ```
 
+  > 类型须先在管理端注册且启用（`POST /api/v1/admin/types`），未注册/禁用类型提交会被拒绝（`20101`/`20102`，与 worker 轮询同一校验口径）。
+
 - **getTaskDetail()** - 获取任务详情
   ```java
   Mono<TaskDetail> detail = astsClient.getTaskDetail(taskId);

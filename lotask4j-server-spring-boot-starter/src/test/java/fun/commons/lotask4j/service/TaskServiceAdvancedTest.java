@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import fun.commons.lotask4j.dto.SubmitTaskRequest;
 import fun.commons.lotask4j.dto.TaskDetailResponse;
 import fun.commons.lotask4j.entity.AstTask;
+import fun.commons.lotask4j.entity.AstTaskTypeConfig;
 import fun.commons.lotask4j.mapper.AstTaskMapper;
 import fun.commons.lotask4j.mapper.AstTaskTypeConfigMapper;
 import fun.commons.lotask4j.service.impl.TaskServiceImpl;
@@ -71,7 +72,14 @@ class TaskServiceAdvancedTest {
         validRequest.setPriority(10);
 
         lenient().when(snowflakeDistributor.nextId()).thenReturn(100001L);
-        lenient().when(taskTypeConfigMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
+        // issue #5 后未注册/禁用类型被拒绝 — 单测无 token 上下文走平台域 (selectList),
+        // 默认返回唯一启用配置 (timeoutSeconds 空 → 默认 7 天分支)
+        AstTaskTypeConfig enabledConfig = new AstTaskTypeConfig();
+        enabledConfig.setTypeKey("data_export");
+        enabledConfig.setTenantId(7L);
+        enabledConfig.setIsEnabled(1);
+        lenient().when(taskTypeConfigMapper.selectList(any(LambdaQueryWrapper.class)))
+                .thenReturn(java.util.List.of(enabledConfig));
     }
 
     // ==================== 边界条件测试 ====================

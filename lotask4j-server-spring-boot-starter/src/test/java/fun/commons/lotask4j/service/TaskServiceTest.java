@@ -4,9 +4,12 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import fun.commons.lotask4j.dto.SubmitTaskRequest;
 import fun.commons.lotask4j.dto.TaskDetailResponse;
 import fun.commons.lotask4j.entity.AstTask;
+import fun.commons.lotask4j.entity.AstTaskTypeConfig;
+import fun.commons.lotask4j.enums.BusinessCode;
 import fun.commons.lotask4j.mapper.AstTaskMapper;
 import fun.commons.lotask4j.mapper.AstTaskTypeConfigMapper;
 import fun.commons.lotask4j.service.impl.TaskServiceImpl;
+import fun.commons.framework4j.web.ApiException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -77,8 +80,15 @@ class TaskServiceTest {
         sampleTask.setProgress(0);
         sampleTask.setVersion(0);
 
-        // Mock taskTypeConfigMapper 返回 null (使用默认超时时间, lenient for tests that don't need it)
-        lenient().when(taskTypeConfigMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
+        // 单测无 token 上下文 → 平台域全局路径 (selectList)。
+        // Mock 返回唯一启用配置 (tenantId=7, timeoutSeconds 空 → 默认 7 天超时分支;
+        // lenient for tests that don't need it; issue #5 后未注册类型会被拒绝)
+        AstTaskTypeConfig enabledConfig = new AstTaskTypeConfig();
+        enabledConfig.setTypeKey("data_export");
+        enabledConfig.setTenantId(7L);
+        enabledConfig.setIsEnabled(1);
+        lenient().when(taskTypeConfigMapper.selectList(any(LambdaQueryWrapper.class)))
+                .thenReturn(java.util.List.of(enabledConfig));
         // 默认: idempotency 查找返 null
         lenient().when(stateMachine.findByIdempotencyKey(any(), any(), isNull())).thenReturn(null);
         // 默认: 背压准入放行 (单测场景不模拟队列满)
@@ -103,21 +113,97 @@ class TaskServiceTest {
     }
 
     @Test
-    @DisplayName("提交任务 - 参数验证")
+    @DisplayName("提交任务 - 类型为空 → TASK_TYPE_UNKNOWN (issue #5: 未注册类型拒绝)")
     void testSubmitTask_WithNullType() {
-        // Given: 请求类型为空
+        // Given: 请求类型为空 (controller 层 @NotBlank 拦截; 此处验 service 层兜底)
         SubmitTaskRequest invalidRequest = new SubmitTaskRequest();
         invalidRequest.setType(null);
         invalidRequest.setPayload(new HashMap<>());
 
-        // Mock insertTask 方法
-        when(astTaskMapper.insertTask(any(AstTask.class), anyString(), anyString())).thenReturn(1);
+        // 真实库中 type=null 查不到配置 → 未注册类型
+        when(taskTypeConfigMapper.selectList(any(LambdaQueryWrapper.class)))
+                .thenReturn(java.util.List.of());
 
-        // When & Then: 应该抛出异常或成功（取决于业务逻辑）
-        // 实际上，submitTask 会继续执行，因为没有空值校验
-        assertDoesNotThrow(() -> {
+        // When & Then: 拒绝提交, 不落库
+        ApiException ex = assertThrows(ApiException.class, () -> {
             taskService.submitTask(invalidRequest);
         });
+        assertEquals(BusinessCode.TASK_TYPE_UNKNOWN.getCode(), ex.getCode());
+        verify(astTaskMapper, never()).insertTask(any(AstTask.class), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("提交任务 - 未注册类型 → TASK_TYPE_UNKNOWN, 不落库 (issue #5)")
+    void testSubmitTask_UnknownType_Rejected() {
+        // Given: 类型从未注册 (无 worker 声明过)
+        when(taskTypeConfigMapper.selectList(any(LambdaQueryWrapper.class)))
+                .thenReturn(java.util.List.of());
+
+        // When & Then
+        ApiException ex = assertThrows(ApiException.class, () -> {
+            taskService.submitTask(validRequest);
+        });
+        assertEquals(BusinessCode.TASK_TYPE_UNKNOWN.getCode(), ex.getCode());
+        verify(astTaskMapper, never()).insertTask(any(AstTask.class), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("提交任务 - 禁用类型 → TASK_TYPE_DISABLED (与 worker poll 对称)")
+    void testSubmitTask_DisabledType_Rejected() {
+        // Given: 类型已注册但被禁用 (worker poll 也会拒绝 → 同属幻影任务)
+        AstTaskTypeConfig disabledConfig = new AstTaskTypeConfig();
+        disabledConfig.setTypeKey("data_export");
+        disabledConfig.setTenantId(7L);
+        disabledConfig.setIsEnabled(0);
+        when(taskTypeConfigMapper.selectList(any(LambdaQueryWrapper.class)))
+                .thenReturn(java.util.List.of(disabledConfig));
+
+        // When & Then
+        ApiException ex = assertThrows(ApiException.class, () -> {
+            taskService.submitTask(validRequest);
+        });
+        assertEquals(BusinessCode.TASK_TYPE_DISABLED.getCode(), ex.getCode());
+        verify(astTaskMapper, never()).insertTask(any(AstTask.class), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("提交任务 - 平台域同 typeKey 跨租户注册 → 拒绝 (收养歧义, 不猜测归属)")
+    void testSubmitTask_CrossTenantAmbiguity_Rejected() {
+        // Given: 同 typeKey 在两个租户各注册一份, 平台域全局查命中 2 条
+        AstTaskTypeConfig cfgA = new AstTaskTypeConfig();
+        cfgA.setTypeKey("data_export");
+        cfgA.setTenantId(7L);
+        cfgA.setIsEnabled(1);
+        AstTaskTypeConfig cfgB = new AstTaskTypeConfig();
+        cfgB.setTypeKey("data_export");
+        cfgB.setTenantId(8L);
+        cfgB.setIsEnabled(1);
+        when(taskTypeConfigMapper.selectList(any(LambdaQueryWrapper.class)))
+                .thenReturn(java.util.List.of(cfgA, cfgB));
+
+        // When & Then
+        ApiException ex = assertThrows(ApiException.class, () -> {
+            taskService.submitTask(validRequest);
+        });
+        assertEquals(BusinessCode.TASK_TYPE_UNKNOWN.getCode(), ex.getCode());
+        assertTrue(ex.getMessage().contains("跨租户"), "提示应说明跨租户歧义: " + ex.getMessage());
+        verify(astTaskMapper, never()).insertTask(any(AstTask.class), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("提交任务 - 平台域唯一命中 → 收养配置归属租户 (admin 补单不再落 tenant_id=0 孤儿)")
+    void testSubmitTask_PlatformAdoptsConfigTenant() {
+        // Given: 默认 stub = 租户 7 的唯一启用配置; 平台域 (无 claim) 提交
+        when(astTaskMapper.insertTask(any(AstTask.class), anyString(), anyString())).thenReturn(1);
+
+        // When
+        taskService.submitTask(validRequest);
+
+        // Then: 任务归属收养为配置的租户 7, 且背压按归属租户计量
+        org.mockito.ArgumentCaptor<AstTask> captor = org.mockito.ArgumentCaptor.forClass(AstTask.class);
+        verify(astTaskMapper).insertTask(captor.capture(), anyString(), anyString());
+        assertEquals(7L, captor.getValue().getTenantId());
+        verify(submitGuard).checkOrThrow("data_export", 7L);
     }
 
     @Test

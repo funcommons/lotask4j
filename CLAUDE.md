@@ -61,7 +61,7 @@ The backend is a classic layered Spring Boot app: Controllers → Service interf
 
 **Data model — PostgreSQL with heavy JSONB use.** `task.payload`, `task.result`, `task.steps_detail` and `task.steps_history` are JSONB; do not add new columns without first checking whether they belong inside one of those blobs. Tables:
 - `asts_task` — primary task table (按月 RANGE 分区; status: `PENDING/RUNNING/SUCCESS/FAILED/CANCELLING/CANCELLED`; progress 0–100; 归档 = `is_deleted=1` 逻辑删, **无独立 history 表**)
-- `asts_task_type_config` — type definitions (`(tenant_id, type_key)` 租户内唯一; typeKey 跨租户可共存 — selectByTypeKey/guard 均按 claim/request tenantId 定向, admin 域缺省为全局语义)
+- `asts_task_type_config` — type definitions (`(tenant_id, type_key)` 租户内唯一; typeKey 跨租户可共存 — selectByTypeKey/guard 均按 claim/request tenantId 定向, admin 域缺省为全局语义)。**submit 类型准入与 worker poll 同口径** (issue #5): 未注册→`20101`/禁用→`20102` 拒绝落库; 平台域 (claim=0) 提交全局查类型, 唯一命中**收养**其归属租户 (admin 补单不再落 tenant_id=0 孤儿), 跨租户同名类型拒绝猜测归属
 - `asts_task_execution_event` — append-only 执行事件 audit
 - `asts_worker_node` — worker registry (租户级)
 - `asts_web_embed_config` — embed widget per-tenant config (accessKey → 租户归属)
